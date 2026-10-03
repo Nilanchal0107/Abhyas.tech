@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, onExpired, postJson } from './api/client.js'
 import Account from './Account.jsx'
 import Login from './Login.jsx'
+import RoleSearch from './RoleSearch.jsx'
 
 const NAV = ['Practice', 'Resumes', 'Stories', 'History', 'Account']
 
@@ -58,7 +59,7 @@ export default function App() {
           <strong>Abhyas.tech</strong>
           <nav aria-label="Main">
             {NAV.map((label) =>
-              label === 'Account' ? (
+              label === 'Account' || label === 'Resumes' ? (
                 <button key={label} type="button" className="nav-item" aria-current={view === label ? 'page' : undefined}
                   onClick={() => setView(label)}>{label}</button>
               ) : (
@@ -71,7 +72,14 @@ export default function App() {
       )}
       <main id="content" className="column">
         {me.state === 'in' && view === 'Account' && <Account user={me.user} onDeleted={deleted} />}
-        {me.state === 'in' && view !== 'Account' && (
+        {me.state === 'in' && view === 'Resumes' && (
+          <>
+            <h1>Upload</h1>
+            {/* ticket 07 adds the file field and the rest of W4 around the role field */}
+            <RoleSearch onPick={() => {}} />
+          </>
+        )}
+        {me.state === 'in' && view !== 'Account' && view !== 'Resumes' && (
           <>
             <h1>Practice</h1>
             <p>Signed in as {me.user.loginId}.</p>
