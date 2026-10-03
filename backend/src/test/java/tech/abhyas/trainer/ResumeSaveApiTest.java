@@ -23,11 +23,13 @@ import tech.abhyas.trainer.auth.TokenService;
 import tech.abhyas.trainer.common.ApiException;
 import tech.abhyas.trainer.common.ProblemHandler;
 import tech.abhyas.trainer.resume.ResumeController;
+import tech.abhyas.trainer.resume.KeyFactService;
 import tech.abhyas.trainer.resume.ResumeService;
 
 /** Contract tests for POST /resumes (ticket 09). The transaction itself runs on MySQL in ResumeSaveDbTest. */
 class ResumeSaveApiTest {
     ResumeService resumes = mock(ResumeService.class);
+    KeyFactService keyFacts = mock(KeyFactService.class);
     TokenService tokens = new TokenService(AuthApiTest.SECRET, Clock.systemUTC());
     MockMvc mvc;
 
@@ -37,7 +39,7 @@ class ResumeSaveApiTest {
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new ResumeController(null, resumes))
+        mvc = MockMvcBuilders.standaloneSetup(new ResumeController(null, resumes, keyFacts))
                 .addInterceptors(new MappedInterceptor(new String[] {"/api/**"}, AuthInterceptor.PUBLIC, new AuthInterceptor(tokens)))
                 .setControllerAdvice(new ProblemHandler()).build();
     }
@@ -52,6 +54,7 @@ class ResumeSaveApiTest {
                 .thenReturn(Map.of("id", 7L, "pointCount", 38, "parseSource", "openresume"));
         mvc.perform(save(BODY)).andExpect(status().isCreated())
                 .andExpect(jsonPath("$.resume.id").value(7)).andExpect(jsonPath("$.resume.pointCount").value(38));
+        org.mockito.Mockito.verify(keyFacts).draftInBackground(7L);
     }
 
     @Test

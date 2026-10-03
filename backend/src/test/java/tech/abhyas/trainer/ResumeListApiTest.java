@@ -27,17 +27,19 @@ import tech.abhyas.trainer.auth.TokenService;
 import tech.abhyas.trainer.common.ApiException;
 import tech.abhyas.trainer.common.ProblemHandler;
 import tech.abhyas.trainer.resume.ResumeController;
+import tech.abhyas.trainer.resume.KeyFactService;
 import tech.abhyas.trainer.resume.ResumeService;
 
 /** Contract tests for GET, PATCH and DELETE /resumes (ticket 10). The queries run on MySQL in ResumeListDbTest. */
 class ResumeListApiTest {
     ResumeService resumes = mock(ResumeService.class);
+    KeyFactService keyFacts = mock(KeyFactService.class);
     TokenService tokens = new TokenService(AuthApiTest.SECRET, Clock.systemUTC());
     MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new ResumeController(null, resumes))
+        mvc = MockMvcBuilders.standaloneSetup(new ResumeController(null, resumes, keyFacts))
                 .addInterceptors(new MappedInterceptor(new String[] {"/api/**"}, AuthInterceptor.PUBLIC, new AuthInterceptor(tokens)))
                 .setControllerAdvice(new ProblemHandler()).build();
     }
@@ -50,6 +52,7 @@ class ResumeListApiTest {
     void listReturnsTheUsersResumes() throws Exception {
         when(resumes.list(7L)).thenReturn(List.of(Map.of("id", 3L, "fileName", "A.pdf")));
         mvc.perform(as(get("/api/resumes"))).andExpect(status().isOk()).andExpect(jsonPath("$.resumes[0].id").value(3));
+        org.mockito.Mockito.verify(keyFacts).retryInBackground(7L);
     }
 
     @Test

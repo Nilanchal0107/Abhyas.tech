@@ -23,19 +23,23 @@ import org.springframework.web.multipart.MultipartFile;
 public class ResumeController {
     private final ResumeParser parser;
     private final ResumeService resumes;
+    private final KeyFactService keyFacts;
 
-    public ResumeController(ResumeParser parser, ResumeService resumes) { this.parser = parser; this.resumes = resumes; }
+    public ResumeController(ResumeParser parser, ResumeService resumes, KeyFactService keyFacts) { this.parser = parser; this.resumes = resumes; this.keyFacts = keyFacts; }
 
     record NewResume(String fileName, Long targetRoleId, String interviewDate, String parseSource, JsonNode parsed) {}
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     Map<String, Object> save(@RequestAttribute(AuthInterceptor.USER_ID) long userId, @RequestBody NewResume b) {
-        return Map.of("resume", resumes.save(userId, b.fileName(), b.targetRoleId(), b.interviewDate(), b.parseSource(), b.parsed()));
+        Map<String, Object> saved = resumes.save(userId, b.fileName(), b.targetRoleId(), b.interviewDate(), b.parseSource(), b.parsed());
+        keyFacts.draftInBackground((Long) saved.get("id")); // after the commit; the user is never told if it fails (FR-8)
+        return Map.of("resume", saved);
     }
 
     @GetMapping
     Map<String, Object> list(@RequestAttribute(AuthInterceptor.USER_ID) long userId) {
+        keyFacts.retryInBackground(userId);
         return Map.of("resumes", resumes.list(userId));
     }
 
