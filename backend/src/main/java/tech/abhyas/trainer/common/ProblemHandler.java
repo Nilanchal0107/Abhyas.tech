@@ -21,7 +21,9 @@ public class ProblemHandler {
 
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ProblemDetail> api(ApiException e) {
-        return problem(e.status(), e.type(), e.getMessage());
+        ResponseEntity<ProblemDetail> r = problem(e.status(), e.type(), e.getMessage());
+        e.extras().forEach(r.getBody()::setProperty);
+        return r;
     }
 
     @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})

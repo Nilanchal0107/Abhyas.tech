@@ -15,7 +15,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import java.time.Clock;
+import org.mockito.Mockito;
+import tech.abhyas.trainer.auth.AuthInterceptor;
 import tech.abhyas.trainer.auth.MeController;
+import tech.abhyas.trainer.auth.TokenService;
+import tech.abhyas.trainer.auth.UserRepository;
 import tech.abhyas.trainer.common.ProblemHandler;
 
 /** No database needed: only the controller and the Problem Details handler. */
@@ -28,7 +33,9 @@ class ProblemDetailsTest {
         }
     }
 
-    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new MeController(), new Boom())
+    private final MockMvc mvc = MockMvcBuilders
+            .standaloneSetup(new MeController(Mockito.mock(UserRepository.class)), new Boom())
+            .addMappedInterceptors(new String[] {"/api/me"}, new AuthInterceptor(new TokenService("x".repeat(32), Clock.systemUTC())))
             .setControllerAdvice(new ProblemHandler()).build();
 
     @Test

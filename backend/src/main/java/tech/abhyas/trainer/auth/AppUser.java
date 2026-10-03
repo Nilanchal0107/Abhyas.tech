@@ -3,7 +3,7 @@ package tech.abhyas.trainer.auth;
 import jakarta.persistence.*;
 import java.time.Instant;
 
-/** Maps {@code app_user}. Lets ddl-auto=validate check the schema; login arrives with ticket 02. */
+/** Maps {@code app_user}. Only the BCrypt hash of the password is stored. */
 @Entity
 @Table(name = "app_user")
 public class AppUser {
@@ -22,6 +22,13 @@ public class AppUser {
 
     protected AppUser() {}
 
+    public AppUser(String loginId, String passwordHash) {
+        this.loginId = loginId;
+        this.passwordHash = passwordHash;
+    }
+
     public Long getId() { return id; }
     public String getLoginId() { return loginId; }
+    public String getPasswordHash() { return passwordHash; }
+    public Instant getCreatedAt() { return createdAt; }
 }

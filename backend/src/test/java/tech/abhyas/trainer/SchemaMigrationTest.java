@@ -15,7 +15,7 @@ import org.testcontainers.mysql.MySQLContainer;
 
 /** Runs V1 on a real MySQL 8 and starts the app with ddl-auto=validate. Skipped when Docker is not installed. */
 @Testcontainers(disabledWithoutDocker = true)
-@SpringBootTest
+@SpringBootTest(properties = "app.jwt.secret=test-secret-test-secret-test-secret-123")
 class SchemaMigrationTest {
     @Container
     static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.0")

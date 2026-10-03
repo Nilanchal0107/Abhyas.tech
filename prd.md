@@ -556,5 +556,8 @@ None. All questions are answered. Items marked "my decision" or "my reading" in 
 **Ticket 01 (3 October 2026)**
 - `V1__schema.sql` run on MySQL 8.0.42 for the first time. `role.owner_key` and `practice_session.open_user_id` changed from `STORED` to `VIRTUAL` generated columns, because MySQL refuses a `STORED` column over a base column that has a foreign key (error 1215). The unique indexes work the same. Updated in `database-schema.md` and the migration.
 
+**Ticket 02 (3 October 2026)**
+- Sign up, log in, log out and `/me` built. The JWT library is `nimbus-jose-jwt` instead of `jjwt` (no Jackson 2 dependency next to Spring Boot 4's Jackson 3). `JWT_SECRET` is required at start (at least 32 bytes). Logout is also open without a cookie, so it can be repeated after the login expired. The cookie check is a Spring MVC interceptor, not Spring Security.
+
 **v14 to v15**
 - Project renamed from "Resume Defense Trainer" to "Abhyas.tech". Tagline: "Defend your resume". Maven artifact and Java package stay `tech.abhyas` / `trainer`.

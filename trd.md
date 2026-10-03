@@ -45,7 +45,7 @@ This document says **how** the app is built. It does not repeat the requirements
 | Database | MySQL 8.0.16 or newer, native install | needed for enforced `CHECK`, JSON columns and generated columns |
 | Migrations | Flyway (`V1__schema.sql`, `V2__starter_roles.sql`, `V3__starter_bank.sql` later) | content in `database-schema.md` |
 | Data access | Spring Data JPA (Hibernate), a few native queries for session building | JSON columns mapped as JSON. Generated columns are read-only in entities |
-| JWT | `jjwt` *(my decision)* | HS256, secret from config |
+| JWT | `nimbus-jose-jwt` (changed from `jjwt` in ticket 02: no Jackson 2 next to Boot 4) | HS256, secret from config |
 | Passwords | BCrypt (Spring Security `BCryptPasswordEncoder`) | |
 | PDF fallback | Apache PDFBox | text and hidden links (FR-5) |
 | HTTP to AI | Spring `RestClient` | |
@@ -141,7 +141,7 @@ This document says **how** the app is built. It does not repeat the requirements
 - Every repository method that reads user data takes the user ID (directly or through `resume.user_id`). A helper `requireOwnedResume(userId, id)` and `requireOwnedSession(userId, id)` throws "not found" for someone else's data. Controllers never load a resume or session by ID alone.
 
 ### 6.3 Security configuration
-- Stateless. A filter reads the `rdt_session` cookie *(my decision for the name)*, validates the JWT, and sets the current user.
+- Stateless. An interceptor (built in ticket 02, public paths: signup, login, logout) reads the `rdt_session` cookie *(my decision for the name)*, validates the JWT, and sets the current user.
 - Cookie: `HttpOnly`, `SameSite=Strict`, `Path=/`, lifetime 8 hours, `Secure` set from config (off on `http://localhost`, on if it is ever served over HTTPS). No refresh token. An expired token returns 401, and the frontend sends the user to login and back (`UI-UX.md` 7.1).
 - No CORS (one origin through the Vite proxy). `SameSite=Strict` plus same origin is the CSRF protection, so Spring's CSRF token is turned off *(my decision)*.
 - Passwords: at least 8 characters, BCrypt. **Login throttle:** an in-memory counter per login ID, blocking login for 5 minutes after 5 failures. The error message is the same for "unknown user" and "wrong password". The counter resets on restart (accepted for a laptop-only app).
