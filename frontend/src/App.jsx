@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { api, onExpired, postJson } from './api/client.js'
 import Account from './Account.jsx'
 import Login from './Login.jsx'
-import RoleSearch from './RoleSearch.jsx'
+import ResumeList from './ResumeList.jsx'
+import Upload from './Upload.jsx'
 
 const NAV = ['Practice', 'Resumes', 'Stories', 'History', 'Account']
 
@@ -13,6 +14,7 @@ const safeNext = (n) => (n && n.startsWith('/') && !n.startsWith('//') && !n.sta
 export default function App() {
   const [me, setMe] = useState({ state: 'loading' })
   const [view, setView] = useState('Practice')
+  const [uploading, setUploading] = useState(false)
 
   // An expired login (401 from any endpoint) goes to /login and remembers where the user was.
   useEffect(() => {
@@ -61,7 +63,7 @@ export default function App() {
             {NAV.map((label) =>
               label === 'Account' || label === 'Resumes' ? (
                 <button key={label} type="button" className="nav-item" aria-current={view === label ? 'page' : undefined}
-                  onClick={() => setView(label)}>{label}</button>
+                  onClick={() => { setView(label); setUploading(false) }}>{label}</button>
               ) : (
                 <span key={label} className="nav-item" aria-current={view === label ? 'page' : undefined}>{label}</span>
               ),
@@ -72,13 +74,7 @@ export default function App() {
       )}
       <main id="content" className="column">
         {me.state === 'in' && view === 'Account' && <Account user={me.user} onDeleted={deleted} />}
-        {me.state === 'in' && view === 'Resumes' && (
-          <>
-            <h1>Upload</h1>
-            {/* ticket 07 adds the file field and the rest of W4 around the role field */}
-            <RoleSearch onPick={() => {}} />
-          </>
-        )}
+        {me.state === 'in' && view === 'Resumes' && (uploading ? <Upload /> : <ResumeList onUpload={() => setUploading(true)} />)}
         {me.state === 'in' && view !== 'Account' && view !== 'Resumes' && (
           <>
             <h1>Practice</h1>

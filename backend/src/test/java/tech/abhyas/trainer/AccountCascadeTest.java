@@ -44,8 +44,20 @@ class AccountCascadeTest {
         jdbc.update("INSERT INTO role (name, owner_user_id) VALUES ('My own role', ?)", gone);
         long sharedRoles = count("role WHERE owner_user_id IS NULL");
         long skills = count("skill");
+        // a resume with a resume point for each user (ticket 10)
+        long starter = jdbc.queryForObject("SELECT id FROM role WHERE name = 'Starter role'", Long.class);
+        for (String login : new String[] {"gone", "stays"}) {
+            jdbc.update("INSERT INTO resume (user_id, file_name, target_role_id, parsed_json, parse_source) "
+                    + "SELECT id, 'r.pdf', ?, '{}', 'openresume' FROM app_user WHERE login_id = ?", starter, login);
+        }
+        jdbc.update("INSERT INTO resume_point (resume_id, kind, source_ref, text, position) "
+                + "SELECT id, 'skill', 'skills[0]', 'Java', 1 FROM resume");
 
         users.deleteById(gone);
+
+        assertThat(count("resume WHERE user_id = " + gone)).isZero();
+        assertThat(count("resume")).isEqualTo(1);
+        assertThat(count("resume_point")).isEqualTo(1);
 
         assertThat(count("app_user WHERE login_id = 'gone'")).isZero();
         assertThat(count("role WHERE name = 'My own role'")).isZero();
