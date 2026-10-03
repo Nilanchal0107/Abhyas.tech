@@ -1,5 +1,6 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { api } from './api/client.js'
+import AddRolePanel from './AddRolePanel.jsx'
 
 // W4 target role field: a combobox over GET /roles. Arrow keys move, Enter picks, Escape closes.
 export default function RoleSearch({ onPick }) {
@@ -9,7 +10,11 @@ export default function RoleSearch({ onPick }) {
   const [error, setError] = useState(null)
   const [active, setActive] = useState(-1)
   const [open, setOpen] = useState(false)
+  const [adding, setAdding] = useState(false)
   const id = useId()
+  const input = useRef(null)
+
+  function closePanel() { setAdding(false); input.current?.focus() }
 
   useEffect(() => {
     const q = text.trim()
@@ -42,12 +47,12 @@ export default function RoleSearch({ onPick }) {
   return (
     <div className="role-search">
       <label htmlFor={id}>Target role</label>
-      <input id={id} type="text" role="combobox" autoComplete="off" maxLength={100}
+      <input id={id} ref={input} type="text" role="combobox" autoComplete="off" maxLength={100}
         placeholder={'Search roles, e.g. "SDE" or "Backend"'}
         aria-expanded={showList} aria-controls={`${id}-list`} aria-autocomplete="list"
         aria-activedescendant={showList && active >= 0 ? `${id}-${active}` : undefined}
         value={text} onKeyDown={onKeyDown}
-        onChange={(e) => { setText(e.target.value); if (picked) { setPicked(null); onPick(null) } }} />
+        onChange={(e) => { setText(e.target.value); setAdding(false); if (picked) { setPicked(null); onPick(null) } }} />
       {showList && (
         <ul id={`${id}-list`} role="listbox" aria-label="Matching roles">
           {roles.map((r, i) => (
@@ -60,7 +65,10 @@ export default function RoleSearch({ onPick }) {
       )}
       <p aria-live="polite">{roles && !roles.length && !picked ? 'No role found.' : ''}</p>
       {roles && !roles.length && !picked && (
-        <p>Can't find your role? <button type="button" disabled title="Coming in the next step">Add a missing role</button></p>
+        <p>Can't find your role? <button type="button" onClick={() => setAdding(true)}>Add a missing role</button></p>
+      )}
+      {adding && (
+        <AddRolePanel name={text.trim()} onSaved={(r) => { closePanel(); pick(r) }} onClose={closePanel} />
       )}
       {error && <p role="alert">! Error: {error}</p>}
     </div>
