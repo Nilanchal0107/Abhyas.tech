@@ -29,6 +29,8 @@ body {
   border-bottom: 1px solid var(--color-border);
 }
 .topbar nav { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.brand { color: var(--color-text); text-decoration: none; }
+a.nav-item { padding: var(--space-2) var(--space-3); color: var(--color-text); text-decoration: none; }
 .nav-item[aria-current='page'] { text-decoration: underline; text-underline-offset: 6px; }
 
 button {
@@ -86,3 +88,16 @@ textarea { box-sizing: border-box; width: 100%; font: inherit; padding: var(--sp
 /* W11 */
 .card { border: 1px solid var(--color-border); border-radius: var(--radius); padding: 0 var(--space-3); margin: var(--space-3) 0; }
 .chips { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0; margin: 0 0 var(--space-2); }
+
+/* W13 landing page */
+a.button { display: inline-block; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); color: var(--color-text); text-decoration: none; }
+a.button.primary { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.landing-actions { margin-left: auto; }
+.landing section { margin-block: var(--space-5); }
+.landing h1 { font-size: 2.25rem; line-height: 1.2; }
+.landing .lead { font-size: 1.125rem; color: var(--color-text-muted); }
+.steps { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: var(--space-3); }
+.steps li { padding: var(--space-3); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); }
+.steps h3 { margin-top: 0; }
+.landing-links { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.landing-footer { padding: var(--space-4) var(--space-3); text-align: center; color: var(--color-text-muted); border-top: 1px solid var(--color-border); }

@@ -1,9 +1,10 @@
 import { useId, useState } from 'react'
+import { Link, useSearchParams } from 'react-router'
 import { postJson } from './api/client.js'
 
 // W1: log in / sign up. Errors show inline under the field or button that failed (UI-UX 7.1).
 export default function Login({ notice, onDone }) {
-  const [mode, setMode] = useState('login')
+  const [mode, setMode] = useState(useSearchParams()[0].get('mode') === 'signup' ? 'signup' : 'login')
   const [loginId, setLoginId] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -62,7 +63,7 @@ export default function Login({ notice, onDone }) {
 
   return (
     <main id="content" className="login">
-      <h1>Abhyas.tech</h1>
+      <h1><Link to="/" className="brand">Abhyas.tech</Link></h1>
       {notice && <p role="status">{notice}</p>}
       <div className="switch" role="group" aria-label="Log in or sign up">
         <button type="button" aria-pressed={!signup} onClick={() => switchTo('login')}>Log in</button>

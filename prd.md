@@ -583,3 +583,6 @@ None. All questions are answered. Items marked "my decision" or "my reading" in 
 - Starter practice bank (ticket 29, FR-20): a draft of 106 questions (one multiple-correct and one fill-in-the-blank for each of the 53 skills of the 7 software development roles) is in `backend/src/main/resources/db/seed-draft/` with its generator. It is **not loaded**: after the review, move `V3__starter_bank.sql` into `db/migration/`.
 - Final checks (ticket 28): a test now checks that all 25 protected endpoints answer 401 without a cookie, and the account-deletion test covers every user table. Not run here: the MySQL tests (no Docker on this machine), the keyboard pass, the 20 hand-graded answers and the Step 6 manual checks.
 
+**Landing page and routing (3 October 2026)**
+- Added a public landing page at `/` (wireframe W13): shown before login and to signed-in users who click "Abhyas.tech". It explains the project and links to a YouTube tutorial and the GitHub repository.
+- Home (W2) moved from `/` to `/practice`. After login the user lands on Home.

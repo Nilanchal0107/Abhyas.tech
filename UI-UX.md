@@ -58,7 +58,7 @@ Contrast of every text and color pairing is checked against WCAG AA (4.5:1 for n
 
 ## 5. Navigation
 
-- A **top bar** with: Practice (Home), Resumes, Stories, History, Account.
+- A **top bar** with: Practice (Home, at `/practice`), Resumes, Stories, History, Account. The "Abhyas.tech" name in any top bar links to the landing page (Section 6.0).
 - During a practice session the top bar is hidden, so the user cannot leave by accident. The only way out is "Leave session" (Section 6.6).
 - No resume state in the nav (there is no "active resume").
 - **Page shell:** content sits in a centered single column, max width 960 px, under a full-width top bar. The Practice session uses a narrower column (about 720 px) with no top bar. The current nav item is marked with an underline and `aria-current="page"`, and "Skip to content" is the first tab stop.
@@ -66,6 +66,11 @@ Contrast of every text and color pairing is checked against WCAG AA (4.5:1 for n
 ## 6. Screens
 
 Each screen lists its purpose, what it shows, and its actions. FR numbers refer to `prd.md`.
+
+### 6.0 Landing page (W13)
+- Public page at `/`, shown to everyone, signed in or not. It has its own simple top bar: the name, and "Log in" and "Sign up" (or "Go to practice" when signed in).
+- Content: what the product does, the four-step flow, the extras (role skills check, story bank, Export JSON), a privacy note, a link to the YouTube tutorial and a link to the GitHub repository (each shown only once its URL is set), and an AGPL-3.0 footer.
+- After login or sign up the user lands on Home (6.2), not the landing page.
 
 ### 6.1 Sign up / log in (FR-1)
 - Fields: userId, password. Sign up and log in switch on one page.

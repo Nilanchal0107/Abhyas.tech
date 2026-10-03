@@ -14,7 +14,7 @@
 
 ## Contents
 
-W0 Shell · W1 Sign up / log in · W2 Home · W3 Resume list · W4 Upload · W5 Add a missing role (panel) · W6 Review · W7 Role skills check · W8 Practice session (8a to 8f) · W9 Session report · W10 History · W11 Story bank (list and form) · W12 Account and deletion
+W0 Shell · W1 Sign up / log in · W2 Home · W3 Resume list · W4 Upload · W5 Add a missing role (panel) · W6 Review · W7 Role skills check · W8 Practice session (8a to 8f) · W9 Session report · W10 History · W11 Story bank (list and form) · W12 Account and deletion · W13 Landing page
 
 ---
 
@@ -552,6 +552,27 @@ Purpose: account details and deleting the account.
 - After success the user is logged out and returned to W1 with "Your account was deleted."
 
 ---
+
+## W13. Landing page (public, `/`)
+
+```
++--------------------------------------------------------------+
+| Abhyas.tech                              [Log in] [Sign up]  |  (signed in: [Go to practice])
++--------------------------------------------------------------+
+|  Defend every line of your resume.                           |
+|  One paragraph: resume -> questions -> marks -> repeat.      |
+|  [Create a free account]                                     |
+|                                                              |
+|  How it works                                                |
+|  [1 Upload] [2 Practice] [3 Feedback] [4 Repeat until mastered]|
+|                                                              |
+|  Also in the box: role skills check, story bank, Export JSON |
+|  Your data stays yours: no PDF or audio stored, delete anytime|
+|  See it in action: [Watch the tutorial] [View on GitHub]     |
++--------------------------------------------------------------+
+|  Open source under the AGPL-3.0 license.                     |
++--------------------------------------------------------------+
+```
 
 ## Cross-screen notes
 

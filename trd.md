@@ -266,7 +266,7 @@ All under `/api`, JSON, cookie auth except signup and login. Errors are Problem 
 
 ## 9. Frontend design
 
-- **Routes** follow `wireframes.md`: `/login`, `/` (W2), `/resumes` (W3), `/resumes/new` (W4), `/resumes/new/review` (W6), `/resumes/:id/role-skills` (W7), `/practice/:id` (W8, no top bar), `/sessions/:id/report` (W9), `/history` (W10), `/stories`, `/stories/new`, `/stories/:id/edit` (W11), `/account`, `/account/delete` (W12).
+- **Routes** follow `wireframes.md`: `/` (W13 landing page, public), `/login`, `/practice` (W2 Home), `/resumes` (W3), `/resumes/new` (W4), `/resumes/new/review` (W6), `/resumes/:id/role-skills` (W7), `/practice/:id` (W8, no top bar), `/sessions/:id/report` (W9), `/history` (W10), `/stories`, `/stories/new`, `/stories/:id/edit` (W11), `/account`, `/account/delete` (W12).
 - **API layer:** `src/api/client.js` wraps `fetch` (same origin, cookie sent), turns Problem Details into an error with `detail`, and on 401 stores the current route and sends the user to `/login`, then back.
 - **Data:** TanStack Query for reads, polling (`refetchInterval` on the report while anything is `pending`) and refreshing lists after a save. Form state is plain React state. No Redux.
 - **Parser:** `src/lib/openresume/` holds the copied parser with its license notice. A thin function turns its result into the JSON shape in `database-schema.md` 4.1 and applies the "looks incomplete" test (7.1).
