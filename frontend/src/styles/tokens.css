@@ -1,0 +1,21 @@
+/* UI-UX.md section 4. Flat colors, no gradients. */
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #f5f7fa;
+  --color-border: #d1d5db;
+  --color-text: #1f2937;
+  --color-text-muted: #4b5563;
+  --color-primary: #1d4ed8;
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-error: #b91c1c;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-size-base: 16px;
+  --radius: 6px;
+}
