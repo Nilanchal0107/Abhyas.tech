@@ -1,0 +1,28 @@
+# Local issue tracker (tickets, specs)
+.scratch/
+
+# Secrets and local config (never commit keys, see .env.example)
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.yaml
+
+# Backend (Maven)
+backend/target/
+
+# Frontend (Node, Vite)
+node_modules/
+frontend/dist/
+*.log
+npm-debug.log*
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
