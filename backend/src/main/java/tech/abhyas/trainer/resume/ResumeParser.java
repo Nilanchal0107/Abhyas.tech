@@ -110,7 +110,7 @@ public class ResumeParser {
                 "skills", strings(r.path("skills")));
     }
 
-    private static String text(JsonNode n) {
+    static String text(JsonNode n) {
         if (!n.isString()) return null;
         String s = n.asString().strip();
         return s.isEmpty() ? null : s;

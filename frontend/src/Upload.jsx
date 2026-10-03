@@ -2,10 +2,11 @@ import { useId, useState } from 'react'
 import { readLinks } from './lib/pdfLinks.js'
 import { api } from './api/client.js'
 import RoleSearch from './RoleSearch.jsx'
-import { checkFile, looksIncomplete, lowQuality, notAResume, pointCount, toParsedResume } from './lib/resume.js'
+import Review from './Review.jsx'
+import { checkFile, looksIncomplete, lowQuality, notAResume, toParsedResume } from './lib/resume.js'
 
 // W4: file + target role + optional interview date. The PDF is parsed in the browser first.
-// A parse that looks incomplete is retried on the backend (PDFBox + AI, trd 7.1). Ticket 09 replaces the read-only preview with the Review form.
+// A parse that looks incomplete is retried on the backend (PDFBox + AI, trd 7.1). The Review form (W6) takes over once there is a result; the upload form stays mounted but hidden so Back keeps the file.
 // Sends the PDF to the backend. If AI is unavailable the user gets an empty form and an inline message.
 async function fallback(file, browserParsed) {
   const body = new FormData()
@@ -17,6 +18,9 @@ async function fallback(file, browserParsed) {
     return { parsed: emptyResume, unavailable: true }
   }
 }
+
+// a new token remounts the Review form, so a fresh parse replaces what the user was editing
+const stamp = (r) => ({ ...r, token: crypto.randomUUID() })
 
 const emptyResume = {
   profile: { name: null, email: null, phone: null, location: null, links: [], summary: null },
@@ -30,6 +34,7 @@ export default function Upload() {
   const [errors, setErrors] = useState({})
   const [reading, setReading] = useState(false)
   const [result, setResult] = useState(null) // { parsed, incomplete, byAi }
+  const [saved, setSaved] = useState(null)
   const fileId = useId()
   const dateId = useId()
 
@@ -55,8 +60,8 @@ export default function Upload() {
         const links = await readLinks(url).catch(() => []) // links are a bonus; never block the parse
         const parsed = toParsedResume(await parseResumeFromPdf(url), links)
         if (notAResume(parsed)) setErrors({ parse: 'This PDF does not look like a resume. Please choose your resume.' })
-        else if (looksIncomplete(parsed) || lowQuality(parsed)) setResult(await fallback(file, parsed))
-        else setResult({ parsed, incomplete: false })
+        else if (looksIncomplete(parsed) || lowQuality(parsed)) setResult(stamp(await fallback(file, parsed)))
+        else setResult(stamp({ parsed, incomplete: false }))
       } finally {
         URL.revokeObjectURL(url)
       }
@@ -70,12 +75,33 @@ export default function Upload() {
   // "Scan with AI" is always offered once a preview is shown, even when the browser parse looks fine.
   async function scanWithAi() {
     setReading(true)
-    try { setResult(await fallback(file, result.parsed)) } finally { setReading(false) }
+    try { setResult(stamp(await fallback(file, result.parsed))) } finally { setReading(false) }
+  }
+
+  if (saved) {
+    return (
+      <>
+        <h1>Resume saved</h1>
+        <p>{saved.fileName} for {saved.targetRole.name} was saved with {saved.pointCount} resume points.</p>
+        <button type="button" onClick={() => location.reload()}>Upload another resume</button>
+      </>
+    )
   }
 
   const p = result?.parsed
   return (
     <>
+      {p && (
+        <>
+          <button type="button" onClick={scanWithAi} disabled={reading}>Scan with AI</button>
+          <p aria-live="polite">{reading ? 'Reading your resume...' : ''}</p>
+          {result.error && <p>! This looks incomplete and the extra check failed: {result.error}</p>}
+          <Review key={result.token} initial={p} byAi={result.byAi} unavailable={result.unavailable} fileName={file.name}
+            roleId={role.id} interviewDate={date || null} parseSource={result.byAi ? 'ai_fallback' : 'openresume'}
+            onBack={() => setResult(null)} onSaved={setSaved} />
+        </>
+      )}
+      <div hidden={!!p}>
       <h1>Upload</h1>
       <p>Step 1 of 3: Upload</p>
       <div>
@@ -93,17 +119,7 @@ export default function Upload() {
       <button type="button" onClick={onContinue} disabled={reading}>Continue</button>
       <p aria-live="polite" style={{ minHeight: '1.5em' }}>{reading ? 'Reading your resume...' : ''}</p>
       <p className="error" role="alert">{errors.parse ? `! Error: ${errors.parse}` : ''}</p>
-      {p && (
-        <section aria-label="Parsed resume preview">
-          <h2>Parsed resume (preview)</h2>
-          {result.byAi && <p>Some parts were read by an AI assistant. Please check them.</p>}
-          {result.unavailable && <p>! We could not read this resume automatically. Please fill in the form yourself.</p>}
-          <button type="button" onClick={scanWithAi} disabled={reading}>Scan with AI</button>
-          {result.error && <p>! This looks incomplete and the extra check failed: {result.error}</p>}
-          <p>{p.profile.name ?? '(no name found)'} · {p.experience.length} experience, {p.projects.length} projects, {pointCount(p)} resume points</p>
-          <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(p, null, 2)}</pre>
-        </section>
-      )}
+      </div>
     </>
   )
 }

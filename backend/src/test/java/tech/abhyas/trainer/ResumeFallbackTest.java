@@ -63,7 +63,7 @@ class ResumeFallbackTest {
             @Override public String transcribe(byte[] audio, Duration t) { throw new AiFailure(AiFailure.Kind.OTHER); }
         };
         parser = new ResumeParser(new AiClient(fake, new AiGate(Clock.systemUTC()), JsonMapper.builder().build(), 20, 40));
-        mvc = MockMvcBuilders.standaloneSetup(new ResumeController(parser)).setControllerAdvice(new ProblemHandler()).build();
+        mvc = MockMvcBuilders.standaloneSetup(new ResumeController(parser, null)).setControllerAdvice(new ProblemHandler()).build();
     }
 
     static byte[] pdf(String text, String linkUrl) throws IOException {
