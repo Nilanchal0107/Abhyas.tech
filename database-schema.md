@@ -335,7 +335,7 @@ Every query on user data filters by the signed-in user, directly or through `res
 |---|---|
 | `V1__schema.sql` | all tables in 9 below |
 | `V2__starter_roles.sql` | the 42 starter roles, aliases, skills and links, from the data in Section 12 (`roles_starter.csv`) |
-| `V3__starter_bank.sql` | the software development practice bank from `bank_starter.csv`. Built later, on request (FR-20) |
+| `V3__starter_bank.sql` | the software development practice bank from `bank_starter.csv`. Drafted (106 questions, in `backend/src/main/resources/db/seed-draft/`), not loaded until reviewed and moved to `db/migration/` (FR-20) |
 
 ## 9. V1 SQL
 

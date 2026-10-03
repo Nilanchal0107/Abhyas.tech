@@ -17,7 +17,7 @@ class AiLiveSmokeTest {
     private AiClient client() {
         var json = JsonMapper.builder().build();
         var transport = new HttpAiTransport(json, GROQ == null ? "" : GROQ, GOOGLE == null ? "" : GOOGLE,
-                "llama-3.3-70b-versatile", "whisper-large-v3-turbo", "gemma-3-27b-it"); // keep in step with application.yml
+                "openai/gpt-oss-120b", "whisper-large-v3-turbo", "gemma-3-27b-it"); // keep in step with application.yml
         return new AiClient(transport, new AiGate(Clock.systemUTC()), json, 20, 40);
     }
 

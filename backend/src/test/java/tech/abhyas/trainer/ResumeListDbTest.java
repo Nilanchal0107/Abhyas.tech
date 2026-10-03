@@ -99,6 +99,34 @@ class ResumeListDbTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void roleSkillsCheckSplitsRoleSkillsByEvidenceAndReplacesTheSnapshot() {
+        long me = user("check_me"), other = user("check_other");
+        // Java is on the resume (a skill point); Docker and Redis are role skills with no evidence
+        jdbc.update("INSERT IGNORE INTO skill (name) VALUES ('Java'), ('Docker'), ('Redis')");
+        jdbc.update("INSERT INTO role (name, owner_user_id) VALUES ('Check role', ?)", me);
+        long role = jdbc.queryForObject("SELECT id FROM role WHERE name = 'Check role'", Long.class);
+        jdbc.update("INSERT INTO role_skill (role_id, skill_id) SELECT ?, id FROM skill WHERE name IN ('Java', 'Docker', 'Redis')", role);
+        long id = (Long) service.save(me, "r.pdf", role, null, "openresume", PARSED).get("id");
+
+        Map<String, Object> r = service.roleSkillsCheck(me, id);
+        List<Map<String, Object>> with = (List<Map<String, Object>>) r.get("withEvidence");
+        assertThat(with).hasSize(1);
+        assertThat(with.get(0)).containsEntry("skill", "Java");
+        assertThat((List<?>) with.get(0).get("resumePoints")).hasSize(1); // the E1 bullet has no skill_id, so it is not evidence
+        assertThat(((List<Map<String, Object>>) r.get("withoutEvidence"))).extracting(s -> s.get("skill")).containsExactly("Docker", "Redis");
+        assertThat(r).containsEntry("resumeId", id).containsKey("computedAt");
+        assertThat(jdbc.queryForObject("SELECT JSON_LENGTH(result, '$.withEvidence') FROM gap_result WHERE resume_id = ?", Long.class, id)).isEqualTo(1);
+
+        jdbc.update("UPDATE gap_result SET result = JSON_OBJECT('withEvidence', JSON_ARRAY(), 'withoutEvidence', JSON_ARRAY()) WHERE resume_id = ?", id);
+        service.roleSkillsCheck(me, id); // recomputed: the stale snapshot is replaced, still one row
+        assertThat(jdbc.queryForObject("SELECT JSON_LENGTH(result, '$.withEvidence') FROM gap_result WHERE resume_id = ?", Long.class, id)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gap_result WHERE resume_id = ?", Long.class, id)).isEqualTo(1);
+
+        assertNotFound(() -> service.roleSkillsCheck(other, id));
+    }
+
+    @Test
     void deleteRemovesTheResumeWithItsRowsUnlessASessionIsOpen() {
         long me = user("del_me");
         long id = save(me, "r.pdf");

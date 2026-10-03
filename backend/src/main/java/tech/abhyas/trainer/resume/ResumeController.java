@@ -48,6 +48,11 @@ public class ResumeController {
         return Map.of("resume", resumes.get(userId, id));
     }
 
+    @GetMapping("/{id}/role-skills-check")
+    Map<String, Object> roleSkillsCheck(@RequestAttribute(AuthInterceptor.USER_ID) long userId, @PathVariable long id) {
+        return resumes.roleSkillsCheck(userId, id);
+    }
+
     @PatchMapping("/{id}")
     Map<String, Object> patch(@RequestAttribute(AuthInterceptor.USER_ID) long userId, @PathVariable long id, @RequestBody Map<String, Object> b) {
         return Map.of("resume", resumes.setInterviewDate(userId, id, b));

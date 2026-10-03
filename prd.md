@@ -115,7 +115,7 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 2. **Upload resume PDF.** While uploading, the app asks for:
    - **Target role** (search the roles database and select one)
    - **Interview date** (optional)
-3. **Parse.** The OpenResume parser runs in the browser. If the result looks incomplete, the fallback runs.
+3. **Parse.** The OpenResume parser runs in the browser. If the result looks incomplete or low quality, the fallback runs.
 4. **Review form.** The user corrects anything wrong and saves.
 5. **Claims and answer key.** Each resume bullet and skill becomes a claim. AI drafts the answer key for each claim. The key is not editable.
 6. **Practice session** (see Section 9). The user **picks which resume to practice with** at the start of each session (default: the most recently used one). There is no "active resume", and the resume cannot change during a session.
@@ -151,7 +151,7 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 - Send only the structured result to the backend.
 
 ### FR-5 Parse fallback
-- If the parse looks incomplete, extract text with PDFBox in Spring Boot and ask Groq to convert it into the same structure.
+- If the parse looks incomplete or low quality (an education entry without a school, or a project without a name), extract text with PDFBox in Spring Boot and ask Groq to convert it into the same structure.
 - Remove phone number and email from the text before it is sent to any AI service.
 - Run the AI at temperature 0.
 - Missing fields come back as `null`, never guessed.
@@ -561,3 +561,25 @@ None. All questions are answered. Items marked "my decision" or "my reading" in 
 
 **v14 to v15**
 - Project renamed from "Resume Defense Trainer" to "Abhyas.tech". Tagline: "Defend your resume". Maven artifact and Java package stay `tech.abhyas` / `trainer`.
+
+**Ticket 07 (3 October 2026)**
+- The browser parse is tidied before the "looks incomplete" test: skill lines are split into single skills, link URLs are read from the PDF's link annotations, and the common OpenResume mix-ups in education and projects are corrected (`frontend/src/lib/resume.js`). A **low-quality** result (an education entry without a school, or an unnamed project) now also triggers the fallback, not only an incomplete one (`trd.md` 7.1). A PDF with no email or phone and no experience, projects, education or skills is refused as "not a resume" in the browser. Location is still not recovered by the browser parse; the fallback and the Review form cover it.
+
+**Ticket 08 (3 October 2026)**
+- PDF fallback parse built (`POST /resumes/parse-fallback`, PDFBox + Groq). The preview always shows a "Scan with AI" button, so the user can run the fallback even when the browser parse looked complete. Multipart limit raised to 6 MB so the server answers `file-too-large` itself.
+
+**Tickets 17 to 23 (3 October 2026)**
+- Practice bank (FR-20): when AI cannot write a part, `PracticeBank` picks bank rows for the resume's and role's skills and fills `{project}`, `{skill}`, `{company}`, `{bullet}`, `{theme}` from the resume, then falls back to generic templates built from the resume itself (blank out the one skill a bullet names; "which technologies are in this bullet" with distractors; project, bullet and theme questions), so the answer key is always known. AI questions are saved into `bank_question` only when technical, tied to a skill named in the text, and free of the user's project, company, school or name and of any 5-word run from a bullet. The unique text hash plus `INSERT IGNORE` decides races.
+- Grading (`POST /sessions/{id}/submit`, 202 first time, 200 on repeat): Java marks multiple-correct and blanks, one Groq call re-checks wrong blanks, Groq ticks brief and voice checklists and Java enforces the evidence rule and sums the marks. Checklists always have 5 or 10 items: a point with fewer key facts than needed gets generic "makes a correct point" checks. A skipped question scores 0 and counts toward mastery as 0.
+- Fallback (`KeywordGrader`, `TemplateFeedback`): keyword and cue-word ticks with the matching sentence as quote. Such a mark never sets `mastered` or `last_score`. `graded_by` stays out of every in-app response.
+- Gemma feedback and report run one call at a time with a 7-second gap (`app.grading.gemma-gap-millis`). A rate limit with Retry-After is waited out once (at most 60 s), then the answer gets template text with `feedback_status = 'none'` (the text is still shown). Template reports also use `report_status = 'none'`. On startup, completed sessions with open work are resumed.
+- Repetition (ticket 23): the rested-mastered test is now "asked at least one month ago" (was "more than"). The rest of the rules were already in session building and are covered by new tests.
+- The report row's `mastered` is computed from the attempt's score for display, so a fallback-graded 4 of 5 shows as mastered although the stored flag stays unchanged.
+
+**Tickets 24 to 29 (4 October 2026)**
+- Home (W2) now shows the unfinished session with Continue and Leave session, the resume selector with Start, and the latest completed session (total, mastered, up to three weakest points). History (W10) is a table with status as icon plus word, Export JSON on completed rows and Continue on unfinished ones. All five menu items are live.
+- Story bank (`/stories`, W11): list with tag chips, form on its own page, tags, links to resume points (checked to belong to the user), `sourceAttemptId` (checked, cleared when the answer is deleted). "Save as story" in the report pre-fills the Action box in the browser. **Decision:** the `Attempt` type now carries its database `id` (api-contracts 2.5), because the browser has to send `sourceAttemptId`.
+- Export (`GET /sessions/{id}/export`): built on request from the stored rows, six sections in order, `phone` and `email` keys removed from `resume.profile`, `gradedBy` only in `grades`, gap check with skill names and resume point texts instead of IDs. Only a completed and fully graded session of the user can be exported (`session-not-completed` otherwise).
+- Starter practice bank (ticket 29, FR-20): a draft of 106 questions (one multiple-correct and one fill-in-the-blank for each of the 53 skills of the 7 software development roles) is in `backend/src/main/resources/db/seed-draft/` with its generator. It is **not loaded**: after the review, move `V3__starter_bank.sql` into `db/migration/`.
+- Final checks (ticket 28): a test now checks that all 25 protected endpoints answer 401 without a cookie, and the account-deletion test covers every user table. Not run here: the MySQL tests (no Docker on this machine), the keyboard pass, the 20 hand-graded answers and the Step 6 manual checks.
+

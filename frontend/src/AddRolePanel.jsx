@@ -65,7 +65,7 @@ export default function AddRolePanel({ name, onSaved, onClose }) {
           <button type="button" onClick={() => onSaved({ id: existing.id, name: existing.name, category: null, isOwn: false })}>Use it instead</button>
         </p>
       )}
-      {error && <p role="alert">! Error: {error}</p>}
+      {error && <p className="error" role="alert">! Error: {error}</p>}
       <button type="button" onClick={save} disabled={saving || drafting}>Save role</button>
       <button type="button" onClick={onClose}>Cancel</button>
     </section>

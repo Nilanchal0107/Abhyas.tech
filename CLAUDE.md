@@ -31,6 +31,7 @@ When a decision changes, update the affected docs and add a change-log entry in 
 ## Working rules
 
 - **Manual check after every build step.** At the end of each build step (Login, Resume parser, Questions, Feedback, Story bank, Export JSON, see `trd.md` Section 13), give the user that step's manual checklist and wait for their confirmation before starting the next step.
+- **Update the ticket after the manual checks.** When the user confirms a step's manual checks, update its ticket file under `.scratch/<feature>/issues/` right away: tick the finished checkboxes, set `**Status:**` to `done` and note anything left open (for example a check that was not run). `.scratch/` is gitignored, so do not suggest `git add` for ticket files.
 - Build in the order of `prd.md` Section 6. Do not start a step before the previous one is confirmed.
 - Never put secrets in the repo. API keys, the JWT secret and the database password come from environment variables or the gitignored `application-local.yml`.
 - Never log resume text, answers, transcripts, prompts or AI replies (`trd.md` 6.5).

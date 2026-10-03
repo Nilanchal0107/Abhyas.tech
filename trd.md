@@ -23,7 +23,7 @@ This document says **how** the app is built. It does not repeat the requirements
 | 10 | Backend packages **by feature**. Spring Data JPA, Flyway owns the schema (`ddl-auto=validate`). | Q10 |
 | 11 | Three AI interfaces (`GraderService`, `FeedbackService`, `QuestionService`) each with an AI and a fallback implementation. One `AiClient` for every AI call, which also removes phone and email from outgoing text. | Q11 |
 | 12 | Questions are generated at **session start**, only the missing slots, one Groq call per part. | Q12 |
-| 13 | PDF upload: PDF only (checked by header), **1 MB maximum**. The parse fallback runs when the browser parse is incomplete (see 7.1). | Q13 |
+| 13 | PDF upload: PDF only (checked by header), **1 MB maximum**. The parse fallback runs when the browser parse is incomplete or low quality (see 7.1). | Q13 |
 | 14 | Resume skills are matched to existing skills only. **New skills are never created from resumes.** | Q14 |
 | 15 | Errors use RFC 7807 Problem Details. Secrets come from environment variables or a gitignored local config. | Q15 |
 | 16 | Passwords: at least 8 characters, BCrypt, and an in-memory throttle after repeated failures. | Q16 |
@@ -175,7 +175,7 @@ This document says **how** the app is built. It does not repeat the requirements
 
 ### 7.1 Resume (FR-2 to FR-8)
 1. **Browser parse.** The copied OpenResume parser reads the chosen PDF in the browser. The file must be a PDF (header `%PDF`) and at most 1 MB, checked in the browser first and again on the server.
-2. **Looks incomplete?** The fallback runs if the result has no name, or has neither experience nor projects, or yields fewer than 3 resume points in total (Q13).
+2. **Tidy, then looks incomplete?** The app first tidies the browser result: skill lines such as "Languages: Java, C" are split into single skills, link URLs are read from the PDF's link annotations, a duplicated degree/date is split, a project title swapped with its technology line is put back, and technology lines are not kept as resume points. The fallback then runs if the result has no name, or has neither experience nor projects, or yields fewer than 3 resume points in total (Q13), **or is low quality**: an education entry without a school, or a project without a name.
 3. **Fallback.** `POST /api/resumes/parse-fallback` sends the PDF. The backend extracts text and hidden links with PDFBox, removes phone and email, and asks Groq (temperature 0) for the same JSON structure, with `null` for anything missing. The file is discarded after the request. If AI is unavailable the user gets the empty Review form (an inline message says so, `UI-UX.md` 7.1).
 4. **Review form.** The user edits and saves. `POST /api/resumes` sends the parsed JSON, the target role ID and the optional interview date.
 5. **Save.** In one transaction: insert `resume`, then `resume_point` rows (one per project bullet, experience bullet and skill, in order). Skills are matched to `skill` by case-insensitive name; `skill_id` stays empty when there is no match, and **no skill is ever created from a resume** (Q14). The resume is now **read-only** except `interview_date`.
@@ -394,7 +394,7 @@ Order as in PRD Section 6. After each step **I remind you to run its manual chec
 | Gemma pacing may need tuning | 7 seconds is an estimate. Measure real token use per call |
 | In-memory throttle and AI gate reset on restart | Accepted for a laptop-only app |
 | AGPL | Applies as long as the parser code is in the app (Section 11). Not legal advice |
-| `bank_starter.csv` | Not built yet (software development only, on request). Until then fallback questions come from AI-saved bank rows and the generic templates |
+| `bank_starter.csv` | Drafted in `backend/src/main/resources/db/seed-draft/` (software development only), needs your review before `V3__starter_bank.sql` is moved to `db/migration/`. Until then fallback questions come from AI-saved bank rows and the generic templates |
 | `roles_starter.csv` | The exact content is in `database-schema.md` Section 12. Needs your review |
 
 ## 15. Change log

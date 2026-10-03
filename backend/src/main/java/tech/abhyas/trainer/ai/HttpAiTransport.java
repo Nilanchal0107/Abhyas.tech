@@ -20,6 +20,7 @@ import tools.jackson.databind.json.JsonMapper;
 /** Real HTTP calls to Groq chat, Groq Whisper and Gemma. Keys come from GROQ_API_KEY and GOOGLE_AI_KEY only. */
 @Component
 class HttpAiTransport implements AiTransport {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(HttpAiTransport.class);
     private static final String GROQ = "https://api.groq.com/openai/v1/";
     private static final String GOOGLE = "https://generativelanguage.googleapis.com/v1beta/models/";
 
@@ -28,8 +29,8 @@ class HttpAiTransport implements AiTransport {
     private final String groqKey, googleKey, chatModel, whisperModel, gemmaModel;
 
     HttpAiTransport(JsonMapper json,
-                    @Value("${GROQ_API_KEY:}") String groqKey,
-                    @Value("${GOOGLE_AI_KEY:}") String googleKey,
+                    @Value("${app.ai.groq-key:}") String groqKey,
+                    @Value("${app.ai.google-key:}") String googleKey,
                     @Value("${app.ai.models.groq-chat}") String chatModel,
                     @Value("${app.ai.models.groq-whisper}") String whisperModel,
                     @Value("${app.ai.models.gemma}") String gemmaModel) {
@@ -51,6 +52,11 @@ class HttpAiTransport implements AiTransport {
         JsonNode r = json.readTree(call(groqKey, "Authorization", URI.create(GROQ + "chat/completions"),
                 "application/json", groqBody(json, chatModel, prompt), timeout));
         return r.path("choices").path(0).path("message").path("content").asString("");
+    }
+
+    @Override
+    public boolean configured(Provider provider) {
+        return !(provider == Provider.GEMMA ? googleKey : groqKey).isBlank();
     }
 
     @Override
@@ -91,9 +97,10 @@ class HttpAiTransport implements AiTransport {
             if (s / 100 == 2) return res.body();
             if (s == 429) {
                 String b = res.body().toLowerCase();
-                throw new AiFailure(b.contains("per day") || b.contains("daily")
-                        ? AiFailure.Kind.DAILY_LIMIT : AiFailure.Kind.RATE_LIMIT);
+                boolean daily = b.contains("per day") || b.contains("daily");
+                throw new AiFailure(daily ? AiFailure.Kind.DAILY_LIMIT : AiFailure.Kind.RATE_LIMIT, daily ? 0 : retryAfter(res));
             }
+            log.warn("ai http status={} host={}", s, uri.getHost()); // status only, never the body (trd 6.5)
             throw new AiFailure(s >= 500 ? AiFailure.Kind.SERVER_ERROR : AiFailure.Kind.OTHER);
         } catch (HttpTimeoutException e) {
             throw new AiFailure(AiFailure.Kind.TIMEOUT);
@@ -103,6 +110,11 @@ class HttpAiTransport implements AiTransport {
             Thread.currentThread().interrupt();
             throw new AiFailure(AiFailure.Kind.OTHER);
         }
+    }
+
+    private static int retryAfter(HttpResponse<String> res) {
+        try { return Math.max(0, Integer.parseInt(res.headers().firstValue("retry-after").orElse("0").strip())); }
+        catch (NumberFormatException e) { return 0; } // an HTTP date is not worth parsing: the caller then does not wait
     }
 
     private static void field(ByteArrayOutputStream out, String boundary, String name, String value) {

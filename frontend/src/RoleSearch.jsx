@@ -70,7 +70,7 @@ export default function RoleSearch({ onPick }) {
       {adding && (
         <AddRolePanel name={text.trim()} onSaved={(r) => { closePanel(); pick(r) }} onClose={closePanel} />
       )}
-      {error && <p role="alert">! Error: {error}</p>}
+      {error && <p className="error" role="alert">! Error: {error}</p>}
     </div>
   )
 }

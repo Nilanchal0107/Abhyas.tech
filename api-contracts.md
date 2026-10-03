@@ -127,7 +127,7 @@ All string fields can be `null`. Arrays can be empty. Resume points are created 
 During an `in_progress` session only the fields the user may see are present:
 
 ```json
-{ "position": 3, "maxMarks": 2, "question": { "...": "Question" }, "answer": { "...": "Answer" } }
+{ "id": 812, "position": 3, "maxMarks": 2, "question": { "...": "Question" }, "answer": { "...": "Answer" } }
 ```
 
 Once the session is `completed`, each attempt also has (all `null` while grading is still running):
@@ -144,8 +144,8 @@ Once the session is `completed`, each attempt also has (all `null` while grading
   "feedback": { "status": "ready", "text": "...", "whatToFix": "...", "deliveryComment": null }
 }
 ```
-- `correctOptions` only for multiple-correct. `acceptedAnswers` (one list per blank) and `blankResults` (`[{ "correct": true }]`) only for fill-in-the-blank. `checklist` and `keyFacts` only for brief and voice.
-- `feedback.status` is `pending`, `ready` or `none`. `none` means there is no AI text and the numbers are all that is shown. `deliveryComment` is set only for voice answers.
+- `correctOptions` only for multiple-correct. `acceptedAnswers` (one list per blank) and `blankResults` (`[{ "correct": true }]`) only for fill-in-the-blank. `checklist` and `keyFacts` only for brief and voice (`keyFacts` is `[]` for a behavioral question, which has no answer key).
+- `feedback.status` is `pending`, `ready` or `none`. `none` means the text is a template written by Java (or empty for an objective answer), not by Gemma; the UI shows it the same way. `deliveryComment` is set only for voice answers.
 - **`gradedBy` is never in an in-app response** (silent fallback, FR-20). It appears only in the export.
 - `maxMarks` is 2, 5 or 10. A voice question answered by typing has `maxMarks: 5`.
 - The checklist `item` keys by question:

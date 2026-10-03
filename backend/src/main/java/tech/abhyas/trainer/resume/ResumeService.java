@@ -114,6 +114,49 @@ public class ResumeService {
         jdbc.update("DELETE FROM resume WHERE id = :r AND user_id = :me", Map.of("r", id, "me", userId));
     }
 
+    /** Role skills check (FR-16): the target role's skills split by whether a resume point is matched to them. Replaces the stored snapshot. */
+    @Transactional
+    public Map<String, Object> roleSkillsCheck(long userId, long id) {
+        Map<String, Object> resume = one(userId, id);
+        Map<?, ?> role = (Map<?, ?>) resume.get("targetRole");
+        Map<Long, List<Map<String, Object>>> bySkill = new LinkedHashMap<>();
+        jdbc.query("SELECT id, text, skill_id FROM resume_point WHERE resume_id = :r AND skill_id IS NOT NULL ORDER BY position",
+                Map.of("r", id), rs -> {
+                    bySkill.computeIfAbsent(rs.getLong("skill_id"), k -> new ArrayList<>())
+                            .add(Map.of("id", rs.getLong("id"), "text", rs.getString("text")));
+                });
+        List<Map<String, Object>> with = new ArrayList<>(), without = new ArrayList<>(), withStored = new ArrayList<>();
+        for (Map<String, Object> s : jdbc.queryForList("""
+                SELECT s.id, s.name FROM role_skill rs JOIN skill s ON s.id = rs.skill_id WHERE rs.role_id = :role ORDER BY s.name""",
+                Map.of("role", role.get("id")))) {
+            long skillId = ((Number) s.get("id")).longValue();
+            List<Map<String, Object>> pts = bySkill.get(skillId);
+            Map<String, Object> skill = new LinkedHashMap<>();
+            skill.put("skillId", skillId);
+            skill.put("skill", s.get("name"));
+            if (pts == null) { without.add(skill); continue; }
+            Map<String, Object> st = new LinkedHashMap<>(skill); // the stored shape keeps ids only (database-schema 4.5)
+            st.put("resumePointIds", pts.stream().map(p -> p.get("id")).toList());
+            withStored.add(st);
+            skill.put("resumePoints", pts);
+            with.add(skill);
+        }
+        jdbc.update("""
+                INSERT INTO gap_result (resume_id, result, computed_at) VALUES (:r, :json, UTC_TIMESTAMP(3))
+                ON DUPLICATE KEY UPDATE result = VALUES(result), computed_at = VALUES(computed_at)""",
+                Map.of("r", id, "json", JSON.writeValueAsString(Map.of("withEvidence", withStored, "withoutEvidence", without))));
+        String at = jdbc.queryForObject("""
+                SELECT CONCAT(DATE_FORMAT(computed_at, '%Y-%m-%dT%H:%i:%s.'), LPAD(MICROSECOND(computed_at) DIV 1000, 3, '0'), 'Z')
+                FROM gap_result WHERE resume_id = :r""", Map.of("r", id), String.class);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("resumeId", id);
+        out.put("role", role);
+        out.put("computedAt", at);
+        out.put("withEvidence", with);
+        out.put("withoutEvidence", without);
+        return out;
+    }
+
     private Map<String, Object> one(long userId, long id) {
         List<Map<String, Object>> found = summaries(userId, id);
         if (found.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "not-found", "We could not find that resume.");

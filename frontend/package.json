@@ -9,6 +9,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "pdfjs-dist": "^3.11.174",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

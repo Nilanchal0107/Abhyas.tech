@@ -84,7 +84,7 @@ Each screen lists its purpose, what it shows, and its actions. FR numbers refer 
 - **Two screens with a step indicator:** 1 Upload, 2 Review, 3 Role skills check. Back from Review returns to Upload with the file kept.
 - **Upload:** PDF chooser, **target role** search (names and aliases, FR-3), optional interview date. If no role matches, a link opens **Add a missing role** (6.5).
 - **Review form:** one long form with collapsible sections (contact, education, experience, projects, skills), editable, with a Save button.
-- When the fallback parse ran, a banner says "Some parts were read by an AI assistant. Please check them." Sections that came back empty are highlighted.
+- When the fallback parse ran, a banner says "Some parts were read by an AI assistant. Please check them." Sections that came back empty are highlighted. A "Scan with AI" button is always shown on the preview, so the user can run the fallback parse even when the browser parse looked complete.
 - Phone and email are shown, with a note that they are never sent to AI.
 - Saving writes the resume first, then prepares resume points and key facts ("Preparing your questions..."). If AI is unavailable the resume is still saved and the key facts are prepared later (see FR-8 in `prd.md`).
 

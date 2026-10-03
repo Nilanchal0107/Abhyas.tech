@@ -62,6 +62,15 @@ class ResumeListApiTest {
     }
 
     @Test
+    void roleSkillsCheckIsReturnedUnwrappedAndAnotherUsersIs404() throws Exception {
+        when(resumes.roleSkillsCheck(7L, 3L)).thenReturn(Map.of("resumeId", 3L, "withEvidence", List.of(), "withoutEvidence", List.of()));
+        when(resumes.roleSkillsCheck(7L, 9L)).thenThrow(notFound());
+        mvc.perform(as(get("/api/resumes/3/role-skills-check"))).andExpect(status().isOk()).andExpect(jsonPath("$.resumeId").value(3));
+        mvc.perform(as(get("/api/resumes/9/role-skills-check"))).andExpect(status().isNotFound());
+        mvc.perform(get("/api/resumes/3/role-skills-check")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void patchPassesTheBodyAndReturnsTheSummary() throws Exception {
         when(resumes.setInterviewDate(7L, 3L, Map.of("interviewDate", "2026-12-01"))).thenReturn(Map.of("id", 3L, "interviewDate", "2026-12-01"));
         mvc.perform(as(patch("/api/resumes/3")).contentType(MediaType.APPLICATION_JSON).content("{\"interviewDate\":\"2026-12-01\"}"))

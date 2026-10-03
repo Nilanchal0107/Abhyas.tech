@@ -3,6 +3,8 @@ import { readLinks } from './lib/pdfLinks.js'
 import { api } from './api/client.js'
 import RoleSearch from './RoleSearch.jsx'
 import Review from './Review.jsx'
+import RoleSkills from './RoleSkills.jsx'
+import { Open } from './ResumeList.jsx'
 import { checkFile, looksIncomplete, lowQuality, notAResume, toParsedResume } from './lib/resume.js'
 
 // W4: file + target role + optional interview date. The PDF is parsed in the browser first.
@@ -35,6 +37,7 @@ export default function Upload() {
   const [reading, setReading] = useState(false)
   const [result, setResult] = useState(null) // { parsed, incomplete, byAi }
   const [saved, setSaved] = useState(null)
+  const [point, setPoint] = useState(null) // a resume point opened from the role skills check
   const fileId = useId()
   const dateId = useId()
 
@@ -78,14 +81,11 @@ export default function Upload() {
     try { setResult(stamp(await fallback(file, result.parsed))) } finally { setReading(false) }
   }
 
+  // step 3 of the first-time path (W7)
+  if (saved && point) return <Open id={saved.id} pointId={point} onBack={() => setPoint(null)} onChanged={() => {}} />
   if (saved) {
-    return (
-      <>
-        <h1>Resume saved</h1>
-        <p>{saved.fileName} for {saved.targetRole.name} was saved with {saved.pointCount} resume points.</p>
-        <button type="button" onClick={() => location.reload()}>Upload another resume</button>
-      </>
-    )
+    return <RoleSkills id={saved.id} fileName={saved.fileName} first onBack={() => location.reload()} fixLabel="Back to the Review step"
+      onFix={() => setSaved(null)} onPoint={setPoint} />
   }
 
   const p = result?.parsed

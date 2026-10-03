@@ -7,6 +7,9 @@ public interface AiTransport {
     /** Sends a prompt, returns the reply text. */
     String send(Provider provider, String prompt, Duration timeout);
 
+    /** False when the provider has no key, so callers can skip features that need it. */
+    default boolean configured(Provider provider) { return true; }
+
     /** Sends audio to Groq Whisper, returns the reply JSON text. */
     String transcribe(byte[] audio, Duration timeout);
 }

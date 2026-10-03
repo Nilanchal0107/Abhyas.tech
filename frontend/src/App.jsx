@@ -1,20 +1,29 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api, onExpired, postJson } from './api/client.js'
 import Account from './Account.jsx'
 import Login from './Login.jsx'
+import Practice from './Practice.jsx'
+import Report from './Report.jsx'
 import ResumeList from './ResumeList.jsx'
 import Upload from './Upload.jsx'
+import History from './History.jsx'
+import Home from './Home.jsx'
+import Stories from './Stories.jsx'
 
 const NAV = ['Practice', 'Resumes', 'Stories', 'History', 'Account']
 
 // Only an in-app path may be returned to (never another site).
 const safeNext = (n) => (n && n.startsWith('/') && !n.startsWith('//') && !n.startsWith('/login') ? n : '/')
 
-// W0 page shell. Nav links stay inert until their screens exist.
+// W0 page shell.
 export default function App() {
   const [me, setMe] = useState({ state: 'loading' })
   const [view, setView] = useState('Practice')
   const [uploading, setUploading] = useState(false)
+  const [practicing, setPracticing] = useState(null) // session id: the practice screen has no top bar (W8)
+  const [reporting, setReporting] = useState(null) // session id of the report being shown (W9)
+  const [storyPrefill, setStoryPrefill] = useState(null) // { action, sourceAttemptId } from "Save as story" in a report
+  const clearPrefill = useCallback(() => setStoryPrefill(null), [])
 
   // An expired login (401 from any endpoint) goes to /login and remembers where the user was.
   useEffect(() => {
@@ -52,6 +61,9 @@ export default function App() {
   }
 
   if (me.state === 'out') return <Login notice={me.notice} onDone={signedIn} />
+  if (me.state === 'in' && practicing) {
+    return <main id="content" className="column"><Practice id={practicing} onExit={() => setPracticing(null)} onSubmitted={(id) => { setPracticing(null); setReporting(id) }} /></main>
+  }
 
   return (
     <>
@@ -60,26 +72,25 @@ export default function App() {
         <header className="topbar">
           <strong>Abhyas.tech</strong>
           <nav aria-label="Main">
-            {NAV.map((label) =>
-              label === 'Account' || label === 'Resumes' ? (
-                <button key={label} type="button" className="nav-item" aria-current={view === label ? 'page' : undefined}
-                  onClick={() => { setView(label); setUploading(false) }}>{label}</button>
-              ) : (
-                <span key={label} className="nav-item" aria-current={view === label ? 'page' : undefined}>{label}</span>
-              ),
-            )}
+            {NAV.map((label) => (
+              <button key={label} type="button" className="nav-item" aria-current={view === label ? 'page' : undefined}
+                onClick={() => { setView(label); setUploading(false); setReporting(null) }}>{label}</button>
+            ))}
           </nav>
           <button type="button" onClick={logOut}>Log out</button>
         </header>
       )}
       <main id="content" className="column">
-        {me.state === 'in' && view === 'Account' && <Account user={me.user} onDeleted={deleted} />}
-        {me.state === 'in' && view === 'Resumes' && (uploading ? <Upload /> : <ResumeList onUpload={() => setUploading(true)} />)}
-        {me.state === 'in' && view !== 'Account' && view !== 'Resumes' && (
-          <>
-            <h1>Practice</h1>
-            <p>Signed in as {me.user.loginId}.</p>
-          </>
+        {me.state === 'in' && reporting && (
+          <Report id={reporting} onBack={() => { setReporting(null); setView('Practice') }}
+            onSaveStory={(prefill) => { setStoryPrefill(prefill); setReporting(null); setView('Stories') }} />
+        )}
+        {me.state === 'in' && !reporting && view === 'Account' && <Account user={me.user} onDeleted={deleted} />}
+        {me.state === 'in' && !reporting && view === 'Resumes' && (uploading ? <Upload /> : <ResumeList onUpload={() => setUploading(true)} onPractice={setPracticing} />)}
+        {me.state === 'in' && !reporting && view === 'Stories' && <Stories prefill={storyPrefill} onPrefillUsed={clearPrefill} />}
+        {me.state === 'in' && !reporting && view === 'History' && <History onReport={setReporting} onContinue={setPracticing} />}
+        {me.state === 'in' && !reporting && view === 'Practice' && (
+          <Home user={me.user} onPractice={setPracticing} onReport={setReporting} onUpload={() => { setView('Resumes'); setUploading(true) }} />
         )}
         {me.state === 'loading' && <p>Checking who is signed in…</p>}
         {me.state === 'error' && <p role="alert">! Error: {me.err.detail ?? me.err.message}</p>}
