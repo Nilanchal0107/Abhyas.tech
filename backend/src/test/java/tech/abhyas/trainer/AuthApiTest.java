@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -73,8 +75,9 @@ class AuthApiTest {
             db.put(key(u.getLoginId()), u);
             return u;
         });
+        doAnswer(i -> db.values().remove(i.getArgument(0))).when(repo).delete(any(AppUser.class));
         tokens = new TokenService(SECRET, clock);
-        mvc = MockMvcBuilders.standaloneSetup(authController(repo), new MeController(repo))
+        mvc = MockMvcBuilders.standaloneSetup(authController(repo), new MeController(repo, encoder, false))
                 .addInterceptors(new MappedInterceptor(new String[] {"/api/**"}, AuthInterceptor.PUBLIC, new AuthInterceptor(tokens)))
                 .setControllerAdvice(new ProblemHandler()).build();
     }
@@ -268,6 +271,40 @@ class AuthApiTest {
         }
         clock.now = T0.plusSeconds(8 * 3600 + 1);
         mvc.perform(get("/api/me").cookie(good)).andExpect(status().isUnauthorized());
+    }
+
+    // ---- delete account ----
+
+    private MvcResult deleteMe(Cookie c, String json) throws Exception {
+        return mvc.perform(delete("/api/me").cookie(c).contentType(MediaType.APPLICATION_JSON).content(json)).andReturn();
+    }
+
+    @Test
+    void deleteWithWrongPasswordIs400WrongPasswordNever401AndDeletesNothing() throws Exception {
+        Cookie c = signUp("paras24");
+        for (String body : new String[] {"{\"password\":\"nope-nope\"}", "{}"}) {
+            MvcResult r = deleteMe(c, body);
+            assertThat(r.getResponse().getStatus()).isEqualTo(400);
+            assertThat(r.getResponse().getContentAsString()).contains("\"type\":\"wrong-password\"");
+            assertThat(r.getResponse().getCookie("rdt_session")).isNull();
+        }
+        assertThat(db).containsKey("paras24");
+    }
+
+    @Test
+    void deleteWithRightPasswordRemovesTheUserAndClearsTheCookie() throws Exception {
+        Cookie c = signUp("paras24");
+        MvcResult r = deleteMe(c, "{\"password\":\"password1\"}");
+        assertThat(r.getResponse().getStatus()).isEqualTo(204);
+        assertThat(r.getResponse().getHeader(HttpHeaders.SET_COOKIE)).startsWith("rdt_session=;").contains("Max-Age=0");
+        assertThat(db).isEmpty();
+        mvc.perform(get("/api/me").cookie(c)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deleteWithoutACookieIsUnauthorized() throws Exception {
+        mvc.perform(delete("/api/me").contentType(MediaType.APPLICATION_JSON).content("{\"password\":\"x\"}"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

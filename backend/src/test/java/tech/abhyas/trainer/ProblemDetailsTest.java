@@ -34,7 +34,7 @@ class ProblemDetailsTest {
     }
 
     private final MockMvc mvc = MockMvcBuilders
-            .standaloneSetup(new MeController(Mockito.mock(UserRepository.class)), new Boom())
+            .standaloneSetup(new MeController(Mockito.mock(UserRepository.class), null, false), new Boom())
             .addMappedInterceptors(new String[] {"/api/me"}, new AuthInterceptor(new TokenService("x".repeat(32), Clock.systemUTC())))
             .setControllerAdvice(new ProblemHandler()).build();
 

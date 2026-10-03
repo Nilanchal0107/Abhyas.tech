@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, onExpired, postJson } from './api/client.js'
+import Account from './Account.jsx'
 import Login from './Login.jsx'
 
 const NAV = ['Practice', 'Resumes', 'Stories', 'History', 'Account']
@@ -10,6 +11,7 @@ const safeNext = (n) => (n && n.startsWith('/') && !n.startsWith('//') && !n.sta
 // W0 page shell. Nav links stay inert until their screens exist.
 export default function App() {
   const [me, setMe] = useState({ state: 'loading' })
+  const [view, setView] = useState('Practice')
 
   // An expired login (401 from any endpoint) goes to /login and remembers where the user was.
   useEffect(() => {
@@ -40,6 +42,12 @@ export default function App() {
     setMe({ state: 'out' })
   }
 
+  function deleted() {
+    history.replaceState(null, '', '/login')
+    setView('Practice')
+    setMe({ state: 'out', notice: 'Your account was deleted.' })
+  }
+
   if (me.state === 'out') return <Login notice={me.notice} onDone={signedIn} />
 
   return (
@@ -49,17 +57,27 @@ export default function App() {
         <header className="topbar">
           <strong>Abhyas.tech</strong>
           <nav aria-label="Main">
-            {NAV.map((label, i) => (
-              <span key={label} className="nav-item" aria-current={i === 0 ? 'page' : undefined}>{label}</span>
-            ))}
+            {NAV.map((label) =>
+              label === 'Account' ? (
+                <button key={label} type="button" className="nav-item" aria-current={view === label ? 'page' : undefined}
+                  onClick={() => setView(label)}>{label}</button>
+              ) : (
+                <span key={label} className="nav-item" aria-current={view === label ? 'page' : undefined}>{label}</span>
+              ),
+            )}
           </nav>
           <button type="button" onClick={logOut}>Log out</button>
         </header>
       )}
       <main id="content" className="column">
-        <h1>Practice</h1>
+        {me.state === 'in' && view === 'Account' && <Account user={me.user} onDeleted={deleted} />}
+        {me.state === 'in' && view !== 'Account' && (
+          <>
+            <h1>Practice</h1>
+            <p>Signed in as {me.user.loginId}.</p>
+          </>
+        )}
         {me.state === 'loading' && <p>Checking who is signed in…</p>}
-        {me.state === 'in' && <p>Signed in as {me.user.loginId}.</p>}
         {me.state === 'error' && <p role="alert">! Error: {me.err.detail ?? me.err.message}</p>}
       </main>
     </>

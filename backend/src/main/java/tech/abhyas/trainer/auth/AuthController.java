@@ -95,9 +95,11 @@ public class AuthController {
                 .body(Map.of("user", Map.of("id", user.getId(), "loginId", user.getLoginId())));
     }
 
-    private ResponseCookie cookie(String value, Duration maxAge) {
+    private ResponseCookie cookie(String value, Duration maxAge) { return cookie(value, maxAge, secureCookie); }
+
+    static ResponseCookie cookie(String value, Duration maxAge, boolean secure) {
         return ResponseCookie.from(COOKIE, value).httpOnly(true).sameSite("Strict").path("/")
-                .secure(secureCookie).maxAge(maxAge).build();
+                .secure(secure).maxAge(maxAge).build();
     }
 
     private static ApiException taken() {
