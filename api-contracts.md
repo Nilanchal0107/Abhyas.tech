@@ -1,4 +1,4 @@
-# API contracts: Resume Defense Trainer
+# API contracts: Abhyas.tech
 
 **Status:** Draft v1, from the grilling session on 3 October 2026. Items marked *(my decision)* were filled in by me and can be changed.
 **Related:** `trd.md` (design, Section 8 lists the endpoints), `prd.md` (FR numbers), `wireframes.md` (screens W0 to W12), `database-schema.md` (tables), `UI-UX.md`.
@@ -358,7 +358,7 @@ Built on request, never stored. UTF-8. **Phone and email are removed** (the keys
 
 ```json
 {
-  "description": "Practice session export from Resume Defense Trainer. Sections: resume (the structured resume used), gapCheck (role skills with and without evidence), questionsAndAnswers (every question with the user's answer and the correct answer), grades (marks, checklists with quoted proof, mastered or not, and gradedBy: ai, fallback or java), feedback (per-answer feedback, voice stats and the session report), storyBank (the user's saved STAR stories).",
+  "description": "Practice session export from Abhyas.tech. Sections: resume (the structured resume used), gapCheck (role skills with and without evidence), questionsAndAnswers (every question with the user's answer and the correct answer), grades (marks, checklists with quoted proof, mastered or not, and gradedBy: ai, fallback or java), feedback (per-answer feedback, voice stats and the session report), storyBank (the user's saved STAR stories).",
   "metadata": { "exportedAt": "...", "sessionDate": "2026-10-03", "roleName": "Backend Developer", "voicePartSkipped": false },
   "resume": { "profile": { "name": "Asha Rao", "location": "Pune", "links": [], "summary": null }, "education": [], "experience": [], "projects": [], "skills": [] },
   "gapCheck": { "withEvidence": [], "withoutEvidence": [] },

@@ -1,4 +1,4 @@
-# Resume Defense Trainer
+# Abhyas.tech
 
 A web app that helps people prepare for job interviews by turning their own resume into questions, grading their answers, and repeating weak questions until they are strong.
 

@@ -1,4 +1,4 @@
-# PRD: Resume Defense Trainer (Interview Prep Platform)
+# PRD: Abhyas.tech (Interview Prep Platform)
 
 **Owner:** Paras Panchal
 **Status:** Draft v20 (API contracts added; see api-contracts.md)
@@ -552,3 +552,9 @@ None. All questions are answered. Items marked "my decision" or "my reading" in 
 - Added `api-contracts.md` (every endpoint, error codes, validation limits, export JSON shape).
 - Signup logs the user in. Passwords are 8 to 72 characters. A session in progress never sends correct answers or key facts to the browser.
 - A resume cannot be deleted while an unfinished session uses it.
+
+**Ticket 01 (3 October 2026)**
+- `V1__schema.sql` run on MySQL 8.0.42 for the first time. `role.owner_key` and `practice_session.open_user_id` changed from `STORED` to `VIRTUAL` generated columns, because MySQL refuses a `STORED` column over a base column that has a foreign key (error 1215). The unique indexes work the same. Updated in `database-schema.md` and the migration.
+
+**v14 to v15**
+- Project renamed from "Resume Defense Trainer" to "Abhyas.tech". Tagline: "Defend your resume". Maven artifact and Java package stay `tech.abhyas` / `trainer`.

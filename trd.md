@@ -1,4 +1,4 @@
-# TRD: Resume Defense Trainer
+# TRD: Abhyas.tech
 
 **Status:** Draft v1, from the grilling session on 3 October 2026. Items marked *(my decision)* were filled in by me and can be changed.
 **Related:** `prd.md` (what and why, FR numbers), `UI-UX.md` and `wireframes.md` (screens), `database-schema.md` (tables and V1 SQL, starter roles), `api-contracts.md` (exact request and response of every endpoint), `CONTEXT.md` (glossary).
@@ -112,6 +112,7 @@ This document says **how** the app is built. It does not repeat the requirements
    CREATE USER 'trainer'@'localhost' IDENTIFIED BY '<password>';
    GRANT ALL PRIVILEGES ON resume_trainer.* TO 'trainer'@'localhost';
    ```
+   If the `mysql` command is not on your PATH, use MySQL Shell (`\connect root@localhost`, then `\sql`) to run these statements.
 3. Set environment variables (names in `.env.example`): `DB_URL` (with `serverTimezone=UTC`), `DB_USER`, `DB_PASSWORD`, `JWT_SECRET` (at least 32 random bytes), `GROQ_API_KEY`, `GOOGLE_AI_KEY`. Alternatively put them in the gitignored `backend/src/main/resources/application-local.yml`.
 4. Backend: `cd backend`, then `mvn spring-boot:run`. Flyway creates the tables on first start.
 5. Frontend: `cd frontend`, `npm install`, `npm run dev`. Open `http://localhost:5173`.

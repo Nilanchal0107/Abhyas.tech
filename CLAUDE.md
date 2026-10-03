@@ -1,4 +1,4 @@
-# Resume Defense Trainer
+# Abhyas.tech
 
 A web app that turns a user's resume into interview questions, grades the answers, and repeats weak questions until they are mastered. Stack: React (Vite, JavaScript), Spring Boot (Java 21, Maven), MySQL 8. Licensed AGPL-3.0.
 

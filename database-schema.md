@@ -1,4 +1,4 @@
-# Database schema: Resume Defense Trainer
+# Database schema: Abhyas.tech
 
 **Status:** Draft v1, from the grilling session on 3 October 2026.
 **Related:** `prd.md` (FR numbers), `UI-UX.md`, `wireframes.md`, `CONTEXT.md` (glossary).
@@ -75,7 +75,7 @@ Shared by all users. Skills carry no personal data, so they survive account dele
 | name | VARCHAR(100) NOT NULL | |
 | category | VARCHAR(60) NULL | the 9 starter categories, NULL for user-added roles |
 | owner_user_id | BIGINT NULL FK `app_user` ON DELETE CASCADE | NULL means a starter role, visible to everyone. Set means private to that user |
-| owner_key | BIGINT generated STORED = IFNULL(owner_user_id, 0) | lets one unique index cover starter and private roles |
+| owner_key | BIGINT generated VIRTUAL = IFNULL(owner_user_id, 0) | lets one unique index cover starter and private roles |
 | created_at | DATETIME(3) | |
 
 Unique `(owner_key, name)`. Role search returns roles where `owner_user_id IS NULL OR owner_user_id = :me`.
@@ -208,7 +208,7 @@ Unique `(resume_id, text_hash)`. Index `(resume_id, type, mastered, last_score)`
 | report_status | ENUM('pending','ready','none') NOT NULL DEFAULT 'pending' | `none` when no AI text exists (fallback) |
 | started_at | DATETIME(3) NOT NULL | |
 | completed_at | DATETIME(3) NULL | |
-| open_user_id | BIGINT generated = IF(status='in_progress', user_id, NULL) | |
+| open_user_id | BIGINT generated VIRTUAL = IF(status='in_progress', user_id, NULL) | |
 
 Unique `open_user_id`, so a user has **at most one unfinished session** *(my decision, matches the single "Continue your practice session" card on Home)*. Index `(user_id, started_at)` for History.
 
@@ -364,7 +364,7 @@ CREATE TABLE role (
   name          VARCHAR(100) NOT NULL,
   category      VARCHAR(60)  NULL,
   owner_user_id BIGINT NULL,
-  owner_key     BIGINT GENERATED ALWAYS AS (IFNULL(owner_user_id, 0)) STORED,
+  owner_key     BIGINT GENERATED ALWAYS AS (IFNULL(owner_user_id, 0)) VIRTUAL,
   created_at    DATETIME(3)  NOT NULL DEFAULT (UTC_TIMESTAMP(3)),
   PRIMARY KEY (id),
   UNIQUE KEY uq_role_owner_name (owner_key, name),
@@ -508,7 +508,7 @@ CREATE TABLE practice_session (
   report_status ENUM('pending','ready','none') NOT NULL DEFAULT 'pending',
   started_at    DATETIME(3) NOT NULL DEFAULT (UTC_TIMESTAMP(3)),
   completed_at  DATETIME(3) NULL,
-  open_user_id  BIGINT GENERATED ALWAYS AS (IF(status = 'in_progress', user_id, NULL)) STORED,
+  open_user_id  BIGINT GENERATED ALWAYS AS (IF(status = 'in_progress', user_id, NULL)) VIRTUAL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_session_one_open (open_user_id),
   KEY ix_session_user_started (user_id, started_at),
@@ -581,7 +581,7 @@ CREATE TABLE story_resume_point (
 
 ## 10. Things to check when implementing
 
-- The SQL above has not been run against a MySQL server. Run `V1__schema.sql` on MySQL 8.0.16+ first and fix any syntax or generated-column error.
+- `V1` was first run on MySQL 8.0.42 on 3 October 2026 (ticket 01). Generated columns whose base column has a foreign key must be `VIRTUAL`: MySQL refuses `STORED` there (error 1215). Before that, run `V1__schema.sql` on MySQL 8.0.16+ first and fix any syntax or generated-column error.
 - Set the connection time zone to UTC (for example `serverTimezone=UTC` and Hibernate `jdbc.time_zone=UTC`), or the `UTC_TIMESTAMP(3)` defaults and application times will disagree.
 - `story.updated_at` is set by the application on every edit (MySQL's `ON UPDATE` only accepts `CURRENT_TIMESTAMP`, which would follow the session time zone instead of UTC).
 - Starter data: the roles, aliases and skills in Section 12 go in `V2`. The file `roles_starter.csv` itself is not created yet; Section 12 holds its exact content.

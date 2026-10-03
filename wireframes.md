@@ -1,4 +1,4 @@
-# Wireframes: Resume Defense Trainer
+# Wireframes: Abhyas.tech
 
 **Status:** Draft v1, from the grilling session on 3 October 2026.
 **Related:** `UI-UX.md` (principles, tokens, screens, states), `prd.md` (FR numbers), `CONTEXT.md` (glossary).
@@ -24,7 +24,7 @@ Shared by every screen except the Practice session.
 
 ```
 +--------------------------------------------------------------------------+
-|  Resume Defense Trainer   Practice  Resumes  Stories  History  Account  [Log out] |
+|  Abhyas.tech   Practice  Resumes  Stories  History  Account  [Log out] |
 +--------------------------------------------------------------------------+
 |                                                                          |
 |            +--------------------------------------------+                |
@@ -48,7 +48,7 @@ Purpose: get the user into their account. No top bar until logged in.
 
 ```
             +--------------------------------------+
-            |  Resume Defense Trainer              |
+            |  Abhyas.tech              |
             |                                      |
             |   ( Log in )   ( Sign up )           |
             |                                      |

@@ -1,4 +1,4 @@
-# UI/UX: Resume Defense Trainer
+# UI/UX: Abhyas.tech
 
 **Status:** Draft v2, from the grilling sessions on 3 October 2026. Every decision below was answered by the owner; items marked *(my decision)* were filled in by me and can be changed. v2 folds in the layout decisions from the wireframes session.
 **Related:** `prd.md` (requirements, FR numbers), `CONTEXT.md` (glossary), `wireframes.md` (screen layouts W0 to W12).
