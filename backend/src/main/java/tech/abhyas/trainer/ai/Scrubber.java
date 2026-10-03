@@ -1,0 +1,19 @@
+package tech.abhyas.trainer.ai;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/** Removes emails and phone numbers from text before it leaves the server (trd 7.5, 7.6). */
+public final class Scrubber {
+    private static final Pattern EMAIL = Pattern.compile("[\\w.%+-]+@[\\w-]+(\\.[\\w-]+)+");
+    private static final Pattern PHONE = Pattern.compile("(?<!\\w)\\+?\\d[\\d\\s().-]{6,}\\d");
+
+    private Scrubber() {}
+
+    public static String scrub(String text) {
+        String noEmail = EMAIL.matcher(text).replaceAll("[email removed]");
+        // ponytail: 9+ digits counts as a phone so year ranges like 2020-2023 survive; a long ID number would also go
+        return PHONE.matcher(noEmail).replaceAll(m -> m.group().chars().filter(Character::isDigit).count() >= 9
+                ? "[phone removed]" : Matcher.quoteReplacement(m.group()));
+    }
+}

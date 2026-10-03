@@ -18,6 +18,13 @@ app:
     secret: ${JWT_SECRET:} # at least 32 bytes; the app refuses to start without it
   cookie:
     secure: false # true only if the app is ever served over HTTPS
+  ai: # keys come from GROQ_API_KEY and GOOGLE_AI_KEY (trd 6.6)
+    timeout-seconds: 20
+    whisper-timeout-seconds: 40
+    models: # unverified placeholders, check current IDs before the first real call
+      groq-chat: llama-3.3-70b-versatile
+      groq-whisper: whisper-large-v3-turbo
+      gemma: gemma-3-27b-it
 server:
   port: 8080
   address: 127.0.0.1 # localhost only (README)
