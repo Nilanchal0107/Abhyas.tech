@@ -88,7 +88,7 @@ export default function Review({ initial, byAi, unavailable, fileName, roleId, i
       <h1>Review</h1>
       <p>Step 2 of 3: Review</p>
       {byAi && <p>! Some parts were read by an AI assistant. Please check them.</p>}
-      {unavailable && <p>! We could not read this resume automatically. Please fill in the form yourself.</p>}
+      {unavailable && <p>! Parts of this resume may be missing or in the wrong box. Please check the form and fix them.</p>}
 
       <Section title="Contact" defaultOpen>
         <Field label="Name" value={p.profile.name} onChange={profile('name')} />

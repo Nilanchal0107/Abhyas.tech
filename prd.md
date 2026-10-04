@@ -239,7 +239,7 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
   - Audio is not included, only transcripts.
 
 ### FR-20 AI fallback: question bank and basic grading *(my decisions, change anything you like)*
-**When it runs:** automatically when an AI call fails or a free limit is reached. Nothing crashes. *(Confirmed v15:)* the switch is **silent**: no banner, no dialog, and no label. Bank questions and fallback grades look the same as AI ones. Only a hard failure with no fallback (for example voice with no Whisper) shows an inline error message.
+**When it runs:** automatically when an AI call fails or a free limit is reached. Nothing crashes. There is no banner or dialog, and bank questions look the same as AI ones. **A keyword-graded answer is labelled** in the report ("Graded without AI") with a **Regrade with AI** button *(changed 4 October 2026; it was fully silent since v15)*. Only a hard failure with no fallback (for example voice with no Whisper) shows an inline error message.
 
 **Question bank (MySQL, shared by all users)**
 - Table `bank_question`: type (multiple-correct, fill-blank, brief, voice), difficulty, linked **skill** (from the roles database), text with placeholders, options and correct options (multiple-correct), accepted answers (fill-blank), key facts and keywords (brief/voice).
@@ -265,7 +265,7 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
   - **Microphone denied (or Whisper fails during a voice question):** the user types the answer instead. It is graded like a brief answer (5 marks), with no delivery stats, and the question loses 5 of its 10 marks. Mastery uses the brief mark (4 of 5). The question stays a voice question and is offered again in a later session.
 
 **Marking and tracking**
-- Each attempt stores `graded_by` (AI or fallback). It is **not shown in the app** (silent fallback), but it is included in the JSON export (FR-19), so a user can see which answers were keyword-graded.
+- Each attempt stores `graded_by` (AI or fallback). The report labels keyword-graded answers and offers a regrade once AI is back, which marks the answer with Groq, rewrites its feedback and the report, and lets the mark count toward mastery. `graded_by` is also in the JSON export (FR-19).
 - *My decision:* fallback grades do not count toward mastery for brief and voice answers (keyword matching is too rough), so those questions come back later for AI grading. Multiple-correct and fill-in-the-blank mastery is unaffected.
 
 **Limits (honest)**
@@ -420,7 +420,7 @@ Data decisions *(from the database-schema session, v18)*: a saved resume is read
 | Whisper may remove "um" and "uh" from transcripts | Filler-word counts could be lower than reality. |
 | Starter roles list comes from Claude's general knowledge | Some skills may be outdated or missing and need review. |
 | Users adding roles | Near-duplicate roles can appear in a user's own list if the alias search misses a match. |
-| Fallback bank is generic and keyword grading is rough | Questions feel less personal and brief/voice grades may be unfair. The user is not told when it happens (silent fallback), so a strict grade cannot be explained in the app. Mitigated by not counting those grades toward mastery and by `graded_by` in the export. |
+| Fallback bank is generic and keyword grading is rough | Questions feel less personal and brief/voice grades may be unfair. Mitigated by labelling keyword-graded answers with a Regrade button, by not counting those grades toward mastery, and by `graded_by` in the export. |
 | Bank questions from AI may contain errors | Saved AI questions are trusted by Java later, the same risk as FR-9. |
 | Export still contains personal details | Phone and email are removed, but the name, links and answers stay in the file. The user decides which AI tool receives it. |
 
@@ -613,6 +613,8 @@ None. All questions are answered. Items marked "my decision" or "my reading" in 
 - **Interview mode** (new): about 6 open questions, spoken or typed, with one AI follow-up per answer, then marks, feedback and a coaching report. The quiz session stays.
 - **Fallback is no longer silent** (reverses v15): keyword-graded answers show "Graded without AI" and a Regrade button.
 - **Unchanged:** Groq gives the marks and Gemma writes the feedback and the report.
+- **Bug fix, parsing without AI:** when the browser parse looked incomplete or low quality and the AI fallback was unavailable, the Review form opened **empty**, discarding the OpenResume result (and "Scan with AI" did the same). The browser parse is now kept, with the message "Parts of this resume may be missing or in the wrong box. Please check the form and fix them."
+- **Keyword-graded label and regrade built** (skill-bank ticket 12): `Attempt.gradedWithoutAi`, `POST /sessions/{id}/attempts/{position}/regrade` (202, `regrade-unavailable`, `ai-unavailable`), and a "Graded without AI" note with a "Regrade with AI" button in the report.
 - **"Add a missing role" removed** with its AI skill draft (`POST /roles`, `POST /roles/draft-skills`, the W5 panel). Roles added earlier stay in the database, private to their user.
 - The reviewed bank starts with the **Full Stack Developer** skills.
 - Proposed, not decided: a progress view across sessions (weakest skills, "study next").

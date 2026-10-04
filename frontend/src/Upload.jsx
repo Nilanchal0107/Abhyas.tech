@@ -9,7 +9,8 @@ import { checkFile, looksIncomplete, lowQuality, notAResume, toParsedResume } fr
 
 // W4: file + target role + optional interview date. The PDF is parsed in the browser first.
 // A parse that looks incomplete is retried on the backend (PDFBox + AI, trd 7.1). The Review form (W6) takes over once there is a result; the upload form stays mounted but hidden so Back keeps the file.
-// Sends the PDF to the backend. If AI is unavailable the user gets an empty form and an inline message.
+// Sends the PDF to the backend. If that fails (AI unavailable or any error) the browser parse is kept, never replaced by an empty
+// form: without AI the OpenResume result is all the user has, and the Review form lets them fix it.
 async function fallback(file, browserParsed) {
   const body = new FormData()
   body.append('file', file)
@@ -17,17 +18,12 @@ async function fallback(file, browserParsed) {
     return { parsed: (await api('/resumes/parse-fallback', { method: 'POST', body })).resume, byAi: true }
   } catch (e) {
     if (e.type !== 'ai-unavailable') return { parsed: browserParsed, incomplete: true, error: e.message }
-    return { parsed: emptyResume, unavailable: true }
+    return { parsed: browserParsed, unavailable: true }
   }
 }
 
 // a new token remounts the Review form, so a fresh parse replaces what the user was editing
 const stamp = (r) => ({ ...r, token: crypto.randomUUID() })
-
-const emptyResume = {
-  profile: { name: null, email: null, phone: null, location: null, links: [], summary: null },
-  education: [], experience: [], projects: [], skills: [],
-}
 
 export default function Upload() {
   const [file, setFile] = useState(null)

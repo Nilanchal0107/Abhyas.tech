@@ -48,6 +48,7 @@ This document fixes the exact request and response of every endpoint, so the fro
 | `login-taken` | 409 | signup with a login ID already used | |
 | `session-open` | 409 | starting a session while one is unfinished, or deleting a resume used by an unfinished session *(my decision)* | `sessionId` |
 | `session-closed` | 409 | saving an answer, uploading audio or abandoning for a session that is not `in_progress` | |
+| `regrade-unavailable` | 409 | regrading an answer that was not keyword-graded, or while grading is still running | |
 | `session-not-completed` | 409 | exporting a session that is not `completed` | |
 | `file-too-large` | 413 | the PDF is over 1 MB, or the audio is over 5 MB | |
 | `throttled` | 429 | too many failed logins | `retryAfterSeconds` |
@@ -135,6 +136,7 @@ Once the session is `completed`, each attempt also has (all `null` while grading
 {
   "score": 1.5,
   "mastered": false,
+  "gradedWithoutAi": false,
   "correctOptions": ["A", "C"],
   "acceptedAnswers": null,
   "blankResults": null,
@@ -145,7 +147,7 @@ Once the session is `completed`, each attempt also has (all `null` while grading
 ```
 - `correctOptions` only for multiple-correct. `acceptedAnswers` (one list per blank) and `blankResults` (`[{ "correct": true }]`) only for fill-in-the-blank. `checklist` and `keyFacts` only for brief and voice (`keyFacts` is `[]` for a behavioral question, which has no answer key).
 - `feedback.status` is `pending`, `ready` or `none`. `none` means the text is a template written by Java (or empty for an objective answer), not by Gemma; the UI shows it the same way. `deliveryComment` is set only for voice answers.
-- **`gradedBy` is never in an in-app response** (silent fallback, FR-20). It appears only in the export.
+- `gradedWithoutAi` is `true` when keyword matching gave the mark (`graded_by = 'fallback'`); the report then offers a regrade (6, skill-bank D9, 4 October 2026). The raw `gradedBy` value appears only in the export.
 - `maxMarks` is 2, 5 or 10. A voice question answered by typing has `maxMarks: 5`.
 - The checklist `item` keys by question:
   - brief technical: `key_fact_1` to `key_fact_3`, `explains_why`, `consistent_with_resume`
@@ -222,7 +224,7 @@ Response `200`:
 
 ### `POST /resumes/parse-fallback` (W4)
 `multipart/form-data` with one field `file` (the PDF). The PDF is discarded after the request. Response `200`: `{ "resume": { "...": "ParsedResume" } }` (missing fields are `null`).
-Errors: `not-a-pdf`, `file-too-large` (over 1 MB), `ai-unavailable` (the UI shows the empty Review form with an inline message).
+Errors: `not-a-pdf`, `file-too-large` (over 1 MB), `ai-unavailable` (the UI keeps the browser parse in the Review form with an inline message).
 
 ### `POST /resumes` (W6 Save and continue)
 ```json
@@ -301,6 +303,9 @@ Errors: `validation` (not `audio/webm`, or over 180 seconds, or the question at 
 
 ### `POST /sessions/{id}/submit` (W8 last question)
 No body. Marks unanswered slots as zero, completes the session and starts the background grading. Response `202`: `{ "session": SessionDetail }` (`status: "completed"`, `totalMarks: null`, `gradingComplete: false`). Repeating it after submit returns `200` with the current session and **does not start grading again**. Errors: `not-found`, `session-closed` (the session was abandoned).
+
+### `POST /sessions/{id}/attempts/{position}/regrade` (W9, skill-bank D9)
+No body. For a keyword-graded answer (`gradedWithoutAi: true`) of a fully graded session: clears its mark and feedback and hands it back to the grading worker, which marks it with Groq (or keywords again if Groq fails), rewrites its feedback and the report, and updates the total. An AI mark counts toward mastery. Response `202`: `{ "session": SessionDetail }` with `gradingComplete: false`; poll as after submit. Errors: `not-found`, `regrade-unavailable` (not keyword-graded, or grading still running), `ai-unavailable` (503, Groq not available now; nothing is changed).
 
 ### `POST /sessions/{id}/abandon` (W8 Leave session, W2)
 No body. Response `200`: `{ "session": SessionSummary }` with `status: "abandoned"`. Repeating it returns the same. Errors: `not-found`, `session-closed` (already completed).
@@ -401,6 +406,7 @@ Built on request, never stored. UTF-8. **Phone and email are removed** (the keys
 | `PUT /sessions/{id}/attempts/{position}` | 200 | W8 |
 | `POST /sessions/{id}/attempts/{position}/transcribe` | 200 | W8 |
 | `POST /sessions/{id}/submit` | 202 (200 on repeat) | W8 |
+| `POST /sessions/{id}/attempts/{position}/regrade` | 202 | W9 |
 | `POST /sessions/{id}/abandon` | 200 | W8, W2 |
 | `GET /sessions/{id}/export` | 200 | W9, W10 |
 | `GET /stories` | 200 | W11a |
