@@ -53,10 +53,25 @@ class SessionRulesTest {
                 "{\"resumePointId\":7,\"text\":\"Q?\",\"options\":[\"a\",\"b\",\"c\",\"d\"],\"correct\":[]}", // none correct
                 "{\"resumePointId\":7,\"text\":\"Q?\",\"options\":[\"a\",\"b\",\"c\",\"d\"],\"correct\":[\"E\"]}", // key out of range
                 "{\"resumePointId\":7,\"text\":\"Q?\",\"options\":[\"a\",\"a\",\"c\",\"d\"],\"correct\":[\"A\"]}", // repeated option
-                "{\"resumePointId\":7,\"text\":\" \",\"options\":[\"a\",\"b\",\"c\",\"d\"],\"correct\":[\"A\"]}")) {
+                "{\"resumePointId\":7,\"text\":\" \",\"options\":[\"a\",\"b\",\"c\",\"d\"],\"correct\":[\"A\"]}",
+                "{\"resumePointId\":7,\"text\":\"Q?\",\"options\":[\"a\",\"b\",\"c\",\"d\"],\"correct\":[\"A\",\"B\",\"C\",\"D\"]}")) { // all four correct
             assertThat(gen("{\"questions\":[" + bad + "," + ok + "]}")).as(bad).hasSize(1); // the bad one is dropped, the good one kept
         }
         assertThat(gen("{\"questions\":\"nope\"}")).isEmpty();
+    }
+
+    @Test
+    void aBlankOfAnyLengthAndAFlatWordingListAreAccepted() {
+        var got = SessionService.validBlanks(JSON.readTree("{\"questions\":[{\"resumePointId\":7,\"text\":\"Gunicorn is a _______ server.\",\"accepted\":[\"WSGI\",\"wsgi http\"]}]}"), Set.of(7L));
+        assertThat(got).hasSize(1);
+        assertThat(got.get(0).text()).isEqualTo("Gunicorn is a " + SessionService.BLANK + " server.");
+        assertThat(got.get(0).accepted()).containsExactly(List.of("WSGI", "wsgi http"));
+    }
+
+    @Test
+    void anOptionsOwnLetterLabelIsDropped() {
+        String labelled = "{\"resumePointId\":7,\"text\":\"Q?\",\"options\":[\"A) React\",\"B. Vue\",\"(C) Svelte\",\"D) C) not mine\"],\"correct\":[\"A\"]}";
+        assertThat(gen("{\"questions\":[" + labelled + "]}").get(0).options()).containsExactly("React", "Vue", "Svelte", "C) not mine");
     }
 
     @Test

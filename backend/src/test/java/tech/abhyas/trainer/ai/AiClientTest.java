@@ -40,6 +40,7 @@ class AiClientTest {
             timeouts.add(timeout);
             Object step = script.remove();
             if (step instanceof AiFailure.Kind k) throw new AiFailure(k);
+            if (step instanceof AiFailure f) throw f;
             return (String) step;
         }
     }
@@ -52,6 +53,7 @@ class AiClientTest {
     }
 
     FakeTransport fake;
+    List<Long> sleeps;
     MutableClock clock;
     AiClient client;
     ListAppender<ILoggingEvent> logs;
@@ -61,6 +63,8 @@ class AiClientTest {
         fake = new FakeTransport();
         clock = new MutableClock();
         client = new AiClient(fake, new AiGate(clock), JsonMapper.builder().build(), 20, 40);
+        sleeps = new ArrayList<>();
+        client.sleep = ms -> { sleeps.add(ms); clock.now.set(clock.instant().plusMillis(ms)); };
         logs = new ListAppender<>();
         logs.start();
         ((Logger) LoggerFactory.getLogger(AiClient.class)).addAppender(logs);
@@ -125,6 +129,31 @@ class AiClientTest {
         clock.now.set(clock.instant().plus(Duration.ofMinutes(15)));
         fake.then(OK);
         assertTrue(ok(Provider.GEMMA));
+    }
+
+    @Test
+    void aShortRetryAfterIsWaitedOutAndTheCallRepeated() {
+        fake.then(new AiFailure(AiFailure.Kind.RATE_LIMIT, 5), OK);
+        assertTrue(ok(Provider.GROQ_CHAT));
+        assertEquals(List.of(5_000L), sleeps);
+    }
+
+    @Test
+    void aShortCooldownIsWaitedOutBeforeCalling() {
+        fake.then(new AiFailure(AiFailure.Kind.RATE_LIMIT, 5), new AiFailure(AiFailure.Kind.RATE_LIMIT, 5)); // limited again after the wait: 5 s cooldown
+        assertFalse(ok(Provider.GROQ_CHAT));
+        fake.then(OK);
+        assertTrue(ok(Provider.GROQ_CHAT)); // e.g. a session start right after the key-facts worker hit the limit
+        assertEquals(List.of(5_000L, 5_000L), sleeps);
+    }
+
+    @Test
+    void aLongRetryAfterFailsWithoutWaitingLong() {
+        fake.then(new AiFailure(AiFailure.Kind.RATE_LIMIT, 600), new AiFailure(AiFailure.Kind.RATE_LIMIT, 600));
+        assertFalse(ok(Provider.GROQ_CHAT));
+        assertFalse(ok(Provider.GROQ_CHAT)); // 10 minute cooldown: no wait, no call
+        assertEquals(List.of(15_000L), sleeps);
+        assertEquals(2, fake.prompts.size());
     }
 
     @Test

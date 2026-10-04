@@ -38,3 +38,13 @@ export async function download(path) {
 
 export const postJson = (path, body) =>
   api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+
+// Starts a practice session with this resume and returns its id. An unfinished session (409 session-open) is continued instead.
+export async function startSession(resumeId) {
+  try {
+    return (await postJson('/sessions', { resumeId })).session.id
+  } catch (e) {
+    if (e.type === 'session-open') return e.problem.sessionId
+    throw e
+  }
+}

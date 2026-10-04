@@ -29,8 +29,8 @@ class PracticeBank {
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{(project|skill|company|bullet|theme)}");
     private static final Pattern OWNER = Pattern.compile("^(experience|projects)\\[(\\d+)]\\.bullets\\[");
     private static final int WINDOW = 5; // a run of this many words copied from a bullet makes a question personal
-    private static final Map<String, String> THEME_TEXT = Map.of("teamwork", "a teamwork challenge", "conflict", "a conflict with a colleague",
-            "failure", "a failure or setback", "leadership", "a chance to lead", "deadline_pressure", "deadline pressure");
+    private static final Map<String, String> THEME_TEXT = Map.of("teamwork", "worked through a teamwork challenge", "conflict", "had a conflict with a teammate",
+            "failure", "faced a failure or setback", "leadership", "took the lead", "deadline_pressure", "worked under deadline pressure");
 
     private final NamedParameterJdbcTemplate jdbc;
     private final Random random = new Random();
@@ -236,8 +236,7 @@ class PracticeBank {
             for (String[] x : combos) if (!ordered.contains(x)) ordered.add(x);
             for (String[] x : ordered) {
                 if (made >= need) break;
-                String lead = type.equals("voice") ? "Tell me, out loud, about a time you faced " : "Tell me about a time you faced ";
-                if (insert(c.resumeId(), null, null, type, x[0], lead + THEME_TEXT.get(x[0]) + x[1] + ".", null, null, null, null, null)) made++;
+                if (insert(c.resumeId(), null, null, type, x[0], "Tell me about a time you " + THEME_TEXT.get(x[0]) + x[1] + ".", null, null, null, null, null)) made++;
             }
             return;
         }

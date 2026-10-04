@@ -190,7 +190,7 @@ This document says **how** the app is built. It does not repeat the requirements
    - **New:** `times_asked = 0`. **Rested:** `mastered = true AND last_asked_at < now - 1 month`.
    - Slots left after the unmastered ones are filled at random from new plus rested.
    - Quotas inside a part use the theme: brief is 4 technical (theme NULL) plus 2 behavioral, voice is 1 plus 2.
-4. **Missing slots** (the pools are too small): generate them (Q12). One Groq call per part, given the resume points with their key facts, returning questions each linked to a `resume_point_id`. Java validates them (right number of options, at least one correct, accepted answers present, 1 or 2 blanks, linked point exists), saves them to `question` and, if technical, also to `bank_question` without personal text (FR-20). If a call fails or its JSON is invalid after one retry, the slots come from the practice bank, and if the bank has nothing, from the generic templates (FR-20). Points still `pending` for key facts are covered by bank questions for their skill (FR-8).
+4. **Missing slots** (the pools are too small): generate them (Q12). One Groq call per part, given the resume points with their key facts, returning questions each linked to a `resume_point_id`. Java validates them (right number of options, 1 to 3 correct with an option's own "A)" label removed, accepted answers present, 1 or 2 blanks, linked point exists), saves them to `question` and, if technical, also to `bank_question` without personal text (FR-20). If a call fails or its JSON is invalid after one retry, the slots come from the practice bank, and if the bank has nothing, from the generic templates (FR-20). Points still `pending` for key facts are covered by bank questions for their skill (FR-8).
 5. Insert the `practice_session` and its `attempt` rows (slots), set `resume.last_used_at`, set each chosen question's `last_asked_at` and `times_asked`. Return the session with the first question.
 
 ### 7.3 Answering (FR-10, FR-15)
@@ -218,7 +218,7 @@ The report page polls `GET /api/sessions/{id}` every 2 to 3 seconds while `repor
 
 ### 7.5 AI gate and fallback (FR-20, Q6, Q11)
 - `AiClient` is the only code that calls a provider. For every call it: removes phone numbers and emails from outgoing text, sets temperature 0, asks for JSON only, applies the timeout, parses and validates the reply (Q7), and retries once on a 5xx, a timeout or invalid JSON.
-- `AiGate` keeps in-memory state per provider (`groq-chat`, `groq-whisper`, `gemma`). When a provider returns HTTP 429 or a daily-limit error it is marked unavailable: **15 minutes** for a per-minute limit, **until the next UTC midnight** for a daily limit. While unavailable the gate answers "unavailable" at once, with no call and no wait. State resets on restart.
+- `AiGate` keeps in-memory state per provider (`groq-chat`, `groq-whisper`, `gemma`). When a provider returns HTTP 429 or a daily-limit error it is marked unavailable: for the reply's `Retry-After` seconds for a per-minute limit (**15 minutes** when there is no `Retry-After`), **until the next UTC midnight** for a daily limit. While unavailable the gate answers "unavailable" at once, with no call and no wait. State resets on restart.
 - The three services pick an implementation per call:
 
 | Interface | AI implementation | Fallback implementation |
@@ -266,12 +266,12 @@ All under `/api`, JSON, cookie auth except signup and login. Errors are Problem 
 
 ## 9. Frontend design
 
-- **Routes** follow `wireframes.md`: `/` (W13 landing page, public), `/login`, `/practice` (W2 Home), `/resumes` (W3), `/resumes/new` (W4), `/resumes/new/review` (W6), `/resumes/:id/role-skills` (W7), `/practice/:id` (W8, no top bar), `/sessions/:id/report` (W9), `/history` (W10), `/stories`, `/stories/new`, `/stories/:id/edit` (W11), `/account`, `/account/delete` (W12).
+- **Routes** follow `wireframes.md`: `/` (W13 landing page, public), `/login`, `/practice` (W2 Home), `/resumes` (W3), `/resumes/new` (W4), `/resumes/new/review` (W6, not a route yet: the review form needs the picked file in memory, which a refresh would lose), `/resumes/:id` (open), `/resumes/:id/role-skills` (W7), `/practice/:id` (W8, no top bar), `/sessions/:id/report` (W9), `/history` (W10), `/stories`, `/stories/new`, `/stories/:id/edit` (W11), `/account`, `/account/delete` (W12).
 - **API layer:** `src/api/client.js` wraps `fetch` (same origin, cookie sent), turns Problem Details into an error with `detail`, and on 401 stores the current route and sends the user to `/login`, then back.
 - **Data:** TanStack Query for reads, polling (`refetchInterval` on the report while anything is `pending`) and refreshing lists after a save. Form state is plain React state. No Redux.
 - **Parser:** `src/lib/openresume/` holds the copied parser with its license notice. A thin function turns its result into the JSON shape in `database-schema.md` 4.1 and applies the "looks incomplete" test (7.1).
 - **Voice:** a `useRecorder` hook around `MediaRecorder` (WebM/Opus) with a 180-second countdown, the stop button, and the typed fallback when the permission is denied or transcription fails (`wireframes.md` 8e).
-- **Styling:** `tokens.css` holds the CSS custom properties from `UI-UX.md` Section 4. No gradients. Icon plus word for every status.
+- **Styling:** `tokens.css` holds the CSS custom properties from `UI-UX.md` Section 4. No gradients (translucent materials allowed, see `UI-UX.md` Section 4). Icon plus word for every status.
 - **Accessibility:** WCAG 2.1 AA (`UI-UX.md` Section 8): visible focus, labels on every input, `aria-expanded` on report rows, `role="progressbar"` on the session progress, focus moved into and restored from panels and dialogs.
 
 ## 10. Security and privacy

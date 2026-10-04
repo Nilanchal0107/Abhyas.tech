@@ -3,15 +3,8 @@ import { api } from './api/client.js'
 
 const BOXES = [['situation', 'Situation'], ['task', 'Task'], ['action', 'Action'], ['result', 'Result'], ['lesson', 'Lesson learned']]
 
-// W11: the Story bank. `prefill` ({ action, sourceAttemptId }) opens the form straight away, from "Save as story" in the report.
-export default function Stories({ prefill, onPrefillUsed }) {
-  const [form, setForm] = useState(prefill ? { prefill } : null) // null = the list
-  useEffect(() => { if (prefill) onPrefillUsed?.() }, [prefill, onPrefillUsed])
-  return form ? <StoryForm id={form.id} prefill={form.prefill} onClose={() => setForm(null)} /> : <StoryList onForm={setForm} />
-}
-
-// W11a
-function StoryList({ onForm }) {
+// W11a (route /stories). onNew() and onEdit(id) open the form page.
+export function StoryList({ onNew, onEdit }) {
   const [data, setData] = useState(null)
   const [tag, setTag] = useState(null)
   const [error, setError] = useState('')
@@ -34,7 +27,7 @@ function StoryList({ onForm }) {
   return (
     <>
       <h1>Story bank</h1>
-      <button type="button" onClick={() => onForm({})}>New story</button>
+      <button type="button" className="primary" onClick={onNew}>New story</button>
       {error && <p role="alert">! Error: {error}</p>}
       {!data && !error && <p>Loading…</p>}
       {data && (
@@ -54,9 +47,9 @@ function StoryList({ onForm }) {
               {s.tags.length > 0 && <p>{s.tags.join(' · ')}</p>}
               {s.preview && <p>{s.preview}</p>}
               {confirming === s.id ? (
-                <p role="alert">Delete this story? <button type="button" onClick={() => remove(s.id)}>Yes, delete</button> <button type="button" onClick={() => setConfirming(null)}>Cancel</button></p>
+                <p role="alert">Delete this story? <button type="button" className="danger" onClick={() => remove(s.id)}>Yes, delete</button> <button type="button" onClick={() => setConfirming(null)}>Cancel</button></p>
               ) : (
-                <p><button type="button" onClick={() => onForm({ id: s.id })}>Edit</button> <button type="button" onClick={() => setConfirming(s.id)}>Delete</button></p>
+                <p><button type="button" onClick={() => onEdit(s.id)}>Edit</button> <button type="button" className="danger" onClick={() => setConfirming(s.id)}>Delete</button></p>
               )}
             </article>
           ))}
@@ -66,8 +59,8 @@ function StoryList({ onForm }) {
   )
 }
 
-// W11b: its own page, for a new story and for editing one
-function StoryForm({ id, prefill, onClose }) {
+// W11b (routes /stories/new and /stories/:id/edit). `prefill` is { action, sourceAttemptId } from "Save as story" in the report.
+export function StoryForm({ id, prefill, onClose }) {
   const [v, setV] = useState({ title: '', situation: '', task: '', action: prefill?.action ?? '', result: '', lesson: '' })
   const [tags, setTags] = useState([])
   const [newTag, setNewTag] = useState('')

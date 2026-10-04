@@ -555,22 +555,33 @@ Purpose: account details and deleting the account.
 
 ## W13. Landing page (public, `/`)
 
+Dark theme, see UI-UX 6.0. Layout type A (classic hero plus sections).
+
 ```
 +--------------------------------------------------------------+
-| Abhyas.tech                              [Log in] [Sign up]  |  (signed in: [Go to practice])
-+--------------------------------------------------------------+
-|  Defend every line of your resume.                           |
+|        ( Abhyas.tech   [Log in] [Sign up] )   floating pill  |  (signed in: [Go to practice]; narrow: hamburger)
+|                                                              |
+|  Defend every line                                           |
+|  of your resume.                                             |
 |  One paragraph: resume -> questions -> marks -> repeat.      |
 |  [Create a free account]                                     |
+|  (shield) No PDF or voice recording is ever stored...        |
+|  +----------------------------------------------------+      |
+|  | Example question      | Marked 4 of 5 with proof   |      |
+|  +----------------------------------------------------+      |
 |                                                              |
-|  How it works                                                |
-|  [1 Upload] [2 Practice] [3 Feedback] [4 Repeat until mastered]|
+|  Question lists do not know your resume   (problem)          |
+|  What you get: [5 benefit cards]                             |
 |                                                              |
-|  Also in the box: role skills check, story bank, Export JSON |
-|  Your data stays yours: no PDF or audio stored, delete anytime|
-|  See it in action: [Watch the tutorial] [View on GitHub]     |
+|  Large tagline, words light up one by one on scroll          |
+|                                                              |
+|  How it works: [1 Upload] [2 Answer 19 questions] [3 Fix]   |
+|  Your data stays yours                                       |
+|  Questions: 8 FAQ items (expand in place)                    |
+|  Find the weak spots before the interviewer does.            |
+|  [Create a free account]   Free account. Delete anytime.     |
 +--------------------------------------------------------------+
-|  Open source under the AGPL-3.0 license.                     |
+|  Open source under AGPL 3.0   [Tutorial] [GitHub] (when set)  |
 +--------------------------------------------------------------+
 ```
 

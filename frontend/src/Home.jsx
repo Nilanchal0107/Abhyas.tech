@@ -39,7 +39,7 @@ export default function Home({ user, onPractice, onReport, onUpload }) {
   return (
     <>
       <h1>Practice</h1>
-      <p>Signed in as {user.loginId}.</p>
+      <p className="muted">Signed in as {user.loginId}.</p>
       {error && <p role="alert">! Error: {error}</p>}
       {!data && !error && <p>Loading…</p>}
 
@@ -47,7 +47,7 @@ export default function Home({ user, onPractice, onReport, onUpload }) {
         <section aria-label="Upload your resume">
           <h2>Welcome. Let's start with your resume.</h2>
           <p>We turn it into questions about the things you will be asked to defend.</p>
-          <button type="button" onClick={onUpload}>Upload your resume</button>
+          <button type="button" className="primary" onClick={onUpload}>Upload your resume</button>
         </section>
       )}
 
@@ -55,19 +55,23 @@ export default function Home({ user, onPractice, onReport, onUpload }) {
         <section aria-label="Continue your practice session">
           <h2>! Continue your practice session</h2>
           <p>Started {day(open.startedAt)} · {open.answeredCount} of {open.questionCount} answered · {open.resume.fileName}</p>
-          <button type="button" onClick={() => onPractice(open.id)}>Continue</button>{' '}
-          <button type="button" onClick={leave}>Leave session</button>
+          <div className="actions">
+            <button type="button" className="primary" onClick={() => onPractice(open.id)}>Continue</button>
+            <button type="button" onClick={leave}>Leave session</button>
+          </div>
         </section>
       )}
 
       {data && data.resumes.length > 0 && !open && (
         <section aria-label="Start a practice session">
           <h2>Start a practice session</h2>
-          <label htmlFor={selectId}>Resume </label>
-          <select id={selectId} value={resumeId} onChange={(e) => setResumeId(e.target.value)}>
-            {data.resumes.map((r) => <option key={r.id} value={r.id}>{r.fileName} ({r.targetRole.name})</option>)}
-          </select>{' '}
-          <button type="button" disabled={preparing} onClick={start}>Start practice session</button>
+          <div className="actions">
+            <label htmlFor={selectId}>Resume</label>
+            <select id={selectId} value={resumeId} onChange={(e) => setResumeId(e.target.value)}>
+              {data.resumes.map((r) => <option key={r.id} value={r.id}>{r.fileName} ({r.targetRole.name})</option>)}
+            </select>
+            <button type="button" className="primary" disabled={preparing} onClick={start}>Start practice session</button>
+          </div>
           {preparing && <p aria-live="polite">Preparing your questions…</p>}
         </section>
       )}
@@ -79,7 +83,10 @@ export default function Home({ user, onPractice, onReport, onUpload }) {
               <h2>Latest practice session ({day(latest.completedAt)})</h2>
               {latest.totalMarks == null ? <p aria-live="polite">Marking your answers…</p> : (
                 <>
-                  <p>Total {latest.totalMarks} / {latest.maxMarks} · Mastered {latest.masteredCount} of {latest.attempts.length}</p>
+                  <div className="stats">
+                    <div className="stat"><strong>{latest.totalMarks} / {latest.maxMarks}</strong><span>Total</span></div>
+                    <div className="stat"><strong>{latest.masteredCount} of {latest.attempts.length}</strong><span>Mastered</span></div>
+                  </div>
                   {latest.weakestPoints?.length > 0 && (
                     <>
                       <p>Weakest resume points:</p>
@@ -88,7 +95,7 @@ export default function Home({ user, onPractice, onReport, onUpload }) {
                   )}
                 </>
               )}
-              <button type="button" onClick={() => onReport(latest.id)}>Open report</button>
+              <div className="actions"><button type="button" onClick={() => onReport(latest.id)}>Open report</button></div>
             </>
           )}
         </section>

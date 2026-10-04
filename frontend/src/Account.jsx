@@ -2,24 +2,22 @@ import { useId, useState } from 'react'
 import { api } from './api/client.js'
 
 // W12a: account details and the danger zone. W12b: delete confirmation (own page).
-export default function Account({ user, onDeleted }) {
-  const [confirming, setConfirming] = useState(false)
-  if (confirming) return <ConfirmDelete onCancel={() => setConfirming(false)} onDeleted={onDeleted} />
+export default function Account({ user, onDelete }) {
   return (
     <>
       <h1>Account</h1>
-      <p>User ID: {user.loginId}</p>
+      <p className="muted">User ID: {user.loginId}</p>
       <h2>Danger zone</h2>
       <section className="danger">
         <h3>Delete my account</h3>
         <p>This permanently deletes all your data.</p>
-        <button type="button" onClick={() => setConfirming(true)}>Delete my account ...</button>
+        <button type="button" className="danger" onClick={onDelete}>Delete my account ...</button>
       </section>
     </>
   )
 }
 
-function ConfirmDelete({ onCancel, onDeleted }) {
+export function ConfirmDelete({ onCancel, onDeleted }) {
   const [password, setPassword] = useState('')
   const [word, setWord] = useState('')
   const [error, setError] = useState(null)
@@ -62,7 +60,7 @@ function ConfirmDelete({ onCancel, onDeleted }) {
           <label htmlFor={`${id}-word`}>Type DELETE</label>
           <input id={`${id}-word`} value={word} onChange={(e) => setWord(e.target.value)} autoComplete="off" spellCheck={false} />
         </div>
-        <button type="submit" disabled={busy || !password || word !== 'DELETE'}>Delete my account</button>{' '}
+        <button type="submit" className="danger" disabled={busy || !password || word !== 'DELETE'}>Delete my account</button>{' '}
         <button type="button" onClick={onCancel}>Cancel</button>
       </form>
     </>

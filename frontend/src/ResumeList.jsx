@@ -1,6 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import { api, postJson } from './api/client.js'
-import RoleSkills from './RoleSkills.jsx'
+import { api, startSession } from './api/client.js'
 
 const day = (iso) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 
@@ -58,14 +57,11 @@ export function Open({ id, pointId, onBack, onChanged }) {
   )
 }
 
-// W3: list, open, delete, role skills check (W7). Practice starts a session (W8).
-export default function ResumeList({ onUpload, onPractice }) {
+// W3: list, delete. Open (W3) and the role skills check (W7) are their own routes. Practice starts a session (W8).
+export default function ResumeList({ onUpload, onPractice, onOpen, onCheck }) {
   const [resumes, setResumes] = useState(null)
   const [error, setError] = useState('')
   const [confirm, setConfirm] = useState(null) // id waiting for inline confirmation
-  const [open, setOpen] = useState(null)
-  const [check, setCheck] = useState(null) // resume id whose role skills check is shown
-  const [pointId, setPointId] = useState(null)
   const [rowError, setRowError] = useState({})
   const [preparing, setPreparing] = useState(null) // resume id whose questions are being prepared
 
@@ -76,9 +72,8 @@ export default function ResumeList({ onUpload, onPractice }) {
     setRowError({ [id]: '' })
     setPreparing(id)
     try {
-      onPractice((await postJson('/sessions', { resumeId: id })).session.id)
+      onPractice(await startSession(id))
     } catch (e) {
-      if (e.type === 'session-open') return onPractice(e.problem.sessionId) // continue the unfinished one
       setRowError({ [id]: e.message })
     } finally { setPreparing(null) }
   }
@@ -91,33 +86,28 @@ export default function ResumeList({ onUpload, onPractice }) {
     } catch (e) { setRowError({ [id]: e.message }) }
   }
 
-  if (open) return <Open id={open} pointId={pointId} onBack={() => { setOpen(null); setPointId(null) }} onChanged={load} />
-  if (check) {
-    const name = resumes?.find((r) => r.id === check)?.fileName
-    return <RoleSkills id={check} fileName={name} onBack={() => setCheck(null)} fixLabel="Upload a new resume"
-      onFix={() => { setCheck(null); onUpload() }} onPoint={(p) => { setPointId(p); setOpen(check); setCheck(null) }} />
-  }
   if (error) return <p role="alert">! Error: {error}</p>
   if (!resumes) return <p>Loading…</p>
 
   return (
     <>
       <h1>Your resumes</h1>
-      <button type="button" onClick={onUpload}>Upload a resume</button>
-      {resumes.length === 0 && <p>No resumes yet.</p>}
+      <p><button type="button" className="primary" onClick={onUpload}>Upload a resume</button></p>
+      {resumes.length === 0 && <p>No resumes yet. Upload one to get your first questions.</p>}
       {resumes.map((r) => (
         <section key={r.id} aria-label={r.fileName}>
           <h2>{r.fileName}</h2>
-          <p>Target role: {r.targetRole.name} · Uploaded {day(r.createdAt)}</p>
-          <p>Mastered questions: {r.masteredCount}</p>
-          <button type="button" onClick={() => start(r.id)}>Practice with this resume</button>{' '}
-          <button type="button" onClick={() => setCheck(r.id)}>Role skills check</button>{' '}
-          <button type="button" onClick={() => setOpen(r.id)}>Open</button>{' '}
-          <button type="button" onClick={() => setConfirm(r.id)}>Delete</button>
+          <p className="muted">Target role: {r.targetRole.name} · Uploaded {day(r.createdAt)} · Mastered questions: {r.masteredCount}</p>
+          <div className="actions">
+            <button type="button" className="primary" onClick={() => start(r.id)}>Practice with this resume</button>
+            <button type="button" onClick={() => onCheck(r.id, r.fileName)}>Role skills check</button>
+            <button type="button" onClick={() => onOpen(r.id)}>Open</button>
+            <button type="button" className="danger" onClick={() => setConfirm(r.id)}>Delete</button>
+          </div>
           {confirm === r.id && (
             <p role="alert">
               Delete this resume and its questions and scores?{' '}
-              <button type="button" onClick={() => remove(r.id)}>Delete</button>{' '}
+              <button type="button" className="danger" onClick={() => remove(r.id)}>Delete</button>{' '}
               <button type="button" onClick={() => setConfirm(null)}>Cancel</button>
             </p>
           )}

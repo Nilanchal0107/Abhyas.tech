@@ -84,7 +84,7 @@ public class SessionService {
     /** A multiple-correct question accepted from the AI reply. */
     record Generated(long pointId, String text, List<String> options, List<String> correct) {}
 
-    /** Keeps only well-formed questions linked to one of {@code pointIds}: 4 options, at least one correct key (api-contracts 4.2). */
+    /** Keeps only well-formed questions linked to one of {@code pointIds}: 4 options, 1 to 3 correct keys (api-contracts 4.2). An option's own "A) " label is dropped. */
     static List<Generated> validGenerated(JsonNode reply, Set<Long> pointIds) {
         List<Generated> out = new ArrayList<>();
         JsonNode list = reply.path("questions");
@@ -95,11 +95,11 @@ public class SessionService {
             if (text.isEmpty() || text.length() > 1000 || !point.isIntegralNumber() || !pointIds.contains(point.asLong())) continue;
             if (!opts.isArray() || opts.size() != OPTIONS || !correct.isArray() || correct.isEmpty()) continue;
             List<String> o = new ArrayList<>();
-            for (JsonNode n : opts) o.add(n.isString() ? n.asString().strip() : "");
+            for (int i = 0; i < OPTIONS; i++) o.add(opts.get(i).isString() ? opts.get(i).asString().strip().replaceFirst("^\\(?" + KEYS.get(i) + "[).:]\\s+", "") : "");
             if (o.stream().anyMatch(s -> s.isEmpty() || s.length() > MAX_TEXT) || new LinkedHashSet<>(o).size() != OPTIONS) continue;
             Set<String> keys = new LinkedHashSet<>();
             for (JsonNode n : correct) keys.add(n.isString() ? n.asString().strip().toUpperCase() : "");
-            if (!KEYS.containsAll(keys)) continue;
+            if (!KEYS.containsAll(keys) || keys.size() == OPTIONS) continue; // all four correct tests nothing
             out.add(new Generated(point.asLong(), text, o, List.copyOf(keys)));
         }
         return out;
@@ -110,14 +110,18 @@ public class SessionService {
 
     static final String BLANK = "________";
 
-    /** Keeps only questions with 1 or 2 marked blanks, accepted wordings for every blank, and a linked resume point (api-contracts 4.2). */
+    /**
+     * Keeps only questions with 1 or 2 marked blanks, accepted wordings for every blank, and a linked resume point (api-contracts 4.2).
+     * Models vary the blank's length and, for one blank, often send a flat list of wordings: both are accepted and stored in the usual form.
+     */
     static List<GeneratedBlank> validBlanks(JsonNode reply, Set<Long> pointIds) {
         List<GeneratedBlank> out = new ArrayList<>();
         JsonNode list = reply.path("questions");
         if (!list.isArray()) return out;
         for (JsonNode q : list) {
-            String text = q.path("text").isString() ? q.path("text").asString().strip() : "";
+            String text = q.path("text").isString() ? q.path("text").asString().strip().replaceAll("_{3,}", BLANK) : "";
             JsonNode point = q.path("resumePointId"), acc = q.path("accepted");
+            if (acc.isArray() && !acc.isEmpty() && acc.get(0).isString()) acc = JSON.createArrayNode().add(acc); // ["a","b"] means [["a","b"]]
             int marks = text.split(java.util.regex.Pattern.quote(BLANK), -1).length - 1;
             if (text.length() > 1000 || !point.isIntegralNumber() || !pointIds.contains(point.asLong())) continue;
             if (marks < 1 || marks > 2 || !acc.isArray() || acc.size() != marks) continue;
@@ -330,17 +334,21 @@ public class SessionService {
             if (p.get("facts") != null) { withFacts.add(id); list.append(" (facts: ").append(p.get("facts")).append(')'); }
             list.append('\n');
         }
-        StringBuilder sb = new StringBuilder("You write interview practice questions from a candidate's resume. ");
+        // FR-9: test the topics behind a point, not recall of the resume's own words, and never assume what the resume does not say
+        StringBuilder sb = new StringBuilder("You are a technical interviewer writing practice questions from a candidate's resume. Each technical question tests whether the candidate "
+                + "understands the technology, concept or design choice behind a resume point (how it works, why it was used, what the alternatives are), answerable from technical "
+                + "knowledge. Never ask what the resume says or mentions, and never quote the resume back. Never assume anything the point does not state: no invented languages, "
+                + "tools, teams, deadlines, roles or results. ");
         switch (type) {
             case "fill_blank" -> sb.append("Write ").append(technical + 2)
-                    .append(" technical fill-in-the-blank questions, each about a different resume point below. Each has one or two blanks written as ________ in the text, and for every blank the accepted wordings (a short list, such as the name with and without a prefix). Use only what the point and its facts support. Reply as {\"questions\":[{\"resumePointId\":1,\"text\":\"The ________ annotation marks a REST controller.\",\"accepted\":[[\"@RestController\",\"RestController\"]]}]} with one list of accepted wordings per blank, in order.\n");
+                    .append(" technical fill-in-the-blank questions, each about a different resume point below. Each is a general technical statement about a technology or concept used in the point, with one or two blanks written as ________ for key technical terms, and for every blank the accepted wordings (a short list, such as the name with and without a prefix). Do not blank a word just copied from the resume. Reply as {\"questions\":[{\"resumePointId\":1,\"text\":\"The ________ annotation marks a REST controller.\",\"accepted\":[[\"@RestController\",\"RestController\"]]}]} with one list of accepted wordings per blank, in order.\n");
             case "brief", "voice" -> {
-                if (technical > 0) sb.append("Write ").append(technical + 1).append(" technical short-answer questions (kind \"technical\"), each about a different resume point that has facts, using that point's id. ");
-                if (behavioral > 0) sb.append("Write ").append(behavioral + 1).append(" behavioral questions (kind \"behavioral\") in the STAR style, each with a theme from teamwork, conflict, failure, leadership, deadline_pressure, and optionally the id of a related resume point. ");
-                sb.append("Reply as {\"questions\":[{\"kind\":\"technical\",\"resumePointId\":1,\"text\":\"...\"},{\"kind\":\"behavioral\",\"theme\":\"teamwork\",\"resumePointId\":2,\"text\":\"...\"}]}. Use only what the points and their facts support.\n");
+                if (technical > 0) sb.append("Write ").append(technical + 1).append(" technical short-answer questions (kind \"technical\"), each about a different resume point that has facts, using that point's id. Ask how the candidate did something in that one point and why, so a good answer covers its facts; do not mix in other points or skills. ");
+                if (behavioral > 0) sb.append("Write ").append(behavioral + 1).append(" behavioral questions (kind \"behavioral\") in the STAR style, each with a theme from teamwork, conflict, failure, leadership, deadline_pressure, and optionally the id of a related resume point. Start with \"Tell me about a time\". You may name a project, but never state that the situation happened there (no \"the tight deadline on X\" or \"your team on X\" unless the point says so). ");
+                sb.append("Reply as {\"questions\":[{\"kind\":\"technical\",\"resumePointId\":1,\"text\":\"...\"},{\"kind\":\"behavioral\",\"theme\":\"teamwork\",\"resumePointId\":2,\"text\":\"...\"}]}.\n");
             }
             default -> sb.append("Write ").append(technical + 2)
-                    .append(" technical multiple-correct questions, each about a different resume point below and each with exactly 4 options (one or more are correct). Use only what the point and its facts support. Reply as {\"questions\":[{\"resumePointId\":1,\"text\":\"...\",\"options\":[\"...\",\"...\",\"...\",\"...\"],\"correct\":[\"A\"]}]} where correct lists the letters A to D.\n");
+                    .append(" technical multiple-correct questions, each about a different resume point below and each with exactly 4 options. 1 to 3 options are correct and at least one is a plausible but wrong statement. Write the option text only, without A) or A. labels. Reply as {\"questions\":[{\"resumePointId\":1,\"text\":\"...\",\"options\":[\"...\",\"...\",\"...\",\"...\"],\"correct\":[\"A\"]}]} where correct lists the letters A to D.\n");
         }
         String prompt = sb.append("Resume points:\n").append(list).toString();
         // the unique (resume_id, text_hash) index drops a repeat of a stored question

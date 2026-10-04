@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react'
-import { api } from './api/client.js'
+import { useNavigate } from 'react-router'
+import { api, startSession } from './api/client.js'
 
 // W7: which skills of the target role the resume proves. Each request recomputes and stores the check.
 // first: step 3 of the first-time path. onPoint(id): show the resume point. onFix: the "add some" link back.
 export default function RoleSkills({ id, fileName, first, onBack, onFix, fixLabel, onPoint }) {
   const [check, setCheck] = useState(null)
   const [error, setError] = useState('')
+  const [preparing, setPreparing] = useState(false)
+  const [startError, setStartError] = useState('')
+  const navigate = useNavigate()
 
   useEffect(() => {
     api(`/resumes/${id}/role-skills-check`).then(setCheck).catch((e) => setError(e.message))
@@ -13,6 +17,17 @@ export default function RoleSkills({ id, fileName, first, onBack, onFix, fixLabe
 
   if (error) return <><button type="button" onClick={onBack}>Back to resumes</button><p role="alert">! Error: {error}</p></>
   if (!check) return <p>Checking your skills…</p>
+
+  async function start() {
+    setStartError('')
+    setPreparing(true)
+    try {
+      navigate(`/practice/${await startSession(id)}`)
+    } catch (e) {
+      setStartError(e.message)
+      setPreparing(false)
+    }
+  }
 
   const { withEvidence: yes, withoutEvidence: no } = check
   return (
@@ -44,8 +59,10 @@ export default function RoleSkills({ id, fileName, first, onBack, onFix, fixLabe
           <ul>{no.map((s) => <li key={s.skillId}>{s.skill}</li>)}</ul>
         </>
       )}
-      <button type="button" disabled title="Coming soon">{first ? 'Start your first practice session' : 'Start practice session'}</button>{' '}
+      <button type="button" className="primary" onClick={start} disabled={preparing}>{first ? 'Start your first practice session' : 'Start practice session'}</button>{' '}
       <button type="button" onClick={onBack}>Back to resumes</button>
+      {preparing && <p aria-live="polite">Preparing your questions…</p>}
+      {startError && <p role="alert">! Error: {startError}</p>}
     </>
   )
 }

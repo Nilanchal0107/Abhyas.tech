@@ -7,7 +7,7 @@
 
 ## 1. Principles
 
-1. **Calm and minimal.** Interview practice is stressful. Light theme only, no gamification (streaks, badges), no dark mode in v1.
+1. **Calm and minimal.** Interview practice is stressful. Light theme only, no gamification (streaks, badges), no dark mode in v1. Apple-style: soft grays, one blue, translucent top bar and dialogs, short springy motion.
 2. **Defend your resume.** Every screen points back to the user's own resume points, not generic content.
 3. **Plain CSS, shared tokens.** No UI library or Tailwind. Colors, spacing and type come only from the tokens in Section 4, so screens don't drift.
 4. **Accessible by default.** WCAG 2.1 AA (Section 8).
@@ -36,13 +36,14 @@ The UI uses the names on the left. The PRD and code keep the internal names on t
 
 ## 4. Design tokens *(my decision: exact values)*
 
-Defined once as CSS custom properties on `:root`. No gradients anywhere (confirmed): flat colors only. Colors are never the only signal: success, warning and error each pair a color with an icon and a word.
+Defined once as CSS custom properties on `:root`. No gradients anywhere: solid colors, soft shadows and translucent materials (`backdrop-filter`) only. v3 (3 October 2026) restyled the tokens below Apple-style: `--color-bg` is now `#F5F5F7` (page) and `--color-surface` is `#FFFFFF` (cards), primary is `#0066CC`, radius is 12 px (buttons are pills), font is Geist with a system fallback, and motion uses `--ease` (`cubic-bezier(.32,.72,0,1)`), press feedback at 120 ms and entrances at 280 ms. The table values below are the v2 originals; `frontend/src/styles/tokens.css` is the current source. `prefers-reduced-motion`, `prefers-reduced-transparency` and `prefers-contrast: more` are honored. Colors are never the only signal: success, warning and error each pair a color with an icon and a word.
 
 | Token | Value | Use |
 |---|---|---|
 | `--color-bg` | `#FFFFFF` | page background |
 | `--color-surface` | `#F5F7FA` | cards, form panels |
 | `--color-border` | `#D1D5DB` | borders, dividers |
+| `--color-border-strong` | `#6B7280` | borders of inputs and buttons (4.8:1 on white; the light border was 1.5:1, below the 3:1 WCAG 1.4.11 needs) |
 | `--color-text` | `#1F2937` | body text |
 | `--color-text-muted` | `#4B5563` | secondary text |
 | `--color-primary` | `#1D4ED8` | primary buttons, links, focus ring |
@@ -53,6 +54,10 @@ Defined once as CSS custom properties on `:root`. No gradients anywhere (confirm
 | `--font` | `system-ui, -apple-system, "Segoe UI", sans-serif` | one font family |
 | `--font-size-base` | `16px` | body text; headings scale up from it |
 | `--radius` | `6px` | cards, buttons, inputs |
+| `--shadow` | `0 1px 2px rgba(31,41,55,.08)` | cards (a hairline lift, not a gradient) |
+| `--font-size-h1..h3` | 1.875, 1.375, 1.125 rem | heading scale |
+
+**Buttons:** secondary (white, strong border) by default, `.primary` (blue) for the one main action of a block, `.danger` (red text and border) for delete and leave. Error messages (`role="alert"` with text) show as a red-edged box that keeps the "!" and the word "Error".
 
 Contrast of every text and color pairing is checked against WCAG AA (4.5:1 for normal text) when the CSS is written. White text on `--color-primary` is used for primary buttons.
 
@@ -69,7 +74,8 @@ Each screen lists its purpose, what it shows, and its actions. FR numbers refer 
 
 ### 6.0 Landing page (W13)
 - Public page at `/`, shown to everyone, signed in or not. It has its own simple top bar: the name, and "Log in" and "Sign up" (or "Go to practice" when signed in).
-- Content: what the product does, the four-step flow, the extras (role skills check, story bank, Export JSON), a privacy note, a link to the YouTube tutorial and a link to the GitHub repository (each shown only once its URL is set), and an AGPL-3.0 footer.
+- Content, top to bottom: hero (heading, one call to action, privacy proof line, an example marked answer), the problem, five benefits, a tagline section whose words light up one by one on scroll, the three steps, a privacy note, FAQ, a final call to action identical to the first, and an AGPL-3.0 footer. The YouTube tutorial and GitHub links sit in the footer, each shown only once its URL is set.
+- **Visual exception (owner decision, 3 October 2026):** this page follows the `landing-page-design` skill instead of Section 4: dark theme (`#000000`, `#181818`, `#1F1F1F`, `#272727`, `#313131`), Geist font, a gradient on the hero heading text only, Phosphor icons, a floating glass nav pill with a hamburger menu on narrow screens, and scroll reveals. Styles are scoped to `.lp` in `landing.css`. Motion is switched off under `prefers-reduced-motion`.
 - After login or sign up the user lands on Home (6.2), not the landing page.
 
 ### 6.1 Sign up / log in (FR-1)

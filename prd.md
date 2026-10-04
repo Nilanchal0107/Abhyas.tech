@@ -179,6 +179,7 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 - All technical questions must be related to topics on the user's resume.
 - All multiple-correct and fill-in-the-blank questions are technical.
 - Behavioral questions follow the STAR style.
+- Technical questions test the technology, concept or choice behind a resume point (how it works, why it was used), not recall of what the resume says. Questions never assume anything the resume does not state (teams, deadlines, tools, results).
 - Questions are stored in the database and reused (see FR-13).
 
 ### FR-10 Answering
@@ -295,7 +296,7 @@ If voice transcription is unavailable at the start, the voice part is left out: 
 - Graded by Java, no AI call. The correct options are stored when the question is created.
 - Marks = 2 x (correct picked minus wrong picked) / total correct options, never below 0, rounded to the nearest 0.5.
 - Full marks need an exact match.
-- Each question has 4 options, with one or more correct.
+- Each question has 4 options, with one to three correct (never all four).
 
 **Fill-in-the-blank (2 marks, confirmed)**
 - **Step 1, Java:** the AI lists the expected answer and common accepted wordings when the question is created. Java trims the user's answer, ignores upper or lower case, and compares it with that list.
@@ -586,3 +587,20 @@ None. All questions are answered. Items marked "my decision" or "my reading" in 
 **Landing page and routing (3 October 2026)**
 - Added a public landing page at `/` (wireframe W13): shown before login and to signed-in users who click "Abhyas.tech". It explains the project and links to a YouTube tutorial and the GitHub repository.
 - Home (W2) moved from `/` to `/practice`. After login the user lands on Home.
+- UI pass: shared button variants (primary, secondary, danger), error boxes, card sections, a stronger input and button border (`--color-border-strong`) and a heading scale. Home, Resumes, Practice, Report and Account were updated to use them.
+- More routes: `/resumes/:id`, `/resumes/:id/role-skills`, `/stories/new`, `/stories/:id/edit` and `/account/delete`. `/resumes/new/review` stays inside Upload.
+
+**Landing page redesign (3 October 2026)**
+- The landing page (W13) was rebuilt with the `landing-page-design` skill: hero with a marked example answer, problem, five benefits, a tagline section whose words light up on scroll, three steps, privacy note, eight FAQ items and a final call to action. **Decision (owner):** the landing page is the one exception to "light theme only, no gradients, system font": it uses a dark theme from the skill's palette, the Geist font, a gradient on the hero heading text only, and Phosphor icons. All other screens keep the tokens in `UI-UX.md` Section 4.
+- Not built: testimonials and logos (the app has none), FAQ schema and `noindex` (localhost only), privacy policy and terms pages, a custom 404, a branded favicon and `og:image`. Phone width is covered by a hamburger menu, though phones stay unsupported in v1.
+
+**Apple-style redesign (3 October 2026)**
+- **Decision (owner):** the whole frontend was restyled with the `apple-design` skill, same screens, routes and flows, no backend change. Light theme only; flat rule relaxed to translucent materials (blurred top bar, dialogs, role list), soft shadows, 12 px radius, pill buttons, Geist font app-wide, tighter heading tracking. Motion is CSS only (no new dependency): instant press feedback, short screen rise, dialog arrives scaled and blurred. The landing page is now light too, with a solid heading (the dark theme and hero gradient from the earlier entry are gone). Reduced motion, reduced transparency and more contrast are supported. Phones stay unsupported in v1.
+
+**Question quality and the skills-check start button (4 October 2026)**
+- A test with a real resume showed AI questions that only checked recall of the resume ("Which facts are mentioned in the resume?"), multiple-correct questions with all four options correct, options shown as "A. A)", and technical and behavioral questions that invented details (Java REST services, a tight deadline, a cross-functional team). The Groq prompts now ask about the technology behind a point and forbid assumed details (FR-9). Java drops a question with all four options correct and removes an option's own letter label.
+- The behavioral template now reads "Tell me about a time you took the lead while working on X." (was "Tell me, out loud, about a time you faced a chance to lead…").
+- The "Start your first practice session" button on the role skills check (W7) was disabled as "Coming soon". It now starts a session, or continues an unfinished one, like "Practice with this resume".
+- Questions already stored for a resume are not rewritten. They stay in the pool until mastered.
+- Resume parsing failed with "We could not read this resume automatically" after any Groq 429. Groq's `openai/gpt-oss-120b` allows only 8,000 tokens per minute, so a burst of key-fact or question calls hit it, and the gate then blocked every Groq call for a fixed 15 minutes. A per-minute limit now cools down only for the reply's `Retry-After` (15 minutes when there is none). Daily limits still last until UTC midnight (trd 7.5).
+- AI fill-in-the-blank questions were almost always rejected, so sessions fell back to the "Your resume says … Which word completes it?" template (only 3 for a test resume). The model writes blanks of 7 or 10 underscores, and for one blank sends a flat list of wordings. Java now accepts both and stores them in the usual `________` form with one list per blank.

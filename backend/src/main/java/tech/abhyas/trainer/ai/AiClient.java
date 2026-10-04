@@ -24,6 +24,9 @@ public class AiClient {
     private static final String JSON_ONLY = "\n\nReply with a single JSON object only. No prose, no code fences.";
     private static final int ATTEMPTS = 2; // first try plus one retry
     static final int MAX_WAIT_SECONDS = 60;
+    static final int SHORT_WAIT_SECONDS = 15; // a per-minute limit usually clears within seconds: worth waiting for rather than falling back
+
+    LongConsumer sleep = AiClient::sleepQuietly; // tests swap in a fake
 
     private final AiTransport transport;
     private final AiGate gate;
@@ -42,9 +45,12 @@ public class AiClient {
     }
 
     /** Sends the scrubbed prompt, returns the reply once it parses and passes {@code valid}. */
+    /** A short cooldown or Retry-After (at most {@link #SHORT_WAIT_SECONDS}) is waited out once instead of failing at once. */
     public Optional<JsonNode> json(Provider provider, String prompt, Predicate<JsonNode> valid) {
         String body = Scrubber.scrub(prompt) + JSON_ONLY;
-        return run(provider, () -> transport.send(provider, body, timeout), valid, null);
+        long left = gate.secondsLeft(provider);
+        if (left > 0 && left <= SHORT_WAIT_SECONDS) sleep.accept(left * 1000);
+        return run(provider, () -> transport.send(provider, body, timeout), valid, sleep, SHORT_WAIT_SECONDS);
     }
 
     /**
@@ -53,7 +59,7 @@ public class AiClient {
      */
     public Optional<JsonNode> jsonPatient(Provider provider, String prompt, Predicate<JsonNode> valid, LongConsumer sleepMillis) {
         String body = Scrubber.scrub(prompt) + JSON_ONLY;
-        return run(provider, () -> transport.send(provider, body, timeout), valid, sleepMillis);
+        return run(provider, () -> transport.send(provider, body, timeout), valid, sleepMillis, MAX_WAIT_SECONDS);
     }
 
     /** Whether a call to this provider could work now: it has a key and is not on cooldown. */
@@ -61,10 +67,10 @@ public class AiClient {
 
     /** Sends audio to Groq Whisper (never stored). */
     public Optional<JsonNode> transcribe(byte[] audio, Predicate<JsonNode> valid) {
-        return run(Provider.GROQ_WHISPER, () -> transport.transcribe(audio, whisperTimeout), valid, null);
+        return run(Provider.GROQ_WHISPER, () -> transport.transcribe(audio, whisperTimeout), valid, null, 0);
     }
 
-    private Optional<JsonNode> run(Provider provider, Supplier<String> send, Predicate<JsonNode> valid, LongConsumer sleepMillis) {
+    private Optional<JsonNode> run(Provider provider, Supplier<String> send, Predicate<JsonNode> valid, LongConsumer sleepMillis, int maxWaitSeconds) {
         boolean waited = false;
         for (int i = 0; i < ATTEMPTS; i++) {
             if (!gate.available(provider)) {
@@ -86,11 +92,11 @@ public class AiClient {
                     case RATE_LIMIT -> {
                         if (sleepMillis != null && !waited && f.retryAfterSeconds() > 0) { // honor Retry-After once, without using up an attempt
                             waited = true;
-                            sleepMillis.accept(Math.min(f.retryAfterSeconds(), MAX_WAIT_SECONDS) * 1000L);
+                            sleepMillis.accept(Math.min(f.retryAfterSeconds(), maxWaitSeconds) * 1000L);
                             i--;
                             continue;
                         }
-                        gate.rateLimited(provider);
+                        gate.rateLimited(provider, f.retryAfterSeconds());
                         return Optional.empty();
                     }
                     case DAILY_LIMIT -> { gate.dailyLimited(provider); return Optional.empty(); }
@@ -100,6 +106,10 @@ public class AiClient {
             }
         }
         return Optional.empty();
+    }
+
+    private static void sleepQuietly(long ms) {
+        try { Thread.sleep(ms); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
     }
 
     private JsonNode parse(String text) {

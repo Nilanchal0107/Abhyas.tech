@@ -102,10 +102,10 @@ export default function Practice({ id, onExit, onSubmitted }) {
   return (
     <>
       <p>Part {parts.indexOf(q.type) + 1} of {parts.length}: {PARTS[q.type]} · Question {index + 1} of {total}</p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div className="row">
         <div role="progressbar" aria-label="Questions answered" aria-valuemin={0} aria-valuemax={total} aria-valuenow={answered}
-          aria-valuetext={`${answered} of ${total} answered`} style={{ flex: 1, height: 10, background: 'GrayText', opacity: 0.3 }}>
-          <div style={{ width: `${(answered / total) * 100}%`, height: '100%', background: 'Highlight' }} />
+          aria-valuetext={`${answered} of ${total} answered`} className="progress">
+          <div style={{ width: `${(answered / total) * 100}%` }} />
         </div>
         <span>{answered} of {total} answered</span>
         <button type="button" onClick={() => leaveRef.current?.showModal()}>Leave session</button>
@@ -122,7 +122,7 @@ export default function Practice({ id, onExit, onSubmitted }) {
           <p>Question {index + 1} · {PARTS[q.type]} · {q.isBehavioral ? 'Behavioral' : 'Technical'} · {a.maxMarks} marks</p>
           {q.isBehavioral && <p>Tip: Situation, Task, Action, Result.</p>}
           <label htmlFor="brief-answer">{q.text}</label>
-          <textarea id="brief-answer" rows={6} maxLength={5000} style={{ width: '100%' }} value={selected[0]} onChange={(e) => type(0, e.target.value)} />
+          <textarea id="brief-answer" rows={6} maxLength={5000} value={selected[0]} onChange={(e) => type(0, e.target.value)} />
           <p aria-live="polite">{words(selected[0])} {words(selected[0]) === 1 ? 'word' : 'words'}</p>
         </div>
       ) : blank ? (
@@ -153,16 +153,18 @@ export default function Practice({ id, onExit, onSubmitted }) {
       )}
 
       <p className="error" role="alert">{error ? `! Error: ${error}` : ''}</p>
-      <button type="button" disabled={busy || index === 0} onClick={() => save(() => setIndex(index - 1))}>Back</button>{' '}
-      {last
-        ? <button type="button" disabled={busy} onClick={() => save(submit)}>Submit practice session</button>
-        : <button type="button" disabled={busy} onClick={() => save(() => setIndex(index + 1))}>Next</button>}
+      <div className="actions">
+        <button type="button" disabled={busy || index === 0} onClick={() => save(() => setIndex(index - 1))}>Back</button>
+        {last
+          ? <button type="button" className="primary" disabled={busy} onClick={() => save(submit)}>Submit practice session</button>
+          : <button type="button" className="primary" disabled={busy} onClick={() => save(() => setIndex(index + 1))}>Next</button>}
+      </div>
 
       {/* a native modal dialog traps focus and gives it back to the Leave button when it closes */}
       <dialog ref={leaveRef} aria-labelledby="leave-title">
         <h2 id="leave-title">Leave this session?</h2>
         <p>Your session will be marked as abandoned. You can start a new one any time.</p>
-        <button type="button" onClick={leave}>Leave session</button>{' '}
+        <button type="button" className="danger" onClick={leave}>Leave session</button>{' '}
         <button type="button" autoFocus onClick={() => leaveRef.current.close()}>Keep practicing</button>
       </dialog>
     </>

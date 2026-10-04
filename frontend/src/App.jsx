@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { api, onExpired, postJson } from './api/client.js'
-import Account from './Account.jsx'
+import Account, { ConfirmDelete } from './Account.jsx'
 import Login from './Login.jsx'
 import Practice from './Practice.jsx'
 import Report from './Report.jsx'
@@ -10,7 +10,9 @@ import Upload from './Upload.jsx'
 import History from './History.jsx'
 import Home from './Home.jsx'
 import Landing from './Landing.jsx'
-import Stories from './Stories.jsx'
+import { StoryForm, StoryList } from './Stories.jsx'
+import { Open } from './ResumeList.jsx'
+import RoleSkills from './RoleSkills.jsx'
 
 const NAV = [['Practice', '/practice'], ['Resumes', '/resumes'], ['Stories', '/stories'], ['History', '/history'], ['Account', '/account']]
 
@@ -104,10 +106,15 @@ export default function App() {
         <Route path="practice" element={<HomeRoute user={me.user} />} />
         <Route path="resumes" element={<ResumesRoute />} />
         <Route path="resumes/new" element={<Upload />} />
-        <Route path="stories" element={<Stories prefill={storyPrefill} onPrefillUsed={clearPrefill} />} />
+        <Route path="resumes/:id" element={<OpenRoute />} />
+        <Route path="resumes/:id/role-skills" element={<RoleSkillsRoute />} />
+        <Route path="stories" element={<StoriesRoute />} />
+        <Route path="stories/new" element={<StoryFormRoute prefill={storyPrefill} onPrefillUsed={clearPrefill} />} />
+        <Route path="stories/:id/edit" element={<StoryFormRoute />} />
         <Route path="history" element={<HistoryRoute />} />
-        <Route path="account" element={<Account user={me.user} onDeleted={deleted} />} />
-        <Route path="sessions/:id/report" element={<ReportRoute onSaveStory={(prefill) => { setStoryPrefill(prefill); navigate('/stories') }} />} />
+        <Route path="account" element={<AccountRoute user={me.user} />} />
+        <Route path="account/delete" element={<DeleteRoute onDeleted={deleted} />} />
+        <Route path="sessions/:id/report" element={<ReportRoute onSaveStory={(prefill) => { setStoryPrefill(prefill); navigate('/stories/new') }} />} />
       </Route>
       <Route path="*" element={<Navigate to="/practice" replace />} />
     </Routes>
@@ -126,7 +133,48 @@ function HomeRoute({ user }) {
 
 function ResumesRoute() {
   const navigate = useNavigate()
-  return <ResumeList onUpload={() => navigate('/resumes/new')} onPractice={useGoPractice()} />
+  return <ResumeList onUpload={() => navigate('/resumes/new')} onPractice={useGoPractice()} onOpen={(id) => navigate(`/resumes/${id}`)}
+    onCheck={(id, fileName) => navigate(`/resumes/${id}/role-skills`, { state: { fileName } })} />
+}
+
+function OpenRoute() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [params] = useSearchParams()
+  // `point` comes from the role skills check: scroll to that resume point
+  return <Open key={id} id={id} pointId={Number(params.get('point')) || null} onBack={() => navigate('/resumes')} onChanged={() => {}} />
+}
+
+function RoleSkillsRoute() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const { state } = useLocation()
+  return <RoleSkills key={id} id={id} fileName={state?.fileName} onBack={() => navigate('/resumes')} fixLabel="Upload a new resume"
+    onFix={() => navigate('/resumes/new')} onPoint={(p) => navigate(`/resumes/${id}?point=${p}`)} />
+}
+
+function StoriesRoute() {
+  const navigate = useNavigate()
+  return <StoryList onNew={() => navigate('/stories/new')} onEdit={(id) => navigate(`/stories/${id}/edit`)} />
+}
+
+// "Save as story" in a report arrives with a prefill; keep the first one for this form, then clear it from App.
+function StoryFormRoute({ prefill, onPrefillUsed }) {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [first] = useState(prefill)
+  useEffect(() => { if (prefill) onPrefillUsed() }, [prefill, onPrefillUsed])
+  return <StoryForm key={id ?? 'new'} id={id} prefill={first} onClose={() => navigate('/stories')} />
+}
+
+function AccountRoute({ user }) {
+  const navigate = useNavigate()
+  return <Account user={user} onDelete={() => navigate('/account/delete')} />
+}
+
+function DeleteRoute({ onDeleted }) {
+  const navigate = useNavigate()
+  return <ConfirmDelete onCancel={() => navigate('/account')} onDeleted={onDeleted} />
 }
 
 function HistoryRoute() {

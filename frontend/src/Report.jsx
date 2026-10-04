@@ -43,14 +43,14 @@ export default function Report({ id, onBack, onSaveStory }) {
   return (
     <>
       <h1>Practice session report</h1>
-      <p>{date} · {session.role.name} · {session.resume.fileName}</p>
+      <p className="muted">{date} · {session.role.name} · {session.resume.fileName}</p>
       {!session.gradingComplete && <p aria-live="polite">{marked ? 'Writing your feedback…' : 'Marking your answers…'}</p>}
       {session.report?.headline && <p><strong>{session.report.headline}</strong></p>}
 
       {marked && (
         <>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            <section aria-label="Total"><h2>Total</h2><p>{fmt(session.totalMarks)} / {session.maxMarks}</p><p>{pct}%</p></section>
+          <div className="report-cards">
+            <section aria-label="Total"><h2>Total</h2><p className="stat"><strong>{fmt(session.totalMarks)} / {session.maxMarks}</strong><span>{pct}%</span></p></section>
             <section aria-label="Mastered"><h2>Mastered</h2><p>{session.masteredCount} of {session.attempts.length}</p></section>
             <section aria-label="Weakest resume points">
               <h2>Weakest resume points</h2>
@@ -90,8 +90,8 @@ export default function Report({ id, onBack, onSaveStory }) {
       ))}
 
       {exportError && <p role="alert">! Error: {exportError}</p>}
-      <p>
-        <button type="button" onClick={onBack}>Back to Home</button>{' '}
+      <p className="actions">
+        <button type="button" className="primary" onClick={onBack}>Back to Home</button>
         <button type="button" disabled={!session.gradingComplete} onClick={() => download(`/sessions/${id}/export`).then(() => setExportError(''), (e) => setExportError(e.message))}>Export JSON</button>
       </p>
     </>
