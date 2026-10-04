@@ -43,7 +43,7 @@ This document says **how** the app is built. It does not repeat the requirements
 | Language and build | Java 21 (LTS), Maven | |
 | Backend framework | Spring Boot (current stable release, pinned in `pom.xml` at project start) | Web, Validation, Security, Data JPA, Actuator off |
 | Database | MySQL 8.0.16 or newer, native install | needed for enforced `CHECK`, JSON columns and generated columns |
-| Migrations | Flyway (`V1__schema.sql`, `V2__starter_roles.sql`, `V3__starter_bank.sql` later) | content in `database-schema.md` |
+| Migrations | Flyway (`V1__schema.sql`, `V2__starter_roles.sql`, `V3__narrow_starter_roles.sql`, `V4__starter_bank.sql` later) | content in `database-schema.md` |
 | Data access | Spring Data JPA (Hibernate), a few native queries for session building | JSON columns mapped as JSON. Generated columns are read-only in entities |
 | JWT | `nimbus-jose-jwt` (changed from `jjwt` in ticket 02: no Jackson 2 next to Boot 4) | HS256, secret from config |
 | Passwords | BCrypt (Spring Security `BCryptPasswordEncoder`) | |
@@ -245,8 +245,6 @@ All under `/api`, JSON, cookie auth except signup and login. Errors are Problem 
 | `GET /me` | current user | |
 | `DELETE /me` | delete account | body: password |
 | `GET /roles?q=` | search roles | names and aliases, starter plus own roles |
-| `POST /roles/draft-skills` | AI skill draft for a role name | empty list if AI unavailable |
-| `POST /roles` | add a private role | near-duplicate check |
 | `POST /resumes/parse-fallback` | parse a PDF with PDFBox and Groq | multipart, 1 MB, returns parsed JSON |
 | `POST /resumes` | save reviewed resume | parsed JSON, role ID, optional interview date |
 | `GET /resumes` | list with mastered counts | triggers retry of `pending` key facts |
@@ -394,7 +392,7 @@ Order as in PRD Section 6. After each step **I remind you to run its manual chec
 | Gemma pacing may need tuning | 7 seconds is an estimate. Measure real token use per call |
 | In-memory throttle and AI gate reset on restart | Accepted for a laptop-only app |
 | AGPL | Applies as long as the parser code is in the app (Section 11). Not legal advice |
-| `bank_starter.csv` | Drafted in `backend/src/main/resources/db/seed-draft/` (software development only), needs your review before `V3__starter_bank.sql` is moved to `db/migration/`. Until then fallback questions come from AI-saved bank rows and the generic templates |
+| `bank_starter.csv` | Drafted in `backend/src/main/resources/db/seed-draft/` (software development only), needs your review before `V4__starter_bank.sql` is moved to `db/migration/`. Until then fallback questions come from AI-saved bank rows and the generic templates |
 | `roles_starter.csv` | The exact content is in `database-schema.md` Section 12. Needs your review |
 
 ## 15. Change log

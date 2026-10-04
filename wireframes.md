@@ -14,7 +14,7 @@
 
 ## Contents
 
-W0 Shell · W1 Sign up / log in · W2 Home · W3 Resume list · W4 Upload · W5 Add a missing role (panel) · W6 Review · W7 Role skills check · W8 Practice session (8a to 8f) · W9 Session report · W10 History · W11 Story bank (list and form) · W12 Account and deletion · W13 Landing page
+W0 Shell · W1 Sign up / log in · W2 Home · W3 Resume list · W4 Upload · W5 (removed) · W6 Review · W7 Role skills check · W8 Practice session (8a to 8f) · W9 Session report · W10 History · W11 Story bank (list and form) · W12 Account and deletion · W13 Landing page
 
 ---
 
@@ -156,7 +156,6 @@ Purpose: step 1 of 3. Choose the file and the target role.
    ▾ Software Development Engineer (SDE)
      Backend Developer
      Full Stack Developer
-   Can't find your role? [ Add a missing role ]
 
   Interview date (optional)
   [ dd / mm / yyyy ]
@@ -165,38 +164,16 @@ Purpose: step 1 of 3. Choose the file and the target role.
 ```
 
 - Role search matches names and aliases (FR-3). Typing shows a listbox of results with arrow-key navigation.
-- "Add a missing role" appears only when the search finds no match (UI-UX 6.5) and expands W5 under this field.
+- No match shows: No role found. Try "Backend", "Data" or "DevOps". (UI-UX 6.5; adding a role was removed.)
 - Errors (inline, UI-UX 7.1): not a PDF ("Please choose a PDF file."), file too large, no role selected ("Choose a target role to continue.").
 - Loading after Continue: "Reading your resume..." (the OpenResume parse runs in the browser; the fallback runs if it looks incomplete). Then the Review screen opens.
 - Narrow rule: none needed.
 
 ---
 
-## W5. Add a missing role (panel, FR-3)
+## W5. Add a missing role (removed)
 
-Purpose: add a private role when no existing role matches. Expands inline on W4.
-
-```
-  Target role
-  [ Prompt engineer ______ ]    No role found.
-
-  +----------------------------------------------------------+
-  |  Add "Prompt engineer" as your own role                  |
-  |  (visible only to you)                                   |
-  |                                                          |
-  |  Skills (suggested by AI, edit before saving)            |
-  |  [ Python           ] [x]                                |
-  |  [ LLM APIs         ] [x]                                |
-  |  [ Evaluation       ] [x]                                |
-  |  [ Add a skill ____ ] [ Add ]                            |
-  |                                                          |
-  |  [ Save role ]  [ Cancel ]                               |
-  +----------------------------------------------------------+
-```
-
-- The skills load after "Add a missing role" is pressed: "Drafting skills..." (AI). If AI is unavailable, the list starts empty and the user types their own skills (nothing breaks).
-- Focus moves to the panel heading when it opens and back to the role field when it closes.
-- Saving fills the role field and collapses the panel. Duplicate names or aliases are checked first ("A similar role exists: Prompt Engineer. Use it instead?").
+Removed on 4 October 2026: the role list is fixed at 11 (FR-3).
 
 ---
 

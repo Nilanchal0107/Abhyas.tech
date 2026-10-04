@@ -33,7 +33,7 @@ class EndpointLoginTest {
 
     static final List<Call> PROTECTED = Stream.of(
             "GET /api/me", "DELETE /api/me",
-            "GET /api/roles", "POST /api/roles/draft-skills", "POST /api/roles",
+            "GET /api/roles",
             "POST /api/resumes/parse-fallback", "POST /api/resumes", "GET /api/resumes", "GET /api/resumes/1", "PATCH /api/resumes/1", "DELETE /api/resumes/1",
             "GET /api/resumes/1/role-skills-check",
             "POST /api/sessions", "GET /api/sessions", "GET /api/sessions/1", "PUT /api/sessions/1/attempts/1", "POST /api/sessions/1/attempts/1/transcribe",

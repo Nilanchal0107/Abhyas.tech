@@ -89,7 +89,7 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 | AI providers | **Groq gives the marks. Gemma on Google AI Studio writes the feedback and the report.** The two AIs do not both mark |
 | Stack | React, JavaScript, Spring Boot, MySQL |
 | Voice stats | Show pace and filler-word stats. **Java counts them, and the AI adds a short comment on the numbers** |
-| Roles | A database of **all tech roles with their skills**, filled at the start from a starter list prepared by Claude. Users search it to pick their target role. A new role is added **only if no existing role matches**. For a missing role, **AI drafts the skills and the user can edit them before saving**. A role added this way is **private to the user who added it** |
+| Roles | A database of **all tech roles with their skills**, filled at the start from a starter list prepared by Claude. Users search it to pick their target role. **The list is fixed at 11 roles; users cannot add roles** (since 4 October 2026; earlier a missing role could be added with AI-drafted skills, private to its user) |
 | Account deletion | Users can delete their own account and all their data |
 | AI cost | The person running the app on localhost pays for any AI use beyond the free tiers |
 | Export JSON | One practice session the user chooses, downloaded as JSON, with phone number and email removed |
@@ -140,11 +140,9 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 ### FR-3 Roles database
 - A database of **all tech roles, each with its skills**.
 - It is used to ask the user which role they are aiming for. The user searches it and selects a role.
-- It starts filled from a **starter list prepared by Claude** (`roles_starter.csv`, 42 roles in 9 categories). *(file format is my decision)*
+- It starts filled from a **starter list prepared by Claude** (`roles_starter.csv`, 11 roles in 3 categories since 4 October 2026; it was 42 in 9). *(file format is my decision)*
 - Each role also has **aliases** (for example "SDE" for Software Engineer) so search finds it under common names.
-- A **new role is added only if no existing role matches** what the user needs. Search must check role names and aliases first (the starter roles plus the user's own added roles).
-- **Missing role:** the AI drafts its skills, and the user can edit them before saving. If AI is unavailable the list starts empty and the user types the skills. Near-duplicate names and aliases are checked before saving.
-- A newly added role is **private to the user who added it**. The starter roles are visible to everyone.
+- The list is **fixed**: users cannot add roles (removed 4 October 2026, with the AI skill draft). Roles a user added before then stay private to that user and still show in their search.
 
 ### FR-4 Parsing
 - Parse the PDF with the OpenResume parser (pdf.js, in the browser).
@@ -604,3 +602,18 @@ None. All questions are answered. Items marked "my decision" or "my reading" in 
 - Questions already stored for a resume are not rewritten. They stay in the pool until mastered.
 - Resume parsing failed with "We could not read this resume automatically" after any Groq 429. Groq's `openai/gpt-oss-120b` allows only 8,000 tokens per minute, so a burst of key-fact or question calls hit it, and the gate then blocked every Groq call for a fixed 15 minutes. A per-minute limit now cools down only for the reply's `Retry-After` (15 minutes when there is none). Daily limits still last until UTC midnight (trd 7.5).
 - AI fill-in-the-blank questions were almost always rejected, so sessions fell back to the "Your resume says … Which word completes it?" template (only 3 for a test resume). The model writes blanks of 7 or 10 underscores, and for one blank sends a flat list of wordings. Java now accepts both and stores them in the usual `________` form with one list per blank.
+
+**Starter roles narrowed to 11 (4 October 2026, Step 02)**
+- Reduced the roles database from 42 to 11 roles across 3 categories: 4 Software Development (Software Engineer, Backend Developer, Frontend Developer, Full Stack Developer), 5 Data and AI (Data Analyst, Data Scientist, Data Engineer, Machine Learning Engineer, AI Engineer), and 2 Cloud and DevOps (DevOps Engineer, Cloud Engineer). This focuses the app on the core tech roles and simplifies role selection. The aliases and skills for these roles remain the same.
+- `V2__starter_roles.sql` was already applied, so it is left as is: the new `V3__narrow_starter_roles.sql` deletes the other 31 starter roles. A role that a resume targets is kept, because deleting a role deletes its resumes (cascade). All 228 skills stay, so skills of removed roles still match on a resume. The unreviewed bank draft moved from `V3__starter_bank.sql` to `V4__starter_bank.sql`.
+- `AiClient` (skill-bank ticket 01, kept): a cooldown or Retry-After of up to 15 seconds is waited out once; a longer one now fails at once instead of waiting 15 seconds and failing anyway. The Gemma path follows the same rule with its 60-second cap.
+
+**Review and new direction (4 October 2026, owner decisions)** — details in `.scratch/skill-bank-redesign/spec.md`
+- **Hybrid questions:** multiple-correct and fill-in-the-blank will come only from a reviewed practice bank (Java trusts their keys). Technical brief and voice questions will be written by AI about the user's projects, about 8 per resume in one call, each with its own key facts; this replaces the per-point key-facts drafting. Behavioral questions come from the bank. Replaces FR-9's per-resume generation and FR-20's AI-fed bank once built.
+- **Interview mode** (new): about 6 open questions, spoken or typed, with one AI follow-up per answer, then marks, feedback and a coaching report. The quiz session stays.
+- **Fallback is no longer silent** (reverses v15): keyword-graded answers show "Graded without AI" and a Regrade button.
+- **Unchanged:** Groq gives the marks and Gemma writes the feedback and the report.
+- **"Add a missing role" removed** with its AI skill draft (`POST /roles`, `POST /roles/draft-skills`, the W5 panel). Roles added earlier stay in the database, private to their user.
+- The reviewed bank starts with the **Full Stack Developer** skills.
+- Proposed, not decided: a progress view across sessions (weakest skills, "study next").
+- The requirement sections above are rewritten as each part is built, so they still describe the current app.

@@ -93,16 +93,14 @@ Each screen lists its purpose, what it shows, and its actions. FR numbers refer 
 
 ### 6.4 Upload resume and review (FR-2, FR-4 to FR-6)
 - **Two screens with a step indicator:** 1 Upload, 2 Review, 3 Role skills check. Back from Review returns to Upload with the file kept.
-- **Upload:** PDF chooser, **target role** search (names and aliases, FR-3), optional interview date. If no role matches, a link opens **Add a missing role** (6.5).
+- **Upload:** PDF chooser, **target role** search (names and aliases, FR-3), optional interview date. If no role matches, the field says so and suggests search words; the 11 roles are fixed (6.5).
 - **Review form:** one long form with collapsible sections (contact, education, experience, projects, skills), editable, with a Save button.
 - When the fallback parse ran, a banner says "Some parts were read by an AI assistant. Please check them." Sections that came back empty are highlighted. A "Scan with AI" button is always shown on the preview, so the user can run the fallback parse even when the browser parse looked complete.
 - Phone and email are shown, with a note that they are never sent to AI.
 - Saving writes the resume first, then prepares resume points and key facts ("Preparing your questions..."). If AI is unavailable the resume is still saved and the key facts are prepared later (see FR-8 in `prd.md`).
 
-### 6.5 Add a missing role (FR-3)
-- Shown only when search finds no match by name or alias. It is an **inline panel** that expands under the role search on the Upload screen (not a page or dialog), so the chosen file is not lost. Focus moves to the panel heading when it opens and back to the role field when it closes.
-- The AI drafts the skills, shown as an editable list. The user edits and saves. The role is private to the user. If AI is unavailable the list starts empty and the user types their own skills.
-- Before saving, a near-duplicate name or alias is checked ("A similar role exists: ... Use it instead?").
+### 6.5 Add a missing role (removed)
+- Removed on 4 October 2026: the role list is fixed at 11 (FR-3). With no match the role field shows: No role found. Try "Backend", "Data" or "DevOps".
 
 ### 6.6 Role skills check (FR-16)
 - Two lists: role skills with evidence on the resume, and role skills without. Each evidence item links to the resume point.

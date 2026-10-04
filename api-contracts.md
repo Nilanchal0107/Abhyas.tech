@@ -46,7 +46,6 @@ This document fixes the exact request and response of every endpoint, so the fro
 | `unauthorized` | 401 | no valid cookie, or wrong login ID or password at login | |
 | `not-found` | 404 | the resource does not exist or belongs to another user | |
 | `login-taken` | 409 | signup with a login ID already used | |
-| `role-exists` | 409 | adding a role whose name or alias matches an existing one | `existingRoleId`, `existingRoleName` |
 | `session-open` | 409 | starting a session while one is unfinished, or deleting a resume used by an unfinished session *(my decision)* | `sessionId` |
 | `session-closed` | 409 | saving an answer, uploading audio or abandoning for a session that is not `in_progress` | |
 | `session-not-completed` | 409 | exporting a session that is not `completed` | |
@@ -204,7 +203,7 @@ Response `200`: `{ "id": 3, "loginId": "paras24", "createdAt": "..." }`. Used on
 Request `{ "password": "..." }`. Response `204`, cookie cleared, all data deleted by cascade.
 Errors: `wrong-password` (400, never 401, so the page does not mistake it for an expired login).
 
-## 4. Roles (FR-3, W4, W5)
+## 4. Roles (FR-3, W4)
 
 ### `GET /roles?q=sde` (W4)
 Starter roles plus the user's own roles whose name or alias matches `q` (case-insensitive, contains), at most 20, own roles marked.
@@ -215,15 +214,9 @@ Response `200`:
     "matchedOn": "alias", "matchedAlias": "SDE", "isOwn": false }
 ] }
 ```
-`matchedOn` is `name` or `alias`. An empty list means nothing matched, and the UI then offers "Add a missing role". Errors: `validation` (`q` missing or longer than 100).
+`matchedOn` is `name` or `alias`. An empty list means nothing matched. Errors: `validation` (`q` missing or longer than 100). `isOwn` is true only for a role the user added before adding roles was removed (4 October 2026).
 
-### `POST /roles/draft-skills` (W5)
-Request `{ "name": "Prompt engineer" }`. Response `200`: `{ "skills": ["Python", "LLM APIs", "Evaluation"] }`. When AI is unavailable the list is empty and the response is still `200` (the user types the skills, FR-3).
-
-### `POST /roles` (W5)
-Request `{ "name": "Prompt engineer", "aliases": ["PE"], "skills": ["Python", "LLM APIs"] }`. Creates a role owned by the user. Skills are matched to existing `skill` rows by case-insensitive name and new ones are created (this is the only place a skill is created from user input, and only for the user's own roles *(my decision)*).
-Response `201`: `{ "role": { "id": 61, "name": "Prompt engineer", "category": null, "aliases": ["PE"], "skills": ["Python", "LLM APIs"], "isOwn": true } }`.
-Errors: `validation`, `role-exists` (409, with `existingRoleId` and `existingRoleName`, so the UI can offer "Use it instead").
+`POST /roles` and `POST /roles/draft-skills` were removed on 4 October 2026: the role list is fixed (FR-3).
 
 ## 5. Resumes (FR-2 to FR-8, FR-16, W3, W4, W6, W7)
 
@@ -395,8 +388,6 @@ Built on request, never stored. UTF-8. **Phone and email are removed** (the keys
 | `GET /me` | 200 | W0 |
 | `DELETE /me` | 204 | W12b |
 | `GET /roles?q=` | 200 | W4 |
-| `POST /roles/draft-skills` | 200 | W5 |
-| `POST /roles` | 201 | W5 |
 | `POST /resumes/parse-fallback` | 200 | W4 |
 | `POST /resumes` | 201 | W6 |
 | `GET /resumes` | 200 | W2, W3 |
