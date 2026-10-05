@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": { "title": "Abhyas.tech Architecture", "output": "architecture.html", "quality_profile": "showcase" },
+  "components": [
+    { "id": "browser", "type": "frontend", "label": "Browser", "sublabel": "React + Vite, PDF.js parser", "pos": [40, 200], "size": [170, 64], "tag": ":5173" },
+    { "id": "api", "type": "backend", "label": "Spring Boot API", "sublabel": "Controllers, Services, JPA", "pos": [350, 200], "size": [170, 64], "tag": ":8080" },
+    { "id": "ai", "type": "security", "label": "AiClient + AiGate", "sublabel": "scrub, retry, fallback", "pos": [660, 200], "size": [170, 64] },
+    { "id": "worker", "type": "backend", "label": "Grading Worker", "sublabel": "single-thread executor", "pos": [660, 370], "size": [170, 64] },
+    { "id": "db", "type": "database", "label": "MySQL 8", "sublabel": "Flyway migrations", "pos": [350, 370], "size": [170, 64] },
+    { "id": "groq", "type": "external", "label": "Groq", "sublabel": "chat + Whisper", "pos": [970, 130], "size": [150, 60] },
+    { "id": "gemma", "type": "external", "label": "Google AI Studio", "sublabel": "Gemma feedback", "pos": [970, 270], "size": [150, 60] }
+  ],
+  "connections": [
+    { "id": "browser-api", "from": "browser", "to": "api", "label": "/api JSON + cookie", "variant": "emphasis" },
+    { "id": "api-ai", "from": "api", "to": "ai", "label": "generate" },
+    { "id": "api-db", "from": "api", "to": "db", "label": "JPA", "labelDy": 24, "fromSide": "bottom", "toSide": "top" },
+    { "id": "api-worker", "from": "api", "to": "worker", "label": "submit", "variant": "dashed" },
+    { "id": "worker-db", "from": "worker", "to": "db", "label": "marks", "labelDy": 20, "fromSide": "left", "toSide": "right" },
+    { "id": "worker-ai", "from": "worker", "to": "ai", "label": "grade", "fromSide": "top", "toSide": "bottom" },
+    { "id": "ai-groq", "from": "ai", "to": "groq", "label": "HTTPS", "variant": "security" },
+    { "id": "ai-gemma", "from": "ai", "to": "gemma", "label": "HTTPS", "variant": "security" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Browser", "items": ["PDF parsed in the browser", "Never calls an AI provider"] },
+    { "dot": "emerald", "title": "Backend", "items": ["Every query scoped to the signed-in user", "Grading runs async; report page polls"] },
+    { "dot": "rose", "title": "AI gate", "items": ["Keys stay in the backend", "429 marks a provider unavailable, fallback graders take over"] }
+  ]
+}
