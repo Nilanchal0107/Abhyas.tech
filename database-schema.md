@@ -21,7 +21,7 @@
 | 9 | Account deletion is a **hard delete** by `ON DELETE CASCADE` from `app_user`. Shared tables have no link to a user. | Q7 |
 | 10 | Mastery, last score and last asked date are **columns on `question`**, updated when an answer is graded. `attempt` keeps the history. | Q9 |
 | 11 | One `attempt` row per question slot of a session. No separate join table. | Q10 |
-| 12 | `resume_point` has `key_facts_status`, `key_facts_tries` and `last_try_at`. Key facts are rows in `key_fact`. | Q11 |
+| 12 | Key facts live on the question (`question.key_facts`, `bank_question.key_facts`). The per-point `key_fact` table and the `resume_point.key_facts_*` columns were dropped by `V6` (ticket 10). | Q11 |
 | 13 | Stories have `story_tag` and `story_resume_point` tables. Tags are free text. | Q12 |
 | 14 | The gap result is stored as one JSON snapshot per resume. The export is built on request and not stored. | Q13 |
 | 15 | `bank_question.text_hash` is unique, so the database rejects duplicates. | Q14 |
@@ -30,7 +30,7 @@
 ## 2. Overview
 
 ```
-app_user ──< resume ──< resume_point ──< key_fact
+app_user ──< resume ──< resume_point
    │           │             │
    │           │             └──< story_resume_point >── story >── story_tag
    │           ├── gap_result (1:1)
@@ -43,9 +43,10 @@ app_user ──< resume ──< resume_point ──< key_fact
 
 bank_question >── skill          (shared, no user link)
 question >── bank_question       (optional source)
+app_user ──< bank_performance >── bank_question   (a user's result on a bank question, across resumes)
 ```
 
-Shared tables (never deleted with a user): `skill`, starter rows of `role`, their `role_alias` and `role_skill`, and `bank_question`.
+Shared tables (never deleted with a user): `skill`, starter rows of `role`, their `role_alias` and `role_skill`, `skill_alias`, and `bank_question`.
 
 ## 3. Tables
 
@@ -89,6 +90,15 @@ Unique `(owner_key, name)`. Role search returns roles where `owner_user_id IS NU
 
 Unique `(role_id, alias)`. Index on `alias` for search.
 
+### 3.4a `skill_alias` (FR-16, skill-bank D2)
+| Column | Type | Notes |
+|---|---|---|
+| id | BIGINT PK AI | |
+| skill_id | BIGINT NOT NULL FK `skill` ON DELETE CASCADE | |
+| alias | VARCHAR(100) NOT NULL | another way a resume writes the skill, for example "RESTful basics" for REST APIs |
+
+Unique `alias` (case-insensitive, so one alias belongs to one skill). Seeded by `V4__skill_alias.sql` for the 74 skills of the 11 roles (202 aliases). The role skills check matches the skill name and its aliases as whole words, ignoring case, in every resume point (`SkillMatcher`).
+
 ### 3.5 `role_skill` (FR-3)
 | Column | Type | Notes |
 |---|---|---|
@@ -122,19 +132,8 @@ Index `(user_id, last_used_at)`. Phone and email stay in `parsed_json` (the Revi
 | text | TEXT NOT NULL | the bullet or skill text |
 | position | INT NOT NULL | order within the resume |
 | skill_id | BIGINT NULL FK `skill` ON DELETE SET NULL | the matched skill, used by the gap check and to pick practice bank questions |
-| key_facts_status | ENUM('pending','ready') NOT NULL DEFAULT 'pending' | FR-8 |
-| key_facts_tries | TINYINT NOT NULL DEFAULT 0 | failed drafting attempts |
-| last_try_at | DATETIME(3) NULL | retried only after a delay, never in a tight loop |
 
-Index `(resume_id, key_facts_status)`, index `skill_id`.
-
-### 3.8 `key_fact` (FR-8)
-| Column | Type | Notes |
-|---|---|---|
-| id | BIGINT PK AI | |
-| resume_point_id | BIGINT NOT NULL FK `resume_point` ON DELETE CASCADE | |
-| position | INT NOT NULL | |
-| fact_text | TEXT NOT NULL | one true fact, read-only for the user |
+Index `skill_id`. (`key_facts_status`, `key_facts_tries`, `last_try_at` and their index were dropped by `V6`.)
 
 ### 3.9 `gap_result` (FR-16)
 | Column | Type | Notes |
@@ -181,7 +180,7 @@ A question belongs to one resume, so tracking is per user + role + resume (decis
 | options | JSON NULL | multiple-correct, see 4.2 |
 | correct_options | JSON NULL | multiple-correct |
 | accepted_answers | JSON NULL | fill-blank, one list per blank, see 4.2 |
-| key_facts | JSON NULL | for bank-sourced brief and voice questions. NULL means use the rows in `key_fact` of `resume_point_id` |
+| key_facts | JSON NULL | the answer key of a technical brief or voice question (bank rows and project questions). NULL for the other types and for behavioral ones |
 | keywords | JSON NULL | for keyword grading |
 | source | ENUM('ai','bank') NOT NULL | |
 | provider | VARCHAR(30) NULL | |
@@ -194,6 +193,22 @@ A question belongs to one resume, so tracking is per user + role + resume (decis
 
 Unique `(resume_id, text_hash)`. Index `(resume_id, type, mastered, last_score)` for session building. Index `(resume_id, last_asked_at)` for the one-month rest rule. The number of mastered questions on the Resume list is `COUNT(*) WHERE mastered`.
 
+**Bank questions use `bank_performance` instead (ticket 18).** For a row with `bank_question_id` set, session building reads mastered, last score, last asked and times asked from the user's `bank_performance` row (none means new). The columns above are still written for such a row but are only a per-resume copy (the Resume list count uses them). A project question (`bank_question_id` NULL) uses these columns alone.
+
+### 3.11a `bank_performance` (FR-13, FR-14, ticket 18), per user
+A user's result on a bank question, kept across all their resumes, so a question mastered on one resume does not come back as new on another.
+
+| Column | Type | Notes |
+|---|---|---|
+| user_id | BIGINT NOT NULL FK `app_user` ON DELETE CASCADE | part of the primary key |
+| bank_question_id | BIGINT NOT NULL FK `bank_question` ON DELETE CASCADE | part of the primary key |
+| mastered | BOOLEAN NOT NULL DEFAULT FALSE | |
+| last_score | DECIMAL(4,1) NULL | score of the latest attempt that counts toward mastery |
+| last_asked_at | DATETIME(3) NULL | updated when a session is built |
+| times_asked | INT NOT NULL DEFAULT 0 | |
+
+Primary key `(user_id, bank_question_id)`. The row is created when the question is first asked and updated by grading. A mastered question rests one month from `last_asked_at`, and the practice bank does not copy it into another resume while it rests. V5 copies what `question` already held (best result per user and bank question).
+
 ### 3.12 `practice_session` (Section 9)
 | Column | Type | Notes |
 |---|---|---|
@@ -201,7 +216,8 @@ Unique `(resume_id, text_hash)`. Index `(resume_id, type, mastered, last_score)`
 | user_id | BIGINT NOT NULL FK `app_user` ON DELETE CASCADE | |
 | resume_id | BIGINT NOT NULL FK `resume` ON DELETE CASCADE | fixed for the session |
 | status | ENUM('in_progress','completed','abandoned') NOT NULL | |
-| voice_skipped | BOOLEAN NOT NULL DEFAULT FALSE | the voice part was left out (16 questions, 50 marks) |
+| mode | ENUM('quiz','interview') NOT NULL DEFAULT 'quiz' | added in V7 (ticket 13). A quiz has 19 questions, an interview 6 voice questions |
+| voice_skipped | BOOLEAN NOT NULL DEFAULT FALSE | the voice part was left out (16 questions, 50 marks). Always false for sessions made since ticket 19; kept for old ones |
 | max_marks | DECIMAL(5,1) NOT NULL | 80 or 50 |
 | total_marks | DECIMAL(5,1) NULL | set when completed |
 | report_text | TEXT NULL | Gemma's session report, stored as JSON text `{"headline":"...","summary":"..."}` |
@@ -228,10 +244,12 @@ One row per question slot, created when the session starts and filled in when th
 | answer_text | TEXT NULL | brief, or a typed voice answer |
 | transcript | TEXT NULL | voice (Whisper) |
 | voice_stats | JSON NULL | see 4.4 |
+| follow_up_text | TEXT NULL | interview only (V7): the AI follow-up, written once. Not an answer key, so it is shown during the session |
+| follow_up_answer | TEXT NULL | interview only (V7): typed text or transcript. Graded together with the main answer |
 | score | DECIMAL(4,1) NULL | NULL until graded |
 | checklist | JSON NULL | see 4.3, with quoted proof |
 | blank_results | JSON NULL | per-blank result for fill-blank, including the Groq re-check |
-| graded_by | ENUM('java','ai','fallback') NULL | `java` for multiple-correct and fill-blank, `ai` for Groq checklists, `fallback` for keyword grading. Exported (FR-19), never shown in the app |
+| graded_by | ENUM('java','ai','fallback') NULL | `java` for multiple-correct and fill-blank, `ai` for Groq checklists, `fallback` for keyword grading. Exported (FR-19). In the app only as `gradedWithoutAi` (report label and regrade) |
 | feedback_text | TEXT NULL | Gemma's feedback, or the template text in fallback, stored as JSON text `{"text":"...","whatToFix":"...","deliveryComment":null}` |
 | feedback_status | ENUM('pending','ready','none') NOT NULL DEFAULT 'pending' | supports feedback that fills in gradually in the report |
 | answered_at | DATETIME(3) NULL | |
@@ -301,10 +319,10 @@ Counted by Java. Gemma's comment on these numbers is part of `feedback_text`. No
 
 | Deleted | What happens |
 |---|---|
-| `app_user` (FR-18) | Cascades to: user-added `role` (and its aliases and skills links), `resume` (and `resume_point`, `key_fact`, `gap_result`, `question`), `practice_session` (and `attempt`), `story` (and tags and links). Nothing else is needed. |
-| `resume` | Cascades to its resume points, key facts, gap result, questions, sessions and, through them, attempts. |
+| `app_user` (FR-18) | Cascades to: user-added `role` (and its aliases and skills links), `resume` (and `resume_point`, `gap_result`, `question`), `practice_session` (and `attempt`), `story` (and tags and links), `bank_performance`. Nothing else is needed. |
+| `resume` | Cascades to its resume points, gap result, questions, sessions and, through them, attempts. |
 | `practice_session` | Cascades to its attempts. A story's `source_attempt_id` becomes NULL. |
-| Shared tables | `skill`, starter `role` rows, `role_alias`, `role_skill` and `bank_question` have no user link and are never touched. A bank question's `bank_question_id` on a user's question becomes NULL only if the bank row is removed. |
+| Shared tables | `skill`, starter `role` rows, `role_alias`, `role_skill`, `skill_alias` and `bank_question` have no user link and are never touched. A bank question's `bank_question_id` on a user's question becomes NULL only if the bank row is removed. |
 
 ## 6. Main queries and the indexes behind them
 
@@ -313,10 +331,10 @@ Counted by Java. Gemma's comment on these numbers is part of `feedback_text`. No
 | Login | `app_user` by `login_id` | unique `login_id` |
 | Role search (FR-3) | roles and aliases matching the text, own and starter roles | `role_alias(alias)`, `role(owner_key, name)` |
 | Resume list | resumes of a user, with the mastered count | `resume(user_id, last_used_at)`, `question(resume_id, type, mastered, last_score)` |
-| Build a session (Section 10) | per part: unmastered by lowest `last_score` first, then random from new and from mastered questions with `last_asked_at` older than one month | `question(resume_id, type, mastered, last_score)`, `question(resume_id, last_asked_at)` |
+| Build a session (Section 10) | per part: unmastered by lowest `last_score` first, then random from new and from mastered questions with `last_asked_at` older than one month. Bank questions read these from the user's `bank_performance` row | `question(resume_id, type, mastered, last_score)`, `question(resume_id, last_asked_at)`, `bank_performance` primary key |
 | Continue session (Home) | the user's `in_progress` session | unique `practice_session(open_user_id)` |
 | History | sessions of a user, newest first | `practice_session(user_id, started_at)` |
-| Retry key facts (FR-8) | resume points `pending` for a resume, oldest `last_try_at` first | `resume_point(resume_id, key_facts_status)` |
+| Retry project questions (FR-8) | resumes of a user with no AI `question` row without `resume_point_id` and `theme` | `question(resume_id, ...)` |
 | Story tag filter | stories of a user with a tag | `story_tag(tag)`, `story(user_id, created_at)` |
 | Pick practice bank questions (FR-20) | by type and skill, or type and theme | `bank_question(type, skill_id)`, `bank_question(type, theme)` |
 
@@ -334,8 +352,12 @@ Every query on user data filters by the signed-in user, directly or through `res
 | Migration | Content |
 |---|---|
 | `V1__schema.sql` | all tables in 9 below |
-| `V2__starter_roles.sql` | the 42 starter roles, aliases, skills and links, from the data in Section 12 (`roles_starter.csv`) |
-| `V3__starter_bank.sql` | the software development practice bank from `bank_starter.csv`. Drafted (106 questions, in `backend/src/main/resources/db/seed-draft/`), not loaded until reviewed and moved to `db/migration/` (FR-20) |
+| `V2__starter_roles.sql` | the original 42 starter roles, aliases, skills and links (already applied, so left unchanged) |
+| `V3__narrow_starter_roles.sql` | deletes the starter roles not in Section 12, leaving the 11. A role that a resume targets is kept (`resume.target_role_id` cascades). Skills are kept |
+| `V4__skill_alias.sql` | the `skill_alias` table and its seed aliases (ticket 04) |
+| `V5__bank_performance.sql` | the per-user `bank_performance` table and the copy of existing bank results into it (ticket 18) |
+| `V6__drop_key_fact.sql` | drops the `key_fact` table and the `resume_point.key_facts_status`, `key_facts_tries`, `last_try_at` columns and their index (ticket 10) |
+| `V7__starter_bank.sql` (drafted as `V4__starter_bank.sql`, renumber when moved; the wave 2 draft becomes `V8`) | the reviewed practice bank, generated by `gen_bank.py` from the `bank_*.py` data files: all 74 skills of the 11 roles (per skill 10 multiple-correct, 10 fill-in-the-blank, 5 technical briefs with `key_facts` and `keywords`; Communication and Critical Thinking briefs only), 1,810 questions, plus 20 behavioral questions by theme. Drafted in `backend/src/main/resources/db/seed-draft/` (review sheet `review.md`), not loaded until reviewed and moved to `db/migration/`. `source = 'seed'` marks a reviewed row (FR-20, skill-bank D3, D5) |
 
 ## 9. V1 SQL
 
@@ -594,7 +616,7 @@ None blocking. Possible later changes: a `deleted_at` column if soft delete is e
 
 ## 12. Starter roles data (`roles_starter.csv`)
 
-This section is the **exact starter data** for `V2__starter_roles.sql` (FR-3): 42 roles in 9 categories, each with aliases and skills. It was written from general knowledge, not from a live job-market dataset, so the skills need your review before release (PRD risk "Starter roles list comes from Claude's general knowledge").
+This section is the **exact starter data** after `V3__narrow_starter_roles.sql` (FR-3): 11 roles in 3 categories, each with aliases and skills. It was written from general knowledge, not from a live job-market dataset, so the skills need your review before release (PRD risk "Starter roles list comes from Claude's general knowledge").
 
 **Format**
 - Columns: `category,role,aliases,skills`. Fields are double-quoted. Inside `aliases` and `skills`, items are separated by `|`.
@@ -610,47 +632,18 @@ category,role,aliases,skills
 "Software Development","Backend Developer","Backend Engineer|Server-Side Developer|API Developer","Java|Spring Boot|REST APIs|SQL|MySQL|Microservices|Redis|Message Queues|Authentication|Unit Testing|Docker|Git"
 "Software Development","Frontend Developer","Frontend Engineer|UI Developer|Web Developer","JavaScript|TypeScript|React|HTML|CSS|Responsive Design|Web Accessibility|REST APIs|State Management|Unit Testing|Git|Web Performance"
 "Software Development","Full Stack Developer","Full Stack Engineer|Full-Stack Developer|MERN Developer","JavaScript|React|Node.js|REST APIs|SQL|MongoDB|HTML|CSS|Git|Docker|Authentication|Unit Testing"
-"Software Development","Mobile App Developer","Android Developer|iOS Developer|Mobile Engineer|React Native Developer","Kotlin|Swift|React Native|Mobile UI Design|REST APIs|Local Storage|App Lifecycle|Push Notifications|Git|Unit Testing|App Store Publishing"
-"Software Development","Game Developer","Game Programmer|Unity Developer|Gameplay Programmer","C#|C++|Unity|Game Physics|3D Math|Game Loop|Data Structures|Algorithms|Graphics Programming|Performance Optimization|Git"
-"Software Development","Embedded Systems Engineer","Firmware Engineer|Embedded Software Engineer|Embedded Developer","C|C++|Microcontrollers|RTOS|Communication Protocols|Debugging|Hardware Interfacing|Memory Management|Linux|Git|Unit Testing"
 "Data and AI","Data Analyst","Business Data Analyst|Reporting Analyst|Analytics Analyst","SQL|Excel|Data Visualization|Statistics|Python|Data Cleaning|Dashboards|Power BI|Tableau|Critical Thinking|Communication"
 "Data and AI","Data Scientist","DS|Applied Scientist|Research Data Scientist","Python|Statistics|Machine Learning|SQL|Data Cleaning|Feature Engineering|Model Evaluation|Data Visualization|Pandas|Scikit-learn|Communication"
 "Data and AI","Data Engineer","DE|ETL Developer|Big Data Engineer|Data Pipeline Engineer","SQL|Python|ETL|Data Pipelines|Apache Spark|Kafka|Data Warehousing|Airflow|Cloud Storage|Data Modeling|Git"
 "Data and AI","Machine Learning Engineer","ML Engineer|MLE|Applied ML Engineer","Python|Machine Learning|Deep Learning|PyTorch|Model Deployment|Feature Engineering|Model Evaluation|Docker|MLOps|SQL|Git"
 "Data and AI","AI Engineer","LLM Engineer|Generative AI Engineer|GenAI Developer|AI Developer","Python|LLM APIs|Prompt Engineering|Retrieval-Augmented Generation|Vector Databases|Model Evaluation|REST APIs|Docker|Machine Learning|Git|Cost Management"
-"Data and AI","BI Developer","Business Intelligence Developer|BI Engineer|Reporting Developer","SQL|Data Warehousing|ETL|Power BI|Tableau|Data Modeling|Dashboards|Data Visualization|DAX|Performance Tuning|Communication"
 "Cloud and DevOps","DevOps Engineer","DevOps|DevOps Developer|CI/CD Engineer","CI/CD|Docker|Kubernetes|Linux|Git|Infrastructure as Code|Terraform|AWS|Monitoring|Shell Scripting|Jenkins|Networking Basics"
 "Cloud and DevOps","Cloud Engineer","Cloud Developer|AWS Engineer|Azure Engineer|Cloud Infrastructure Engineer","AWS|Azure|Linux|Networking Basics|Infrastructure as Code|Terraform|Cloud Security|Docker|Monitoring|Cost Management|Shell Scripting"
-"Cloud and DevOps","Site Reliability Engineer","SRE|Reliability Engineer|Production Engineer","Linux|Monitoring|Incident Response|Kubernetes|Python|Infrastructure as Code|Networking Basics|CI/CD|Capacity Planning|Observability|Shell Scripting"
-"Cloud and DevOps","Platform Engineer","Internal Platform Engineer|Developer Platform Engineer|Infrastructure Engineer","Kubernetes|Docker|Terraform|CI/CD|Linux|AWS|Observability|Developer Experience|Go|Python|Git"
-"Cloud and DevOps","Build and Release Engineer","Release Engineer|Build Engineer|Release Manager","CI/CD|Git|Jenkins|Build Tools|Shell Scripting|Docker|Release Management|Linux|Version Control Branching|Artifact Repositories|Automation"
-"Infrastructure and Databases","Database Administrator","DBA|Database Engineer|MySQL DBA|SQL DBA","SQL|MySQL|PostgreSQL|Database Backup and Recovery|Query Optimization|Indexing|Database Security|Replication|Linux|Performance Tuning|Shell Scripting"
-"Infrastructure and Databases","Network Engineer","Network Administrator|Network Specialist|Network Support Engineer","Networking Basics|TCP/IP|Routing and Switching|Firewalls|VPN|DNS|Network Monitoring|Network Security|Linux|Troubleshooting|Cisco"
-"Infrastructure and Databases","Systems Administrator","SysAdmin|System Administrator|Linux Administrator|Windows Administrator","Linux|Windows Server|Shell Scripting|Networking Basics|Active Directory|Backup and Recovery|Monitoring|Troubleshooting|Virtualization|Security Basics|Automation"
-"Infrastructure and Databases","IT Support Engineer","Technical Support Engineer|Desktop Support Engineer|Help Desk Engineer|L2 Support","Troubleshooting|Windows Server|Networking Basics|Active Directory|Ticketing Systems|Hardware Support|Customer Communication|Linux|Remote Support|Security Basics|Documentation"
-"Quality and Testing","QA Engineer","Quality Assurance Engineer|Software Tester|Test Engineer|QA Analyst","Test Case Design|Manual Testing|Bug Reporting|Test Plans|SQL|API Testing|Regression Testing|Agile|Git|Exploratory Testing|Communication"
-"Quality and Testing","Test Automation Engineer","SDET|Automation Tester|Software Development Engineer in Test|QA Automation Engineer","Selenium|Test Automation Frameworks|Java|Python|API Testing|CI/CD|Git|SQL|Unit Testing|Regression Testing|Test Case Design"
-"Quality and Testing","Performance Test Engineer","Performance Tester|Load Test Engineer|Performance Engineer","JMeter|Load Testing|Performance Monitoring|SQL|Linux|Bottleneck Analysis|API Testing|CI/CD|Scripting|Test Plans|Communication"
-"Quality and Testing","QA Lead","Test Lead|QA Manager|Test Manager","Test Plans|Test Strategy|Team Leadership|Agile|Risk Assessment|Test Automation Frameworks|Defect Management|Communication|Stakeholder Management|Metrics and Reporting|CI/CD"
-"Security","Security Engineer","Cybersecurity Engineer|InfoSec Engineer|Information Security Engineer","Security Basics|Network Security|Cloud Security|Authentication|Encryption|Vulnerability Management|Linux|Incident Response|Scripting|Firewalls|Threat Modeling"
-"Security","Application Security Engineer","AppSec Engineer|Product Security Engineer|Secure Code Reviewer","OWASP Top 10|Secure Code Review|Threat Modeling|Authentication|Encryption|Static Analysis|Dynamic Analysis|REST APIs|Git|CI/CD|Vulnerability Management"
-"Security","Penetration Tester","Pentester|Ethical Hacker|Red Team Engineer|Offensive Security Engineer","Penetration Testing|OWASP Top 10|Networking Basics|Linux|Burp Suite|Metasploit|Vulnerability Assessment|Scripting|Report Writing|Web Security|Social Engineering"
-"Security","SOC Analyst","Security Analyst|Cybersecurity Analyst|Security Operations Analyst|Blue Team Analyst","SIEM|Incident Response|Log Analysis|Threat Detection|Networking Basics|Malware Analysis Basics|Linux|Security Basics|Vulnerability Management|Documentation|Communication"
-"Architecture and Leadership","Software Architect","Technical Architect|Application Architect|Principal Engineer","System Design|Design Patterns|Microservices|Scalability|API Design|Cloud Architecture|Trade-off Analysis|Security Basics|Database Design|Technical Documentation|Mentoring"
-"Architecture and Leadership","Solutions Architect","Cloud Solutions Architect|Enterprise Architect|Pre-Sales Architect","Cloud Architecture|AWS|System Design|Microservices|Networking Basics|Security Basics|Cost Management|Stakeholder Management|Technical Documentation|Integration Patterns|Communication"
-"Architecture and Leadership","Technical Lead","Tech Lead|Team Lead|Lead Developer|Lead Engineer","System Design|Code Review|Mentoring|Agile|Design Patterns|Estimation|Stakeholder Management|Git|Unit Testing|Technical Documentation|Conflict Resolution"
-"Architecture and Leadership","Engineering Manager","EM|Development Manager|Software Engineering Manager","Team Leadership|Hiring|Performance Reviews|Agile|Project Planning|Stakeholder Management|Mentoring|Conflict Resolution|Roadmapping|Budgeting|Communication"
-"Product and Design","Product Manager","PM|Product Owner|Associate Product Manager|APM","Product Roadmapping|User Research|Prioritization|Stakeholder Management|Agile|Metrics and Reporting|Requirements Gathering|Communication|Market Analysis|A/B Testing|Wireframing"
-"Product and Design","Business Analyst","BA|IT Business Analyst|Systems Analyst|Functional Analyst","Requirements Gathering|User Stories|Process Modeling|SQL|Stakeholder Management|Documentation|Wireframing|Agile|Data Analysis|Communication|UML"
-"Product and Design","UI/UX Designer","UX Designer|UI Designer|Product Designer|Interaction Designer","Wireframing|Prototyping|Figma|User Research|Usability Testing|Design Systems|Web Accessibility|Responsive Design|Information Architecture|Visual Design|Communication"
-"Product and Design","Technical Program Manager","TPM|Program Manager|Technical Project Manager|Project Manager","Project Planning|Roadmapping|Risk Assessment|Stakeholder Management|Agile|Metrics and Reporting|Cross-Team Coordination|Technical Documentation|Budgeting|Communication|Estimation"
-"Emerging and Specialized","Blockchain Developer","Smart Contract Developer|Web3 Developer|Solidity Developer","Solidity|Smart Contracts|Ethereum|Cryptography Basics|JavaScript|Web3 Libraries|Smart Contract Security|Git|Unit Testing|Data Structures|Distributed Systems"
-"Emerging and Specialized","Salesforce Developer","SFDC Developer|Salesforce Engineer|Apex Developer","Apex|Salesforce Lightning|SOQL|Salesforce Flows|REST APIs|Salesforce Data Model|JavaScript|Unit Testing|Salesforce Integration|Git|Agile"
-"Emerging and Specialized","SAP Consultant","SAP Developer|SAP ABAP Developer|SAP Functional Consultant","SAP ABAP|SAP Modules|SQL|Business Process Knowledge|Requirements Gathering|SAP Fiori|Data Migration|Documentation|Communication|Unit Testing|Integration Patterns"
-"Emerging and Specialized","RPA Developer","Robotic Process Automation Developer|UiPath Developer|Automation Developer","UiPath|Process Automation|Workflow Design|Exception Handling|Excel|SQL|REST APIs|Requirements Gathering|Debugging|Orchestrator|Documentation"
 ```
 
 **Counts and checks**
-- 42 roles in 9 categories: Software Development (7), Data and AI (6), Cloud and DevOps (5), Infrastructure and Databases (4), Quality and Testing (4), Security (4), Architecture and Leadership (4), Product and Design (4), Emerging and Specialized (4).
-- 143 aliases and 228 distinct skills (466 role-skill links). Checked by script: role names are unique, aliases are unique across all roles (so an alias search finds one role), no alias equals another role's name, and no role lists a skill twice.
+- 11 roles in 3 categories: Software Development (4), Data and AI (5), Cloud and DevOps (2).
+- 37 aliases, 74 distinct skills and 125 role-skill links. The `skill` table keeps all 228 skills from V2, so skills of removed roles still match on a resume. Checked by script: role names are unique, aliases are unique across all roles (so an alias search finds one role), no alias equals another role's name, and no role lists a skill twice.
 - Category names use "and" instead of "&", to keep the CSV and search simple.
+
+- 5 October 2026 (ticket 13, `V7__interview_mode.sql`): `practice_session.mode`, `attempt.follow_up_text`, `attempt.follow_up_answer`. The V1 block above is unchanged; V7 is a separate migration.

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": { "title": "Submit and Grade Sequence", "output": "sequence.html", "viewBox": [900, 800], "quality_profile": "showcase", "column_fit": "spread" },
+  "participants": [
+    { "id": "user", "type": "external", "label": "User", "sublabel": "browser" },
+    { "id": "api", "type": "backend", "label": "Session API", "sublabel": "controller" },
+    { "id": "worker", "type": "backend", "label": "Grading Worker", "sublabel": "single thread" },
+    { "id": "groq", "type": "cloud", "label": "Groq", "sublabel": "checklists" },
+    { "id": "gemma", "type": "cloud", "label": "Gemma", "sublabel": "feedback" },
+    { "id": "db", "type": "database", "label": "MySQL", "sublabel": "scores" }
+  ],
+  "messages": [
+    { "from": "user", "to": "api", "y": 180, "label": "POST /submit", "variant": "emphasis" },
+    { "from": "api", "to": "worker", "y": 222, "label": "queue session", "variant": "dashed" },
+    { "from": "api", "to": "user", "y": 264, "label": "completed, at once", "variant": "return" },
+    { "from": "worker", "to": "db", "y": 326, "label": "Java marks, blanks", "variant": "default" },
+    { "from": "worker", "to": "groq", "y": 368, "label": "grade each answer", "variant": "emphasis" },
+    { "from": "groq", "to": "worker", "y": 410, "label": "checklist + quotes", "variant": "return" },
+    { "from": "worker", "to": "db", "y": 452, "label": "score, mastery", "variant": "emphasis" },
+    { "from": "worker", "to": "gemma", "y": 514, "label": "feedback, 7 s gap", "variant": "emphasis" },
+    { "from": "gemma", "to": "worker", "y": 556, "label": "text or 429", "variant": "return" },
+    { "from": "worker", "to": "db", "y": 598, "label": "feedback ready", "variant": "emphasis" },
+    { "from": "user", "to": "api", "y": 660, "label": "GET session, poll", "variant": "default" },
+    { "from": "api", "to": "user", "y": 702, "label": "filled rows", "variant": "return" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Returns at once", "items": ["Grading runs after the response"] },
+    { "dot": "emerald", "title": "Marks by Java", "items": ["The AI ticks a checklist; Java sums the score"] },
+    { "dot": "rose", "title": "429 handling", "items": ["Fallback grader or template text takes over"] }
+  ]
+}

@@ -7,7 +7,7 @@
 
 ## 1. Principles
 
-1. **Calm and minimal.** Interview practice is stressful. Light theme only, no gamification (streaks, badges), no dark mode in v1. Apple-style: soft grays, one blue, translucent top bar and dialogs, short springy motion.
+1. **Calm and minimal, like a marked exam sheet.** Interview practice is stressful. No gamification (streaks, badges). "Red pen on paper" identity (10 October 2026): warm paper, ink-black text, one red-pen accent for marks and highlights, flat solid colors, hard offset shadows, short settled motion. Light theme by default, dark theme when the system asks for it.
 2. **Defend your resume.** Every screen points back to the user's own resume points, not generic content.
 3. **Plain CSS, shared tokens.** No UI library or Tailwind. Colors, spacing and type come only from the tokens in Section 4, so screens don't drift.
 4. **Accessible by default.** WCAG 2.1 AA (Section 8).
@@ -36,7 +36,7 @@ The UI uses the names on the left. The PRD and code keep the internal names on t
 
 ## 4. Design tokens *(my decision: exact values)*
 
-Defined once as CSS custom properties on `:root`. No gradients anywhere: solid colors, soft shadows and translucent materials (`backdrop-filter`) only. v3 (3 October 2026) restyled the tokens below Apple-style: `--color-bg` is now `#F5F5F7` (page) and `--color-surface` is `#FFFFFF` (cards), primary is `#0066CC`, radius is 12 px (buttons are pills), font is Geist with a system fallback, and motion uses `--ease` (`cubic-bezier(.32,.72,0,1)`), press feedback at 120 ms and entrances at 280 ms. The table values below are the v2 originals; `frontend/src/styles/tokens.css` is the current source. `prefers-reduced-motion`, `prefers-reduced-transparency` and `prefers-contrast: more` are honored. Colors are never the only signal: success, warning and error each pair a color with an icon and a word.
+Defined once as CSS custom properties on `:root`. No gradients anywhere: solid colors, soft shadows and translucent materials (`backdrop-filter`) only. v4 (10 October 2026) replaced the Apple-style v3 palette with the "red pen on paper" tokens in `frontend/src/styles/tokens.css` (paper `#FAF7F0`, card `#FFFFFF`, ink `#1B1A17`, pen red `#C8321F`, radius 8 px, Fraunces headings, Geist body, a dark set under `prefers-color-scheme: dark`); that file is the current source and the table below is the v2 original. v3 (3 October 2026) had restyled the tokens Apple-style: `--color-bg` is now `#F5F5F7` (page) and `--color-surface` is `#FFFFFF` (cards), primary is `#0066CC`, radius is 12 px (buttons are pills), font is Geist with a system fallback, and motion uses `--ease` (`cubic-bezier(.32,.72,0,1)`), press feedback at 120 ms and entrances at 280 ms. The table values below are the v2 originals; `frontend/src/styles/tokens.css` is the current source. `prefers-reduced-motion`, `prefers-reduced-transparency` and `prefers-contrast: more` are honored. Colors are never the only signal: success, warning and error each pair a color with an icon and a word.
 
 | Token | Value | Use |
 |---|---|---|
@@ -75,7 +75,7 @@ Each screen lists its purpose, what it shows, and its actions. FR numbers refer 
 ### 6.0 Landing page (W13)
 - Public page at `/`, shown to everyone, signed in or not. It has its own simple top bar: the name, and "Log in" and "Sign up" (or "Go to practice" when signed in).
 - Content, top to bottom: hero (heading, one call to action, privacy proof line, an example marked answer), the problem, five benefits, a tagline section whose words light up one by one on scroll, the three steps, a privacy note, FAQ, a final call to action identical to the first, and an AGPL-3.0 footer. The YouTube tutorial and GitHub links sit in the footer, each shown only once its URL is set.
-- **Visual exception (owner decision, 3 October 2026):** this page follows the `landing-page-design` skill instead of Section 4: dark theme (`#000000`, `#181818`, `#1F1F1F`, `#272727`, `#313131`), Geist font, a gradient on the hero heading text only, Phosphor icons, a floating glass nav pill with a hamburger menu on narrow screens, and scroll reveals. Styles are scoped to `.lp` in `landing.css`. Motion is switched off under `prefers-reduced-motion`.
+- **Visual (10 October 2026):** the landing page uses the same tokens as the app, with larger serif type, a hand-drawn red underline in the hero, a floating paper-and-ink nav bar with a hamburger menu on narrow screens, and scroll reveals. Styles are scoped to `.lp` in `landing.css`. No gradients. Motion is switched off under `prefers-reduced-motion`.
 - After login or sign up the user lands on Home (6.2), not the landing page.
 
 ### 6.1 Sign up / log in (FR-1)
@@ -84,7 +84,7 @@ Each screen lists its purpose, what it shows, and its actions. FR numbers refer 
 
 ### 6.2 Home
 - **First time (no resume yet):** one call to action, "Upload your resume". The first path is: sign up, upload, review, role skills check, first practice session.
-- **After that, top to bottom:** a "Continue your practice session" card (only if one is unfinished, Section 6.7), then a resume selector (default: the most recently used resume) with a "Start practice session" button, then the latest session summary (total, mastered count, weakest resume points) with an "Open report" button. With no completed session yet the last block says "No practice sessions yet."
+- **After that, top to bottom:** a "Continue your practice session" card (only if one is unfinished, Section 6.7), then a resume selector (default: the most recently used resume) with a **Mode** choice (Quiz or Interview) and a "Start practice session" ("Start interview") button, then the latest session summary (total, mastered count, weakest resume points) with an "Open report" button. With no completed session yet the last block says "No practice sessions yet."
 
 ### 6.3 Resume list (FR-2)
 - One row per resume: file name, target role, upload date, mastered question count.
@@ -114,10 +114,17 @@ Each screen lists its purpose, what it shows, and its actions. FR numbers refer 
 - **No feedback during the session.** Feedback appears only in the report.
 - **Leave session:** asks for confirmation, then marks the session abandoned in History.
 - **Voice answer flow** (Section 7.3).
-- **Voice part skipped:** if Whisper is unavailable when the session starts, the voice part is left out: 16 questions and 50 marks (FR-20).
+- **Whisper down:** the voice part stays. If transcription fails, the screen says "We couldn't turn your recording into text. Speak your answer again: your browser will write it down." and the next recording uses the browser's speech recognition (Chrome, Edge). Privacy note on the landing page and in the FAQ: in Chrome that audio goes to Google to be turned into text; we store none. No speech recognition or no microphone: the typed box (FR-20).
+
+### 6.7a Interview (FR-21, W8i)
+- One question per screen, forward only, with a progress bar and a countdown ("Time left: 02:41") for each answer, 3 minutes.
+- The user speaks (the voice answer flow of 7.3) or types. "Next: follow-up" saves the answer and shows one follow-up question under the original one, answered the same way with its own timer. Saying nothing and pressing Skip question scores zero and has no follow-up.
+- When the timer ends the answer is sent as it stands; a recording in progress finishes first. The last button reads "Finish interview" and opens the report.
+- No feedback during the interview. Leave interview asks for confirmation like Leave session.
+- The report shows each follow-up and the reply under the answer. History has a Mode column.
 
 ### 6.8 Session report (FR-12)
-- **Top summary:** a row of stat tiles (total out of 80, or 50 if the voice part was skipped, with a percentage; mastered count; weakest resume points), then a small table of marks per part, then Gemma's short report text. No charts: the table is the accessible form of the numbers.
+- **Top summary:** a row of stat tiles (total out of 80, or 50 on an old session with the voice part skipped, with a percentage; mastered count; weakest resume points), then a small table of marks per part, then Gemma's short report text. No charts: the table is the accessible form of the numbers.
 - **Below:** all questions grouped by the four parts. Each question is a collapsible row whose header is a button (`aria-expanded`) showing the number, type, marks and a status icon with a word, for example "Q7 · Brief answer · 3/5 · Needs work", followed by the first line of the question. Questions that are not mastered are open by default, mastered ones are collapsed.
 - **Gradual feedback:** Gemma's feedback arrives one call at a time, so each row shows "Feedback is being written..." until its text arrives.
 - **Per question:**
@@ -157,7 +164,7 @@ Each screen lists its purpose, what it shows, and its actions. FR numbers refer 
 - Live captions are not included (not in the PRD).
 
 ### 7.4 AI unavailable
-- **Silent.** No banner, dialog or label. Bank questions and keyword grades look like AI ones. `graded_by` is stored and exported only (FR-20, FR-19).
+- No banner or dialog; bank questions look like AI ones. A **keyword-graded answer** shows, under its detail in the report: "Graded without AI: keyword matching gave this mark, so it may be too strict, and it does not count toward mastery." plus a secondary button **Regrade with AI** (disabled while grading runs, "Regrading…" while busy, an inline error if AI is still unavailable). Changed 4 October 2026; it was fully silent before (FR-20).
 - A hard failure with no fallback available shows the inline error pattern in 7.1.
 
 ## 8. Accessibility (WCAG 2.1 AA)
@@ -178,7 +185,7 @@ Each screen lists its purpose, what it shows, and its actions. FR numbers refer 
 
 ## 10. Out of scope (v1)
 
-Dark mode, gamification, timers, live captions, phone support, toast notifications, an "active resume" setting, any visible AI-fallback indicator.
+A manual dark-mode toggle (dark follows the system), gamification, timers, live captions, phone support, toast notifications, an "active resume" setting, any visible AI-fallback indicator.
 
 ## 11. Wireframes
 

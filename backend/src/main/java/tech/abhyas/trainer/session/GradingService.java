@@ -54,11 +54,22 @@ public class GradingService {
 
     /** Hands a completed session to the worker. */
     public void start(long sessionId) {
-        if (queued.add(sessionId)) worker.execute(() -> {
-            try { run(sessionId); }
-            catch (RuntimeException e) { log.warn("grading session={} stopped: {}", sessionId, e.getClass().getSimpleName()); } // never the message: it can quote the data
-            finally { queued.remove(sessionId); }
-        });
+        if (queued.add(sessionId)) worker.execute(() -> runQuietly(sessionId));
+    }
+
+    /**
+     * Queues the session even if a run is still finishing: a regrade reopens rows after that run looked at them. The worker is one
+     * thread, so the runs never overlap and a second one only picks up what is still open.
+     */
+    public void regrade(long sessionId) {
+        queued.add(sessionId);
+        worker.execute(() -> runQuietly(sessionId));
+    }
+
+    private void runQuietly(long sessionId) {
+        try { run(sessionId); }
+        catch (RuntimeException e) { log.warn("grading session={} stopped: {}", sessionId, e.getClass().getSimpleName()); } // never the message: it can quote the data
+        finally { queued.remove(sessionId); }
     }
 
     /** On startup: every completed session that still has something pending is finished (trd 7.4 recovery). */
@@ -78,23 +89,25 @@ public class GradingService {
 
     private record Att(long id, int position, double maxMarks, String via, String selected, String blanks, String text, String transcript, String stats, Double score,
                        String checklist, String feedbackStatus, long questionId, String type, String theme, String questionText, String correct, String accepted,
-                       String keyFacts, String keywords, Long pointId, String pointText) {
+                       String keyFacts, String keywords, Long pointId, String pointText, String followUp, String followUpAnswer) {
         boolean answered() { return via != null; }
         boolean behavioral() { return theme != null; }
         boolean voiceRecorded() { return type.equals("voice") && "voice".equals(via); }
-        String answerText() { return voiceRecorded() ? transcript : text; }
+        String mainAnswer() { return voiceRecorded() ? transcript : text; }
+        /** An interview answer is graded together with its follow-up answer (ticket 13); the follow-up question itself is not part of the evidence. */
+        String answerText() { return followUpAnswer == null || followUpAnswer.isBlank() ? mainAnswer() : (mainAnswer() == null ? "" : mainAnswer() + "\n") + followUpAnswer; }
     }
 
     private List<Att> load(long sessionId) {
         return jdbc.query("""
                 SELECT a.id, a.position, a.max_marks, a.answered_via, a.selected_options, a.blank_answers, a.answer_text, a.transcript, a.voice_stats, a.score, a.checklist, a.feedback_status,
-                       q.id AS qid, q.type, q.theme, q.text, q.correct_options, q.accepted_answers, q.key_facts, q.keywords, q.resume_point_id, p.text AS point_text
+                       q.id AS qid, q.type, q.theme, q.text, q.correct_options, q.accepted_answers, q.key_facts, q.keywords, q.resume_point_id, p.text AS point_text, a.follow_up_text, a.follow_up_answer
                 FROM attempt a JOIN question q ON q.id = a.question_id LEFT JOIN resume_point p ON p.id = q.resume_point_id
                 WHERE a.session_id = :s ORDER BY a.position""", Map.of("s", sessionId), (rs, i) -> new Att(rs.getLong("id"), rs.getInt("position"), rs.getDouble("max_marks"),
                 rs.getString("answered_via"), rs.getString("selected_options"), rs.getString("blank_answers"), rs.getString("answer_text"), rs.getString("transcript"),
                 rs.getString("voice_stats"), rs.getObject("score") == null ? null : rs.getDouble("score"), rs.getString("checklist"), rs.getString("feedback_status"),
                 rs.getLong("qid"), rs.getString("type"), rs.getString("theme"), rs.getString("text"), rs.getString("correct_options"), rs.getString("accepted_answers"),
-                rs.getString("key_facts"), rs.getString("keywords"), rs.getObject("resume_point_id") == null ? null : rs.getLong("resume_point_id"), rs.getString("point_text")));
+                rs.getString("key_facts"), rs.getString("keywords"), rs.getObject("resume_point_id") == null ? null : rs.getLong("resume_point_id"), rs.getString("point_text"), rs.getString("follow_up_text"), rs.getString("follow_up_answer")));
     }
 
     private static List<String> strings(String json) {
@@ -103,25 +116,14 @@ public class GradingService {
         return out;
     }
 
-    /** The answer key of a technical brief or voice question: its own facts (bank rows), else those drafted for its resume point. Behavioral ones have none. */
-    private Map<Long, List<String>> factsFor(List<Att> atts) {
-        Set<Long> points = new LinkedHashSet<>();
-        for (Att a : atts) if (a.pointId() != null && !a.behavioral()) points.add(a.pointId());
-        return KeyFacts.load(jdbc, points);
-    }
-
-    private static List<String> facts(Att a, Map<Long, List<String>> byPoint) {
-        if (a.behavioral()) return List.of();
-        List<String> own = strings(a.keyFacts());
-        return !own.isEmpty() ? own : a.pointId() == null ? List.of() : byPoint.getOrDefault(a.pointId(), List.of());
-    }
+    /** The answer key of a technical brief or voice question: its own facts. Behavioral ones have none. */
+    private static List<String> facts(Att a) { return a.behavioral() ? List.of() : strings(a.keyFacts()); }
 
     // ---- stage A: marks ----
 
     /** Marks every open answer, then sets the total once nothing is left open. */
     void markAnswers(long sessionId) {
         List<Att> all = load(sessionId), todo = all.stream().filter(a -> a.score() == null).toList();
-        Map<Long, List<String>> factsByPoint = factsFor(todo);
 
         List<Att> blanks = new ArrayList<>();
         for (Att a : todo) {
@@ -132,7 +134,7 @@ public class GradingService {
                     save(a, Grading.multipleCorrectMarks(picked, correct), null, null, "java", true);
                 }
                 case "fill_blank" -> blanks.add(a);
-                default -> markChecklist(a, facts(a, factsByPoint));
+                default -> markChecklist(a, facts(a));
             }
         }
         markBlanks(blanks);
@@ -218,6 +220,7 @@ public class GradingService {
                 + "a sentence copied word for word from the candidate answer that proves it. If you cannot quote the answer, passed must be false.\n")
                 .append("Question (").append(a.behavioral() ? "behavioral" : "technical").append("): ").append(a.questionText()).append('\n');
         if (a.pointText() != null) sb.append("Resume point the question is about: ").append(a.pointText()).append('\n');
+        if (a.followUpAnswer() != null && !a.followUpAnswer().isBlank()) sb.append("The interviewer then asked: ").append(a.followUp()).append("\nThe candidate answer below is the first answer followed by the reply to that follow-up.\n");
         sb.append("Candidate answer: ").append(answer).append("\nChecklist items:\n");
         for (String k : keys) sb.append("- ").append(k).append(": ").append(Grading.label(k, facts)).append('\n');
         return sb.append("Reply as {\"items\":[{\"item\":\"").append(keys.get(0)).append("\",\"passed\":true,\"quote\":\"...\"}]} and list every item.").toString();
@@ -231,6 +234,13 @@ public class GradingService {
             if (counts) {
                 jdbc.update("UPDATE question SET last_score = :sc, mastered = :m WHERE id = :q",
                         new MapSqlParameterSource("sc", score).addValue("m", Grading.mastered(a.type(), a.maxMarks(), score)).addValue("q", a.questionId()));
+                // a bank question's result belongs to the session's user, so it follows them to their other resumes (ticket 18)
+                jdbc.update("""
+                        INSERT INTO bank_performance (user_id, bank_question_id, last_score, mastered, times_asked, last_asked_at)
+                        SELECT s.user_id, q.bank_question_id, :sc, :m, 1, UTC_TIMESTAMP(3) FROM attempt t JOIN practice_session s ON s.id = t.session_id JOIN question q ON q.id = t.question_id
+                        WHERE t.id = :id AND q.bank_question_id IS NOT NULL
+                        ON DUPLICATE KEY UPDATE bank_performance.last_score = :sc, bank_performance.mastered = :m""",
+                        new MapSqlParameterSource("sc", score).addValue("m", Grading.mastered(a.type(), a.maxMarks(), score)).addValue("id", a.id()));
             }
         });
     }
@@ -241,7 +251,6 @@ public class GradingService {
     void writeFeedback(long sessionId) {
         GemmaFeedback gemma = new GemmaFeedback(ai, GradingService::sleep, gapMillis);
         List<Att> all = load(sessionId);
-        Map<Long, List<String>> factsByPoint = factsFor(all);
         for (Att a : all) {
             if (!"pending".equals(a.feedbackStatus()) || a.score() == null) continue;
             if (a.checklist() == null) { // nothing to write about (an objective or skipped answer)
@@ -249,7 +258,7 @@ public class GradingService {
                 continue;
             }
             List<Tick> ticks = ticks(a.checklist());
-            List<String> facts = facts(a, factsByPoint);
+            List<String> facts = facts(a);
             Map<String, Object> stats = a.voiceRecorded() && a.stats() != null ? statsMap(a.stats()) : null;
             Optional<Map<String, Object>> text = ticks.isEmpty() ? Optional.empty()
                     : gemma.feedback(GemmaFeedback.feedbackPrompt(a.questionText(), a.answerText(), ticks, facts, stats), stats != null);

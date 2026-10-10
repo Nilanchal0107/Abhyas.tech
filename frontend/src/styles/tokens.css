@@ -1,18 +1,24 @@
-/* UI-UX.md section 4. Light theme, calm Apple-style: soft grays, one blue, translucent chrome, spring-like easing. */
+/* UI-UX.md section 4. "Red pen on paper": warm paper, ink-black text, one red-pen accent for marks.
+   Flat solid colors only, no gradients anywhere. Light by default, dark when the system asks for it. */
 :root {
-  --color-bg: #f5f5f7;
-  --color-surface: #ffffff;
-  --color-surface-2: #ececf0;        /* quiet fills: hover, pressed, progress track */
-  --color-border: #d2d2d7;
-  --color-border-strong: #86868b;    /* inputs and buttons: 3.6:1 on white, WCAG 1.4.11 needs 3:1 */
-  --color-text: #1d1d1f;
-  --color-text-muted: #6e6e73;       /* 5:1 on white, 4.6:1 on --color-bg */
-  --color-primary: #0066cc;          /* 5.6:1 on white, white text on it passes AA */
-  --color-primary-hover: #0058b0;
-  --color-success: #1d7a3a;
-  --color-warning: #a15c00;
-  --color-error: #c4261d;
-  --color-error-bg: #fdecea;
+  color-scheme: light;
+  --paper: #faf7f0;            /* page */
+  --card: #ffffff;             /* sheets, cards, inputs */
+  --paper-2: #f1ece0;          /* quiet fills: hover, progress track, chips */
+  --line: #ddd6c6;             /* hairlines, dividers */
+  --line-strong: #8a8478;      /* inputs and buttons: 3.6:1 on white, WCAG 1.4.11 needs 3:1 */
+  --ink: #1b1a17;              /* text, primary buttons */
+  --ink-2: #5e5a51;            /* muted text: 6.6:1 on white, 6:1 on paper */
+  --on-ink: #faf7f0;           /* text on an ink-filled button */
+  --pen: #c8321f;              /* the red pen: marks, accents, errors. 5.2:1 on white */
+  --pen-hover: #a82716;
+  --pen-soft: #fbe3dd;         /* highlighter and error box fill */
+  --success: #2f6b3a;
+  --success-soft: #e3efe1;
+  --warning: #8f5300;
+  --warning-soft: #fbefd6;
+  --rule: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='32'%3E%3Crect y='31' width='8' height='1' fill='%23e9e2d2'/%3E%3C/svg%3E");
+
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 16px;
@@ -20,22 +26,45 @@
   --space-5: 32px;
   --space-6: 48px;
   --font: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces Variable', Georgia, 'Times New Roman', serif;
   --font-size-base: 16px;
-  --radius: 12px;
-  --radius-sm: 10px;
-  --radius-pill: 980px;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1), 0 24px 64px rgba(0, 0, 0, 0.14);
-  --font-size-h1: clamp(2rem, 4vw, 2.75rem);
+  --font-size-h1: clamp(2rem, 4.2vw, 2.9rem);
   --font-size-h2: 1.5rem;
   --font-size-h3: 1.125rem;
-  /* Materials: translucent chrome over scrolling content */
-  --material: rgba(245, 245, 247, 0.72);
-  --material-thick: rgba(255, 255, 255, 0.82);
-  --blur: saturate(180%) blur(20px);
-  --hairline: 0 0.5px 0 rgba(0, 0, 0, 0.16);
-  /* Motion: Apple's ease-out for entrances and press; critically damped feel, no overshoot */
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-pill: 999px;
+  /* Hard, flat shadows: a sheet lying on a desk, not a floating glow */
+  --shadow: 0 1px 0 var(--line);
+  --shadow-sheet: 3px 3px 0 var(--ink);
+  --shadow-pen: 2px 2px 0 var(--pen);
+  --scrim: rgba(27, 26, 23, 0.5);
+  /* Motion: quick and settled, no overshoot */
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
   --t-press: 120ms;
-  --t-ui: 280ms;
+  --t-ui: 240ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --paper: #16140f;
+    --card: #1f1c16;
+    --paper-2: #2a261e;
+    --line: #3a352b;
+    --line-strong: #7b7466;
+    --ink: #f3eee2;
+    --ink-2: #b3ac9c;
+    --on-ink: #16140f;
+    --pen: #ff7a66;
+    --pen-hover: #ff9684;
+    --pen-soft: #4a211b;
+    --success: #7cc48a;
+    --success-soft: #1f3322;
+    --warning: #e0a24a;
+    --warning-soft: #3a2a10;
+    --rule: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='32'%3E%3Crect y='31' width='8' height='1' fill='%23221f18'/%3E%3C/svg%3E");
+    --shadow-sheet: 3px 3px 0 var(--line-strong);
+    --scrim: rgba(0, 0, 0, 0.62);
+  }
 }

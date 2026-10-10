@@ -13,8 +13,11 @@ import Landing from './Landing.jsx'
 import { StoryForm, StoryList } from './Stories.jsx'
 import { Open } from './ResumeList.jsx'
 import RoleSkills from './RoleSkills.jsx'
+import Progress from './Progress.jsx'
+import { Brand, Alert, Loading } from './ui.jsx'
+import { BookOpenText, ClockCounterClockwise, FileText, Pencil, SignOut, UserCircle } from '@phosphor-icons/react'
 
-const NAV = [['Practice', '/practice'], ['Resumes', '/resumes'], ['Stories', '/stories'], ['History', '/history'], ['Account', '/account']]
+const NAV = [['Practice', '/practice', Pencil], ['Resumes', '/resumes', FileText], ['Stories', '/stories', BookOpenText], ['History', '/history', ClockCounterClockwise], ['Account', '/account', UserCircle]]
 
 // Only an in-app path may be returned to (never another site).
 const safeNext = (n) => (n && n.startsWith('/') && !n.startsWith('//') && !n.startsWith('/login') ? n : '/practice')
@@ -26,18 +29,18 @@ function Shell({ onLogOut }) {
     <>
       <a className="skip" href="#content">Skip to content</a>
       <header className="topbar">
-        <Link to="/" className="brand"><strong>Abhyas.tech</strong></Link>
+        <Link to="/" className="brand" aria-label="Abhyas.tech home"><Brand /></Link>
         <nav aria-label="Main">
-          {NAV.map(([label, to]) => <NavLink key={label} to={to} className="nav-item">{label}</NavLink>)}
+          {NAV.map(([label, to, Icon]) => <NavLink key={label} to={to} className="nav-item"><Icon size={20} aria-hidden="true" />{label}</NavLink>)}
         </nav>
         {asking ? (
           <span role="group" aria-label="Confirm log out">
-            Log out of Abhyas.tech?{' '}
-            <button type="button" onClick={onLogOut}>Yes, log out</button>{' '}
-            <button type="button" autoFocus onClick={() => setAsking(false)}>Cancel</button>
+            Log out of Abhyas.tech?
+            <button type="button" className="small" onClick={onLogOut}>Yes, log out</button>
+            <button type="button" className="small" autoFocus onClick={() => setAsking(false)}>Cancel</button>
           </span>
         ) : (
-          <button type="button" onClick={() => setAsking(true)}>Log out</button>
+          <button type="button" className="small" onClick={() => setAsking(true)}><SignOut size={18} aria-hidden="true" />Log out</button>
         )}
       </header>
       <main id="content" className="column"><Outlet /></main>
@@ -83,8 +86,8 @@ export default function App() {
     navigate('/login', { replace: true })
   }
 
-  if (me.state === 'loading') return <main id="content" className="column"><p>Checking who is signed in…</p></main>
-  if (me.state === 'error') return <main id="content" className="column"><p role="alert">! Error: {me.err.detail ?? me.err.message}</p></main>
+  if (me.state === 'loading') return <main id="content" className="column"><Loading>Checking who is signed in…</Loading></main>
+  if (me.state === 'error') return <main id="content" className="column"><Alert>{me.err.detail ?? me.err.message}</Alert></main>
 
   if (me.state === 'out') {
     return (
@@ -108,6 +111,7 @@ export default function App() {
         <Route path="resumes/new" element={<Upload />} />
         <Route path="resumes/:id" element={<OpenRoute />} />
         <Route path="resumes/:id/role-skills" element={<RoleSkillsRoute />} />
+        <Route path="resumes/:id/progress" element={<ProgressRoute />} />
         <Route path="stories" element={<StoriesRoute />} />
         <Route path="stories/new" element={<StoryFormRoute prefill={storyPrefill} onPrefillUsed={clearPrefill} />} />
         <Route path="stories/:id/edit" element={<StoryFormRoute />} />
@@ -153,6 +157,11 @@ function RoleSkillsRoute() {
     onFix={() => navigate('/resumes/new')} onPoint={(p) => navigate(`/resumes/${id}?point=${p}`)} />
 }
 
+function ProgressRoute() {
+  const { id } = useParams()
+  return <Progress key={id} id={id} />
+}
+
 function StoriesRoute() {
   const navigate = useNavigate()
   return <StoryList onNew={() => navigate('/stories/new')} onEdit={(id) => navigate(`/stories/${id}/edit`)} />
@@ -193,5 +202,5 @@ function PracticeRoute() {
   const { key } = useLocation()
   // Leaving goes back to where the user came from; a pasted link has no earlier page in the app, so go to the practice screen.
   const exit = () => (key === 'default' ? navigate('/practice', { replace: true }) : navigate(-1))
-  return <main id="content" className="column"><Practice id={id} onExit={exit} onSubmitted={(sid) => navigate(`/sessions/${sid}/report`, { replace: true })} /></main>
+  return <main id="content" className="column narrow"><Practice id={id} onExit={exit} onSubmitted={(sid) => navigate(`/sessions/${sid}/report`, { replace: true })} /></main>
 }

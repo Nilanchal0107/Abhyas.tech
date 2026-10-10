@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Abhyas.tech Study Guide: From &quot;What Is the Web?&quot; to System Design</title>
+<style>
+:root{color-scheme:light;--paper:#faf7f0;--card:#fff;--paper-2:#f1ece0;--line:#ddd6c6;--line-strong:#8a8478;--ink:#1b1a17;--ink-2:#5e5a51;--pen:#c8321f;--pen-soft:#fbe3dd;--ok:#2f6b3a;--ok-soft:#e3efe1;--warn:#8f5300;--warn-soft:#fbefd6;--blue:#24508f;--blue-soft:#e4ecf7;--code:#f1ece0;--ff-display:'Fraunces',Georgia,'Times New Roman',serif;--ff:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:ui-monospace,'Cascadia Code',Consolas,monospace}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;--paper:#16140f;--card:#1f1c16;--paper-2:#2a261e;--line:#3a352b;--line-strong:#7b7466;--ink:#f3eee2;--ink-2:#b3ac9c;--pen:#ff7a66;--pen-soft:#4a211b;--ok:#7cc48a;--ok-soft:#1f3322;--warn:#e0a24a;--warn-soft:#3a2a10;--blue:#8db4ec;--blue-soft:#1b2a40;--code:#2a261e}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:16px}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.7 var(--ff);-webkit-font-smoothing:antialiased}
+.layout{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:100vh}
+nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:24px 16px;border-right:1.5px solid var(--ink);background:var(--paper)}
+nav.toc .brand{display:block;font:700 1.25rem var(--ff-display);margin-bottom:4px;color:var(--ink);text-decoration:none}
+nav.toc .brand em{font-style:normal;color:var(--pen)}
+nav.toc small{display:block;color:var(--ink-2);margin-bottom:16px;line-height:1.4}
+nav.toc a{display:block;color:var(--ink-2);text-decoration:none;font-size:.9rem;line-height:1.35;padding:4px 8px;border-radius:6px}
+nav.toc a.l2{font-weight:650;color:var(--ink);margin-top:10px}
+nav.toc a.l3{padding-left:20px;font-size:.84rem}
+nav.toc a:hover{background:var(--paper-2)}
+nav.toc a.on{box-shadow:inset 3px 0 0 var(--pen);background:var(--paper-2);color:var(--ink)}
+main{max-width:820px;width:100%;margin:0 auto;padding:48px 28px 120px}
+header.hero{margin-bottom:40px}
+.eyebrow{font-size:.8rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--pen)}
+h1{font:700 clamp(2.2rem,5vw,3.4rem)/1.05 var(--ff-display);letter-spacing:-.02em;margin:8px 0 16px}
+.lead{font-size:1.15rem;color:var(--ink-2);max-width:640px}
+h2{font:650 2rem/1.15 var(--ff-display);letter-spacing:-.01em;margin:88px 0 8px;padding-top:24px;border-top:1.5px solid var(--ink);display:flex;gap:14px;align-items:baseline}
+h2 .ch{display:inline-grid;place-items:center;min-width:44px;height:44px;border:2.5px solid var(--pen);border-radius:52% 48% 50% 50%/58% 52% 48% 42%;transform:rotate(-3deg);font-size:1.2rem;flex:none}
+h3{font:650 1.4rem/1.25 var(--ff-display);margin:48px 0 8px}
+p{margin:0 0 18px}
+ul,ol{margin:0 0 22px;padding-left:26px}
+li{margin:6px 0}
+strong{font-weight:650}
+code{font:.88em var(--mono);background:var(--code);padding:2px 6px;border-radius:4px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:16px;overflow:auto;margin:0 0 22px}
+pre code{background:none;padding:0;font-size:.85rem;line-height:1.55}
+a{color:var(--ink);text-decoration-color:var(--pen);text-decoration-thickness:2px;text-underline-offset:3px}
+a:hover{color:var(--pen)}
+.table-wrap{overflow:auto;margin:0 0 24px;border:1.5px solid var(--ink);border-radius:8px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:.93rem;line-height:1.5}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);border-bottom:1.5px solid var(--ink)}
+tr:last-child td{border-bottom:0}
+.callout{margin:8px 0 26px;padding:14px 18px 6px;border:1.5px solid var(--ink);border-radius:8px;background:var(--card);box-shadow:inset 5px 0 0 var(--pen)}
+.callout .tag{font-size:.74rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--pen);margin-bottom:6px}
+.callout.analogy{box-shadow:inset 5px 0 0 var(--warn);background:var(--warn-soft)}.callout.analogy .tag{color:var(--warn)}
+.callout.root{background:var(--pen-soft);box-shadow:inset 5px 0 0 var(--pen)}
+.callout.stranger{background:var(--ok-soft);box-shadow:inset 5px 0 0 var(--ok)}.callout.stranger .tag{color:var(--ok)}
+.callout.expert{background:var(--blue-soft);box-shadow:inset 5px 0 0 var(--blue)}.callout.expert .tag{color:var(--blue)}
+.callout.project{background:var(--paper-2);box-shadow:inset 5px 0 0 var(--ink)}.callout.project .tag{color:var(--ink)}
+.callout.warn{background:var(--warn-soft);box-shadow:inset 5px 0 0 var(--warn)}.callout.warn .tag{color:var(--warn)}
+figure.diagram{margin:12px 0 32px;border:1.5px solid var(--ink);border-radius:8px;background:var(--card);box-shadow:3px 3px 0 var(--ink);overflow:hidden}
+figure.diagram figcaption{padding:12px 16px;border-bottom:1.5px solid var(--ink);font-size:.93rem;line-height:1.5}
+figure.diagram figcaption a{margin-left:6px;white-space:nowrap}
+figure.diagram iframe{display:block;width:100%;height:640px;border:0;background:var(--paper)}
+.menu-btn{display:none}
+@media (max-width:960px){
+ .layout{display:block}
+ nav.toc{position:fixed;inset:0 25% 0 0;z-index:20;transform:translateX(-102%);transition:transform .25s;height:100%;box-shadow:3px 0 0 var(--ink)}
+ nav.toc.open{transform:none}
+ .menu-btn{display:inline-flex;position:fixed;top:12px;right:12px;z-index:30;min-height:44px;padding:8px 16px;font:650 .95rem var(--ff);border:1.5px solid var(--ink);border-radius:6px;background:var(--card);color:var(--ink);cursor:pointer}
+ main{padding:72px 18px 96px}
+ figure.diagram iframe{height:520px}
+}
+@media print{nav.toc,.menu-btn{display:none}.layout{display:block}figure.diagram iframe{display:none}h2{break-before:page}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}nav.toc{transition:none}}
+</style>
+</head>
+<body>
+<button class="menu-btn" type="button" aria-controls="toc" aria-expanded="false">Contents</button>
+<div class="layout">
+<nav class="toc" id="toc" aria-label="Contents">
+<a class="brand" href="#top">Abhyas<em>.tech</em></a>
+<small>The study guide: from "what is the web?" to system design.</small>
+<a class="l2" href="#before-we-start-how-to-use-this-guide">Before we start: how to use this guide</a><a class="l3" href="#why-is-this-guide-written-as-questions">Why is this guide written as questions?</a><a class="l3" href="#what-are-the-three-voices-in-this-guide">What are the three voices in this guide?</a><a class="l3" href="#what-is-abhyas-tech-in-one-breath">What is Abhyas.tech, in one breath?</a><a class="l3" href="#where-is-the-map-of-the-whole-system">Where is the map of the whole system?</a><a class="l3" href="#which-diagram-answers-which-question">Which diagram answers which question?</a><a class="l2" href="#what-is-the-web">What is the web?</a><a class="l3" href="#let-us-start-with-the-simplest-problem-two-computers-that-need-to-talk">Let us start with the simplest problem: two computers that need to talk</a><a class="l3" href="#how-does-a-message-find-the-right-computer">How does a message find the right computer?</a><a class="l3" href="#now-two-computers-can-reach-each-other-is-that-the-web">Now two computers can reach each other. Is that the web?</a><a class="l3" href="#but-how-do-they-understand-each-other-why-do-we-need-rules">But how do they understand each other? Why do we need rules?</a><a class="l3" href="#what-do-we-actually-get-back-html-css-and-javascript">What do we actually get back? HTML, CSS and JavaScript</a><a class="l3" href="#what-is-a-url-and-what-is-https">What is a URL, and what is HTTPS?</a><a class="l2" href="#what-is-http-and-why-do-cookies-exist">What is HTTP, and why do cookies exist?</a><a class="l3" href="#what-does-a-request-and-a-response-really-look-like">What does a request and a response really look like?</a><a class="l3" href="#why-are-there-different-methods-like-get-and-post">Why are there different methods like GET and POST?</a><a class="l3" href="#what-are-status-codes-and-why-are-they-numbers">What are status codes, and why are they numbers?</a><a class="l3" href="#here-is-a-strange-fact-http-forgets-you-instantly-why-is-that-a-problem">Here is a strange fact: HTTP forgets you instantly. Why is that a problem?</a><a class="l3" href="#so-how-can-we-solve-this-enter-cookies">So how can we solve this? Enter cookies</a><a class="l2" href="#what-is-an-api">What is an API?</a><a class="l3" href="#imagine-there-is-no-api-how-would-the-browser-get-the-user-s-resumes">Imagine there is no API. How would the browser get the user&#x27;s resumes?</a><a class="l3" href="#so-how-can-we-solve-this">So how can we solve this?</a><a class="l3" href="#what-is-rest-and-why-do-urls-look-like-resumes-5">What is REST, and why do URLs look like `/resumes/5`?</a><a class="l3" href="#what-is-json-and-why-do-apis-send-it">What is JSON, and why do APIs send it?</a><a class="l3" href="#how-does-the-server-say-something-went-wrong-in-a-useful-way">How does the server say &quot;something went wrong&quot; in a useful way?</a><a class="l3" href="#what-is-an-api-contract-and-why-did-you-write-one">What is an &quot;API contract&quot;, and why did you write one?</a><a class="l2" href="#how-else-can-a-browser-get-data">How else can a browser get data?</a><a class="l3" href="#first-how-does-it-normally-happen">First, how does it normally happen?</a><a class="l3" href="#what-if-the-data-changes-after-i-asked">What if the data changes after I asked?</a><a class="l3" href="#option-1-polling-are-we-there-yet">Option 1: Polling. &quot;Are we there yet?&quot;</a><a class="l3" href="#option-2-long-polling-tell-me-when-you-have-something">Option 2: Long polling. &quot;Tell me when you have something&quot;</a><a class="l3" href="#option-3-server-sent-events-sse-a-one-way-radio">Option 3: Server-Sent Events (SSE). A one-way radio</a><a class="l3" href="#option-4-websockets-a-phone-call">Option 4: WebSockets. A phone call</a><a class="l3" href="#option-5-webhooks-call-me-when-it-is-done">Option 5: Webhooks. &quot;Call me when it is done&quot;</a><a class="l3" href="#and-what-about-asking-for-data-in-different-shapes">And what about asking for data in different shapes?</a><a class="l3" href="#compare-them-in-one-table">Compare them in one table</a><a class="l3" href="#why-did-abhyas-choose-polling-for-the-report">Why did Abhyas choose polling for the report?</a><a class="l2" href="#frontend-why-react-why-vite-and-what-is-that-proxy">Frontend: why React, why Vite, and what is that proxy?</a><a class="l3" href="#what-did-people-do-before-react">What did people do before React?</a><a class="l3" href="#so-how-can-we-solve-this">So how can we solve this?</a><a class="l3" href="#what-is-vite-and-why-do-we-need-a-build-tool-at-all">What is Vite, and why do we need a build tool at all?</a><a class="l3" href="#what-is-that-proxy-in-the-architecture-and-what-is-cors">What is that &quot;proxy&quot; in the architecture, and what is CORS?</a><a class="l3" href="#how-is-the-frontend-organised-and-where-does-it-keep-its-data">How is the frontend organised, and where does it keep its data?</a><a class="l2" href="#backend-what-does-the-server-actually-do">Backend: what does the server actually do?</a><a class="l3" href="#why-do-we-need-a-backend-at-all-could-the-browser-do-everything">Why do we need a backend at all? Could the browser do everything?</a><a class="l3" href="#what-does-spring-boot-do-for-us">What does Spring Boot do for us?</a><a class="l3" href="#why-is-the-code-split-into-controllers-services-and-repositories">Why is the code split into controllers, services and repositories?</a><a class="l3" href="#how-does-the-server-know-who-is-calling">How does the server know who is calling?</a><a class="l3" href="#what-is-a-thread-and-why-does-it-matter-here">What is a thread, and why does it matter here?</a><a class="l2" href="#database-where-does-the-data-live-and-why-a-database">Database: where does the data live, and why a database?</a><a class="l3" href="#why-not-just-save-things-in-files">Why not just save things in files?</a><a class="l3" href="#why-a-relational-database-like-mysql">Why a relational database like MySQL?</a><a class="l3" href="#how-do-i-read-this-diagram-like-a-story">How do I read this diagram like a story?</a><a class="l3" href="#what-is-a-migration-and-why-flyway">What is a migration, and why Flyway?</a><a class="l3" href="#why-does-it-mention-a-generated-column-and-a-unique-index">Why does it mention a &quot;generated column&quot; and a &quot;unique index&quot;?</a><a class="l3" href="#what-is-a-transaction">What is a transaction?</a><a class="l2" href="#how-does-login-work-passwords-cookies-and-jwt">How does login work? Passwords, cookies and JWT</a><a class="l3" href="#what-is-the-very-first-problem-storing-passwords">What is the very first problem? Storing passwords</a><a class="l3" href="#why-bcrypt-and-not-just-a-normal-hash">Why BCrypt and not just a normal hash?</a><a class="l3" href="#what-if-someone-just-keeps-guessing">What if someone just keeps guessing?</a><a class="l3" href="#after-login-how-does-the-server-remember-me-two-designs">After login, how does the server remember me? Two designs</a><a class="l3" href="#what-is-a-jwt-exactly">What is a JWT, exactly?</a><a class="l3" href="#why-can-t-an-attacker-just-edit-the-payload">Why can&#x27;t an attacker just edit the payload?</a><a class="l3" href="#what-does-abhyas-s-token-code-actually-do">What does Abhyas&#x27;s token code actually do?</a><a class="l3" href="#where-should-the-token-be-stored-localstorage-or-a-cookie">Where should the token be stored: localStorage or a cookie?</a><a class="l3" href="#what-is-the-weakness-of-jwt-and-how-does-abhyas-live-with-it">What is the weakness of JWT, and how does Abhyas live with it?</a><a class="l3" href="#authentication-versus-authorization">Authentication versus authorization</a><a class="l2" href="#how-does-the-resume-parser-work">How does the resume parser work?</a><a class="l3" href="#what-is-the-problem-why-can-t-we-just-read-the-text-of-a-pdf">What is the problem? Why can&#x27;t we just &quot;read the text&quot; of a PDF?</a><a class="l3" href="#where-should-the-parsing-happen-the-browser-or-the-server">Where should the parsing happen: the browser or the server?</a><a class="l3" href="#what-are-the-steps-inside-the-browser-parser">What are the steps inside the browser parser?</a><a class="l3" href="#step-1-how-do-we-get-the-text-out-read-pdf">Step 1: how do we get the text out? (`read-pdf`)</a><a class="l3" href="#step-2-how-do-we-make-lines-group-text-items-into-lines">Step 2: how do we make lines? (`group-text-items-into-lines`)</a><a class="l3" href="#step-3-how-do-we-find-sections-like-experience-and-education-group-lines-into-sections">Step 3: how do we find sections like Experience and Education? (`group-lines-into-sections`)</a><a class="l3" href="#step-4-how-do-we-pull-out-the-actual-fields-extract-resume-from-sections">Step 4: how do we pull out the actual fields? (`extract-resume-from-sections`)</a><a class="l3" href="#then-what-does-abhyas-do-with-the-raw-result-tidy">Then what does Abhyas do with the raw result? (tidy)</a><a class="l3" href="#how-does-the-app-decide-the-parse-is-bad">How does the app decide the parse is bad?</a><a class="l3" href="#what-is-the-fallback-and-why-does-it-need-the-server">What is the fallback, and why does it need the server?</a><a class="l3" href="#why-is-there-a-review-screen-at-all">Why is there a Review screen at all?</a><a class="l3" href="#what-happens-when-the-user-saves">What happens when the user saves?</a><a class="l3" href="#what-is-the-role-skills-check">What is the Role skills check?</a><a class="l2" href="#how-does-the-app-use-ai-safely">How does the app use AI safely?</a><a class="l3" href="#why-use-ai-at-all">Why use AI at all?</a><a class="l3" href="#what-problems-come-with-llms">What problems come with LLMs?</a><a class="l3" href="#so-how-can-we-solve-each-problem">So how can we solve each problem?</a><a class="l3" href="#what-is-aiclient">What is AiClient?</a><a class="l3" href="#what-is-aigate-and-why-is-it-called-a-circuit-breaker">What is AiGate, and why is it called a circuit breaker?</a><a class="l3" href="#what-is-the-fallback-and-why-is-it-silent">What is the fallback, and why is it silent?</a><a class="l3" href="#which-ai-does-what-and-why-two-providers">Which AI does what, and why two providers?</a><a class="l3" href="#why-is-the-voice-stuff-built-this-way">Why is the voice stuff built this way?</a><a class="l2" href="#what-happens-when-i-press-submit-background-work-and-async-design">What happens when I press Submit? Background work and async design</a><a class="l3" href="#what-would-happen-if-grading-ran-inside-the-submit-request">What would happen if grading ran inside the Submit request?</a><a class="l3" href="#so-how-can-we-solve-this">So how can we solve this?</a><a class="l3" href="#how-do-i-read-the-sequence-diagram">How do I read the sequence diagram?</a><a class="l3" href="#why-is-the-worker-a-single-thread">Why is the worker a single thread?</a><a class="l3" href="#how-is-each-type-of-answer-marked">How is each type of answer marked?</a><a class="l3" href="#why-not-let-the-ai-give-a-mark-out-of-5">Why not let the AI give a mark out of 5?</a><a class="l2" href="#how-is-a-practice-session-built-and-why-do-questions-come-back">How is a practice session built, and why do questions come back?</a><a class="l3" href="#what-is-the-problem-with-a-normal-question-list">What is the problem with a normal question list?</a><a class="l3" href="#so-how-can-we-solve-this">So how can we solve this?</a><a class="l3" href="#what-does-one-session-look-like-from-start-to-report">What does one session look like, from start to report?</a><a class="l3" href="#why-exactly-19-questions-and-80-marks">Why exactly 19 questions and 80 marks?</a><a class="l3" href="#how-does-the-order-of-questions-get-chosen">How does the order of questions get chosen?</a><a class="l3" href="#what-does-mastered-mean-and-what-is-the-lifecycle-of-a-question">What does &quot;mastered&quot; mean, and what is the lifecycle of a question?</a><a class="l3" href="#why-is-mastery-stored-per-user-not-per-resume">Why is mastery stored per user, not per resume?</a><a class="l3" href="#why-do-some-answers-not-count-toward-mastery">Why do some answers not count toward mastery?</a><a class="l3" href="#what-is-interview-mode">What is Interview mode?</a><a class="l2" href="#security-privacy-logging-and-testing-how-do-we-trust-it">Security, privacy, logging and testing: how do we trust it?</a><a class="l3" href="#what-are-the-main-ways-this-app-could-hurt-a-user">What are the main ways this app could hurt a user?</a><a class="l3" href="#what-is-defence-in-depth">What is &quot;defence in depth&quot;?</a><a class="l3" href="#what-is-not-allowed-in-the-logs-and-why">What is not allowed in the logs, and why?</a><a class="l3" href="#how-do-we-test-it">How do we test it?</a><a class="l2" href="#system-design-putting-it-all-together">System design: putting it all together</a><a class="l3" href="#what-is-system-design-really">What is system design, really?</a><a class="l3" href="#how-should-i-think-about-any-system-design-question-five-steps">How should I think about any system design question? Five steps</a><a class="l3" href="#what-are-the-basic-building-blocks-and-what-problem-does-each-solve">What are the basic building blocks, and what problem does each solve?</a><a class="l3" href="#which-of-these-does-abhyas-already-have-and-which-does-it-skip-on-purpose">Which of these does Abhyas already have, and which does it skip on purpose?</a><a class="l3" href="#now-the-interview-twist-what-if-it-had-1-000-000-users">Now the interview twist: &quot;What if it had 1,000,000 users?&quot;</a><a class="l3" href="#which-trade-offs-should-i-be-ready-to-discuss">Which trade-offs should I be ready to discuss?</a><a class="l2" href="#the-interview-playbook">The interview playbook</a><a class="l3" href="#how-should-i-answer-a-question-in-an-interview">How should I answer a question in an interview?</a><a class="l3" href="#what-is-my-2-minute-pitch-of-the-project">What is my 2-minute pitch of the project?</a><a class="l3" href="#which-questions-are-likely-and-how-do-i-answer-them">Which questions are likely, and how do I answer them?</a><a class="l3" href="#what-are-the-follow-up-traps-and-what-should-i-say">What are the follow-up traps, and what should I say?</a><a class="l3" href="#how-do-i-practise-switching-between-stranger-and-expert">How do I practise switching between stranger and expert?</a><a class="l2" href="#glossary-quick-definitions">Glossary: quick definitions</a>
+</nav>
+<main id="top">
+<header class="hero">
+<div class="eyebrow">Study guide</div>
+<h1>Abhyas.tech Study Guide: From &quot;What Is the Web?&quot; to System Design</h1>
+<p class="lead">Every idea here starts from a problem, finds the root cause, and only then meets the concept that fixes it. You can read it top to bottom like a story, or jump to any question in the contents.</p>
+</header>
+<h2 id="before-we-start-how-to-use-this-guide"><span class="ch">1</span>Before we start: how to use this guide</h2>
+<h3 id="why-is-this-guide-written-as-questions">Why is this guide written as questions?</h3>
+<p>When you explain something in an interview, you do not recite a definition.</p>
+<p>You tell a small story: here was a problem, here is why it hurts, here is the idea that fixes it.</p>
+<p>So every topic here follows the same path.</p>
+<p>First we feel the pain of living without the concept.</p>
+<p>Then we ask: what is the real root cause of the pain?</p>
+<p>Then we ask: so how can we solve this?</p>
+<p>Only after that do we meet the concept, and we see why it has the shape it has.</p>
+<p>If you learn it this way, you will never need to memorise a definition, because you could have invented the concept yourself.</p>
+<aside class="callout think"><div class="tag">Pause and think</div><p>The test of real understanding: could you invent this idea if nobody had told you about it?</p></aside>
+<h3 id="what-are-the-three-voices-in-this-guide">What are the three voices in this guide?</h3>
+<p>Each big topic ends with up to three boxes.</p>
+<ul><li><strong>Explain it to a stranger.</strong> Simple words, one picture in the head, no jargon. Use this with a non-technical person, or in the first 30 seconds of an interview answer.</li><li><strong>Explain it to an expert.</strong> The same idea with the precise terms, the trade-offs and the "why not the other option". Use this when the interviewer leans forward.</li><li><strong>In Abhyas.tech.</strong> Where the idea lives in your own project, so every answer ends with "and here is how I used it".</li></ul>
+<p>The skill you are training is switching between the first two voices on demand.</p>
+<h3 id="what-is-abhyas-tech-in-one-breath">What is Abhyas.tech, in one breath?</h3>
+<p>Abhyas means "practice".</p>
+<p>Abhyas.tech is a coach that reads your resume, turns every line of it into interview questions, marks your answers, and keeps bringing back the questions you are weak at until you can defend them.</p>
+<p>The flow is: upload a PDF, check what we read, answer 19 questions, get a marked report, repeat the weak ones.</p>
+<p>The tech: React in the browser, Spring Boot (Java 21) on the server, MySQL 8 for data, and AI models (Groq and Google AI Studio) that help read, grade and explain.</p>
+<h3 id="where-is-the-map-of-the-whole-system">Where is the map of the whole system?</h3>
+<p>Here it is.</p>
+<p>Do not try to understand every box now.</p>
+<p>Come back to this picture after every chapter, and each time more of it will light up.</p>
+<figure class="diagram"><figcaption><strong>Architecture.</strong> Browser on the left, API in the middle, database below, AI providers on the right. The dashed line is background work. <a href="architecture.html" target="_blank" rel="noopener">Open full size</a></figcaption><iframe src="architecture.html" title="Architecture diagram" loading="lazy"></iframe></figure>
+<aside class="callout project"><div class="tag">In Abhyas.tech</div><p>Three rules shaped this whole picture. The browser never calls an AI provider (keys stay on the server). Every database query is scoped to the signed-in user. Grading runs in the background so the user never waits.</p></aside>
+<h3 id="which-diagram-answers-which-question">Which diagram answers which question?</h3>
+<div class="table-wrap"><table><thead><tr><th scope="col">Diagram</th><th scope="col">The question it answers</th><th scope="col">Chapter</th></tr></thead><tbody><tr><td>Architecture</td><td>What are the big parts, and who talks to whom?</td><td>6, 7, 15</td></tr><tr><td>Database</td><td>What do we store, and how are the tables related?</td><td>8</td></tr><tr><td>Data flow</td><td>How does a PDF become a report?</td><td>10</td></tr><tr><td>Sequence</td><td>Who says what, and in which order, when I press Submit?</td><td>12</td></tr><tr><td>Workflow</td><td>What does one practice session look like for the user and the backend?</td><td>13</td></tr><tr><td>Lifecycle</td><td>How does a question go from new to mastered, and why does it come back?</td><td>13</td></tr></tbody></table></div>
+<h2 id="what-is-the-web"><span class="ch">2</span>What is the web?</h2>
+<h3 id="let-us-start-with-the-simplest-problem-two-computers-that-need-to-talk">Let us start with the simplest problem: two computers that need to talk</h3>
+<p>Imagine you are in Delhi and your friend is in Pune, and each of you has a computer.</p>
+<p>You want to send a photo from your computer to theirs.</p>
+<p>What do you need?</p>
+<p>First, a physical path between the two machines. Cables, fibre, Wi-Fi, mobile towers. Together they form a <strong>network</strong>.</p>
+<p>Now join millions of networks together and you get the <strong>internet</strong>: a giant road system that any computer can drive on.</p>
+<p>Okay, but a road system alone is not enough.</p>
+<p>A road tells you nothing about where a particular house is.</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>The first root problem: a computer needs an address, otherwise a message has nowhere to go.</p></aside>
+<h3 id="how-does-a-message-find-the-right-computer">How does a message find the right computer?</h3>
+<p>So how can we solve the address problem?</p>
+<p>Give every computer on the road system a unique number, like a house number.</p>
+<p>That number is the <strong>IP address</strong>, for example <code>142.250.77.46</code>.</p>
+<p>The message is cut into small pieces called <strong>packets</strong>, each stamped with the destination IP, and routers along the way pass each packet toward that house.</p>
+<aside class="callout analogy"><div class="tag">Think of it like this</div><p>Sending a big parcel as many small envelopes, each with the address written on it. Different envelopes can take different roads and the receiver puts them back in order.</p></aside>
+<p>But can you remember <code>142.250.77.46</code>?</p>
+<p>Of course not, and nobody wants to.</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>The second root problem: humans remember names, computers use numbers.</p></aside>
+<p>So we need a phone book that turns names into numbers.</p>
+<p>That phone book is <strong>DNS</strong> (Domain Name System).</p>
+<p>You type <code>abhyas.tech</code>, your computer asks DNS "what is the number for this name?", gets the IP address, and now it knows where to send packets.</p>
+<h3 id="now-two-computers-can-reach-each-other-is-that-the-web">Now two computers can reach each other. Is that the web?</h3>
+<p>Not yet.</p>
+<p>The internet is the road.</p>
+<p>The <strong>web</strong> is what we put on the road: pages and data that live on some computers and are asked for by other computers.</p>
+<p>Think about what has to happen when you want to read a page.</p>
+<p>One computer has the page.</p>
+<p>Another computer wants it.</p>
+<p>So the first needs to wait and serve, and the second needs to ask and show.</p>
+<p>That gives us two roles.</p>
+<ul><li>The <strong>server</strong>: a computer that waits for requests and answers them. It is always on.</li><li>The <strong>client</strong>: a computer (or a program on it) that sends a request and uses the answer. Your browser is a client.</li></ul>
+<aside class="callout analogy"><div class="tag">Think of it like this</div><p>A restaurant. The kitchen (server) is always open and prepares what is ordered. You (client) sit down, order, and eat. You never walk into the kitchen.</p></aside>
+<h3 id="but-how-do-they-understand-each-other-why-do-we-need-rules">But how do they understand each other? Why do we need rules?</h3>
+<p>Say the client sends "gimme the page".</p>
+<p>The server receives a pile of bytes.</p>
+<p>Which part is the page name? Is "gimme" a command? How does the server say "not found" in a way the client will understand?</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>The third root problem: two programs written by different people need a shared agreement on how to ask and how to answer.</p></aside>
+<p>An agreement like that is called a <strong>protocol</strong>.</p>
+<p>The protocol of the web is <strong>HTTP</strong> (HyperText Transfer Protocol).</p>
+<p>It says: a request looks like this, a response looks like that.</p>
+<p>We will open HTTP up in the next chapter.</p>
+<h3 id="what-do-we-actually-get-back-html-css-and-javascript">What do we actually get back? HTML, CSS and JavaScript</h3>
+<p>The server sends back text in three flavours, and the browser knows what to do with each.</p>
+<ul><li><strong>HTML</strong>: the skeleton. "Here is a heading, here is a button, here is a paragraph."</li><li><strong>CSS</strong>: the clothes. "Make the heading serif, the button black."</li><li><strong>JavaScript</strong>: the muscles. "When the button is clicked, do this."</li></ul>
+<aside class="callout analogy"><div class="tag">Think of it like this</div><p>A house. HTML is the walls and rooms, CSS is the paint and furniture, JavaScript is the electricity that makes the lights turn on.</p></aside>
+<h3 id="what-is-a-url-and-what-is-https">What is a URL, and what is HTTPS?</h3>
+<p>A <strong>URL</strong> is the full address of one thing on the web.</p>
+<p>Take <code>https://abhyas.tech/api/resumes?limit=5</code>.</p>
+<ul><li><code>https</code> is the protocol (how to talk).</li><li><code>abhyas.tech</code> is the host (which computer, found through DNS).</li><li><code>/api/resumes</code> is the path (which thing on that computer).</li><li><code>?limit=5</code> is the query (extra details for the request).</li></ul>
+<p>Now a worry: the road is public.</p>
+<p>Anyone along the way could read your packets, including your password.</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: a public road means anyone can eavesdrop or tamper.</p></aside>
+<p>So we scramble the message so only the two ends can read it.</p>
+<p>That scrambling layer is <strong>TLS</strong>, and HTTP over TLS is <strong>HTTPS</strong>.</p>
+<p>The padlock in the browser means: the conversation is private, and you are really talking to who you think you are talking to.</p>
+<aside class="callout stranger"><div class="tag">Explain it to a stranger</div><p>The web is computers asking other computers for pages and data. Your browser is the asker, and a server is the answerer. They follow a shared rulebook called HTTP so they always understand each other, and HTTPS keeps the conversation private.</p><p>[expert] The web is an application-layer, request-response system on top of TCP/IP. Names resolve through DNS to IPs, a TCP connection is opened (with a TLS handshake for HTTPS), and the client sends an HTTP request that the server answers with a representation of a resource. Everything else, from cookies to REST, is a convention on top of that exchange.</p><p>[project] In development, the browser talks to the Vite dev server on port 5173, and that server quietly forwards anything under <code>/api</code> to Spring Boot on port 8080. You will see why in chapter 6.</p></aside>
+<h2 id="what-is-http-and-why-do-cookies-exist"><span class="ch">3</span>What is HTTP, and why do cookies exist?</h2>
+<h3 id="what-does-a-request-and-a-response-really-look-like">What does a request and a response really look like?</h3>
+<p>Let us look at the actual text, because HTTP is just text with a shape.</p>
+<p>A request:</p>
+<pre><code>GET /api/resumes HTTP/1.1
+Host: abhyas.tech
+Cookie: rdt_session=eyJhbGciOi...
+Accept: application/json</code></pre>
+<p>A response:</p>
+<pre><code>HTTP/1.1 200 OK
+Content-Type: application/json
+
+{&quot;resumes&quot;:[{&quot;id&quot;:1,&quot;fileName&quot;:&quot;Paras_Resume.pdf&quot;}]}</code></pre>
+<p>A request has four parts: a <strong>method</strong> (what to do), a <strong>path</strong> (to what), <strong>headers</strong> (extra facts about the request) and an optional <strong>body</strong> (data being sent).</p>
+<p>A response has a <strong>status code</strong> (how it went), headers, and a body.</p>
+<h3 id="why-are-there-different-methods-like-get-and-post">Why are there different methods like GET and POST?</h3>
+<p>Imagine there was only one verb, "do".</p>
+<p>"do /resumes/5" could mean read it, delete it, or replace it.</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: without a verb, neither humans, browsers, caches nor security tools can tell whether a request is safe.</p></aside>
+<p>So HTTP names the intention in the method.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Method</th><th scope="col">Meaning</th><th scope="col">Safe to repeat?</th><th scope="col">Abhyas example</th></tr></thead><tbody><tr><td>GET</td><td>read something</td><td>yes, changes nothing</td><td><code>GET /api/sessions/7</code></td></tr><tr><td>POST</td><td>create something or start an action</td><td>no</td><td><code>POST /api/sessions</code> starts a session</td></tr><tr><td>PUT</td><td>replace something</td><td>yes, same result every time</td><td><code>PUT /api/sessions/7/attempts/3</code> saves one answer</td></tr><tr><td>PATCH</td><td>change part of something</td><td>usually</td><td><code>PATCH /api/resumes/1</code> changes only the interview date</td></tr><tr><td>DELETE</td><td>remove something</td><td>yes</td><td><code>DELETE /api/resumes/1</code></td></tr></tbody></table></div>
+<p>The "safe to repeat" column has a name: <strong>idempotent</strong>.</p>
+<p>Why does it matter? Networks fail.</p>
+<p>If a PUT times out, the browser can simply send it again, because saving the same answer twice leaves the same result.</p>
+<p>You could not do that with "charge the card" unless you designed it to be repeat-safe.</p>
+<h3 id="what-are-status-codes-and-why-are-they-numbers">What are status codes, and why are they numbers?</h3>
+<p>The client needs a quick, machine-readable verdict before it even reads the body.</p>
+<p>So responses start with a three-digit code grouped by the first digit.</p>
+<ul><li><strong>2xx</strong> means success. <code>200 OK</code>, <code>201 Created</code>, <code>204 No Content</code>.</li><li><strong>3xx</strong> means look elsewhere (redirects).</li><li><strong>4xx</strong> means the client made a mistake. <code>400</code> bad data, <code>401</code> not logged in, <code>403</code> not allowed, <code>404</code> not found, <code>409</code> conflict, <code>429</code> too many requests.</li><li><strong>5xx</strong> means the server made a mistake. <code>500</code>, <code>503</code> unavailable.</li></ul>
+<aside class="callout project"><div class="tag">In Abhyas.tech</div><p>Abhyas answers <code>409</code> when you try to start a second practice session while one is open, and <code>404</code> (not <code>403</code>) when you ask for another user's resume. Why 404? Because "forbidden" would confirm that the resume exists. "Not found" tells an attacker nothing.</p></aside>
+<h3 id="here-is-a-strange-fact-http-forgets-you-instantly-why-is-that-a-problem">Here is a strange fact: HTTP forgets you instantly. Why is that a problem?</h3>
+<p>HTTP is <strong>stateless</strong>.</p>
+<p>Each request is handled as if it were the first one ever.</p>
+<p>The server does not remember that you logged in one second ago.</p>
+<p>Why was it designed like that?</p>
+<p>Because a server that remembers nothing is easy to copy and scale.</p>
+<p>Any machine can answer any request, because no machine holds a secret memory about you.</p>
+<p>But look at what that does to a login.</p>
+<ul><li>You send your password. The server says "welcome".</li><li>You click "My resumes". The server says "who are you?"</li></ul>
+<p>Without memory, you would have to send your password on every single click.</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: a stateless protocol, but a login needs to be remembered across many requests.</p></aside>
+<h3 id="so-how-can-we-solve-this-enter-cookies">So how can we solve this? Enter cookies</h3>
+<p>What if the server hands you a small note after login, and the browser automatically attaches that note to every later request?</p>
+<p>The server then only has to look at the note.</p>
+<p>That note is a <strong>cookie</strong>.</p>
+<p>Mechanically: the server replies with a header <code>Set-Cookie: name=value</code>, the browser stores it, and for every future request to that site it adds <code>Cookie: name=value</code>.</p>
+<aside class="callout analogy"><div class="tag">Think of it like this</div><p>A wristband at a concert. You show your ID once at the gate and get a wristband. After that, every door only checks the wristband, never your ID again.</p></aside>
+<p>But a wristband can be stolen or forged.</p>
+<p>What goes inside the note, and how do we stop someone from writing their own?</p>
+<p>That is exactly the question JWT answers in chapter 9.</p>
+<aside class="callout stranger"><div class="tag">Explain it to a stranger</div><p>HTTP forgets who you are between clicks. So after you log in, the server gives your browser a small stamped note called a cookie, and your browser shows it on every later request, like a wristband at a concert.</p><p>[expert] HTTP is stateless by design, which makes servers horizontally scalable. Session identity is therefore carried by the client in each request, most commonly in a cookie set via <code>Set-Cookie</code>. The cookie holds either an opaque session ID looked up server-side, or a self-contained signed token such as a JWT.</p><p>[project] Abhyas stores the login in a cookie named <code>rdt_session</code>. It is <code>HttpOnly</code>, <code>SameSite=Strict</code>, lives 8 hours and holds a JWT.</p></aside>
+<h2 id="what-is-an-api"><span class="ch">4</span>What is an API?</h2>
+<h3 id="imagine-there-is-no-api-how-would-the-browser-get-the-user-s-resumes">Imagine there is no API. How would the browser get the user's resumes?</h3>
+<p>Suppose the page and the data live together.</p>
+<p>The server builds a full HTML page with your resumes baked into it, and sends it.</p>
+<p>Now you want a mobile app too.</p>
+<p>It does not want HTML. It wants only the data, so it can draw its own screen.</p>
+<p>You also want to change one number on the screen without reloading the entire page.</p>
+<ul><li>Every new screen means the server must produce a new HTML page.</li><li>Every new kind of client (phone, watch, another service) needs a separate backend.</li><li>Designers and data people are stuck in the same code.</li></ul>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: the data and the way it is displayed are glued together.</p></aside>
+<h3 id="so-how-can-we-solve-this">So how can we solve this?</h3>
+<p>Cut the glue.</p>
+<p>Let the server only expose <strong>data and actions</strong>, in a neutral format.</p>
+<p>Any client can then ask for exactly what it needs and draw it however it likes.</p>
+<p>That doorway between "something that wants data or actions" and "something that has them" is an <strong>API</strong> (Application Programming Interface).</p>
+<aside class="callout analogy"><div class="tag">Think of it like this</div><p>A restaurant menu and a waiter. You do not walk into the kitchen and cook. You read the menu (what you may ask for), tell the waiter your order, and a plate comes back. The menu is the API: it lists what is allowed and in which form to ask.</p></aside>
+<p>In web projects, "API" almost always means a <strong>web API</strong>: a set of URLs that accept HTTP requests and return data.</p>
+<h3 id="what-is-rest-and-why-do-urls-look-like-resumes-5">What is REST, and why do URLs look like <code>/resumes/5</code>?</h3>
+<p>Once you have many URLs, you need a naming style, otherwise it becomes chaos: <code>/getResume</code>, <code>/fetchAllResumes</code>, <code>/deleteResumeNow</code>.</p>
+<p><strong>REST</strong> is a simple habit: URLs name <strong>things</strong> (nouns), HTTP methods are the <strong>verbs</strong>.</p>
+<ul><li><code>GET /resumes</code> means list the resumes.</li><li><code>GET /resumes/5</code> means read resume 5.</li><li><code>DELETE /resumes/5</code> means delete resume 5.</li></ul>
+<p>Why is that good? Because a stranger can guess your API.</p>
+<p>The thing is in the URL, the action is in the method, and the result is in the status code.</p>
+<h3 id="what-is-json-and-why-do-apis-send-it">What is JSON, and why do APIs send it?</h3>
+<p>The response body must be something both a Java server and a JavaScript browser can read.</p>
+<p><strong>JSON</strong> is plain text shaped like <code>{"name": "Paras", "marks": 61}</code>.</p>
+<p>It is readable by humans, tiny, and every language can turn it into its own objects.</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>Why JSON and not HTML or a binary format? JSON carries only data (no layout), and any language can parse it.</p></aside>
+<h3 id="how-does-the-server-say-something-went-wrong-in-a-useful-way">How does the server say "something went wrong" in a useful way?</h3>
+<p>Returning <code>500 error</code> is lazy.</p>
+<p>The UI wants to show a friendly sentence and decide what to do next (retry? show a field error?).</p>
+<p>Abhyas follows a standard called <strong>Problem Details</strong> (RFC 7807): every error body has a stable <code>type</code> code, a <code>status</code>, and a human <code>detail</code>.</p>
+<pre><code>{ &quot;type&quot;: &quot;session-open&quot;, &quot;status&quot;: 409,
+  &quot;detail&quot;: &quot;You already have a practice session in progress.&quot; }</code></pre>
+<p>The frontend can then branch on <code>type === 'session-open'</code> and simply continue that session instead of showing an error.</p>
+<p>That is not magic; it is a contract.</p>
+<h3 id="what-is-an-api-contract-and-why-did-you-write-one">What is an "API contract", and why did you write one?</h3>
+<p>Two teams (or two halves of one project) build in parallel.</p>
+<p>If the frontend expects <code>fileName</code> and the backend sends <code>file_name</code>, nothing works.</p>
+<p>So you write down the exact shape of every request and response before coding.</p>
+<aside class="callout project"><div class="tag">In Abhyas.tech</div><p><code>api-contracts.md</code> is that agreement for Abhyas.tech: every endpoint, request, response, error code and limit. Rules from it: another user's resource is always 404. A session in progress never reveals correct answers to the browser. Signup also logs you in.</p><p>[stranger] An API is a menu for software. It lists what you can ask a program to do and what shape the answer will come in, so many different apps can use the same program without knowing how it works inside.</p><p>[expert] A web API exposes resources over HTTP with a uniform interface: nouns in the URL, verbs as methods, representations (JSON) in the body, and standard status codes. Decoupling data from presentation lets multiple clients share one backend. A written contract with stable error types gives the frontend something to branch on, and it makes the two halves independently testable.</p></aside>
+<h2 id="how-else-can-a-browser-get-data"><span class="ch">5</span>How else can a browser get data?</h2>
+<h3 id="first-how-does-it-normally-happen">First, how does it normally happen?</h3>
+<p>The browser asks, the server answers, and the conversation is over.</p>
+<p>This is called <strong>request-response</strong>.</p>
+<p>In JavaScript, that is the <code>fetch()</code> function. Abhyas wraps it in <code>src/api/client.js</code> so every call sends the cookie, parses JSON, and turns Problem Details into a proper error.</p>
+<p>But request-response has a hidden weakness.</p>
+<h3 id="what-if-the-data-changes-after-i-asked">What if the data changes after I asked?</h3>
+<p>Think about the report page.</p>
+<p>You press Submit, and the server needs about two minutes to grade 19 answers and write feedback.</p>
+<p>The server cannot tap the browser on the shoulder, because in plain HTTP <strong>only the client can start a conversation</strong>.</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: the server has news, but it has no way to speak first.</p></aside>
+<p>So how can we solve this?</p>
+<p>There are several answers, and each costs something different.</p>
+<h3 id="option-1-polling-are-we-there-yet">Option 1: Polling. "Are we there yet?"</h3>
+<p>The browser simply asks again and again, on a timer.</p>
+<ul><li>Easy. It is just request-response in a loop. Works everywhere.</li><li>Wasteful. Most answers are "no change yet".</li><li>Slow by up to one interval.</li></ul>
+<aside class="callout analogy"><div class="tag">Think of it like this</div><p>A child in the back seat asking "are we there yet?" every few minutes.</p></aside>
+<h3 id="option-2-long-polling-tell-me-when-you-have-something">Option 2: Long polling. "Tell me when you have something"</h3>
+<p>The browser asks, and the server deliberately <strong>holds the request open</strong> until it has news (or a timeout), then answers. The browser immediately asks again.</p>
+<ul><li>Fewer empty answers, near-instant updates.</li><li>Many open connections sitting on the server.</li></ul>
+<h3 id="option-3-server-sent-events-sse-a-one-way-radio">Option 3: Server-Sent Events (SSE). A one-way radio</h3>
+<p>The browser opens one long connection, and the server keeps pushing small messages down it whenever it likes.</p>
+<ul><li>Simple and built into browsers. Automatic reconnect.</li><li>One direction only (server to browser).</li></ul>
+<h3 id="option-4-websockets-a-phone-call">Option 4: WebSockets. A phone call</h3>
+<p>After a handshake, the connection upgrades to a two-way channel. Either side can talk at any time.</p>
+<ul><li>Perfect for chat, multiplayer games, live cursors.</li><li>Heavier to run and scale, because every user holds a live connection.</li></ul>
+<h3 id="option-5-webhooks-call-me-when-it-is-done">Option 5: Webhooks. "Call me when it is done"</h3>
+<p>This is server-to-server, not for browsers. You give another service a URL, and it sends an HTTP request to you when something happens (payment succeeded, code pushed).</p>
+<h3 id="and-what-about-asking-for-data-in-different-shapes">And what about asking for data in different shapes?</h3>
+<p>So far we changed <strong>when</strong> data arrives. Another problem is <strong>how much</strong> we ask for.</p>
+<ul><li><strong>REST</strong> gives fixed shapes. Sometimes you receive too much (over-fetching) or need three calls to build a screen (under-fetching).</li><li><strong>GraphQL</strong> lets the client describe the exact fields it wants in one query. Great for complex screens. Costs: a more complex server, harder caching.</li><li><strong>gRPC</strong> uses a compact binary format with a strict schema. Great and fast between internal services. Browsers cannot use it directly.</li><li><strong>Server-side rendering (SSR)</strong> builds the HTML on the server, so the first screen arrives ready. Good for SEO and first load speed.</li></ul>
+<h3 id="compare-them-in-one-table">Compare them in one table</h3>
+<div class="table-wrap"><table><thead><tr><th scope="col">Way</th><th scope="col">Who starts?</th><th scope="col">Best for</th><th scope="col">Cost</th></tr></thead><tbody><tr><td>Request-response (fetch)</td><td>client</td><td>almost everything</td><td>no live updates</td></tr><tr><td>Polling</td><td>client, repeatedly</td><td>"tell me when a job finishes", simple dashboards</td><td>wasted calls, small delay</td></tr><tr><td>Long polling</td><td>client, held open</td><td>near real-time without new tech</td><td>many open requests</td></tr><tr><td>SSE</td><td>server pushes</td><td>live feeds, progress bars</td><td>one direction</td></tr><tr><td>WebSocket</td><td>both</td><td>chat, games, collaboration</td><td>stateful, harder to scale</td></tr><tr><td>Webhook</td><td>another server</td><td>server-to-server events</td><td>needs a public URL</td></tr><tr><td>GraphQL</td><td>client</td><td>complex screens, many clients</td><td>server complexity</td></tr></tbody></table></div>
+<h3 id="why-did-abhyas-choose-polling-for-the-report">Why did Abhyas choose polling for the report?</h3>
+<p>Think like an engineer, not a fan of any technology.</p>
+<ul><li>The user just needs "rows fill in over the next minute or two". That is slow-moving, one-direction news.</li><li>Polling needs nothing new on the server, works on localhost, and survives restarts: the page simply asks again and gets the latest state from the database.</li><li>A WebSocket would add a stateful connection, reconnect logic and more testing, for a benefit nobody would notice.</li></ul>
+<aside class="callout root"><div class="tag">The root cause</div><p>The cost of a technology is not only writing it. It is also running, debugging and scaling it. Pick the cheapest tool that makes the user happy.</p><p>[project] The report page calls <code>GET /api/sessions/{id}</code> about every 2.5 seconds, but only while something is still pending. When all rows are ready, the polling stops. If you reload the browser mid-grading, nothing is lost, because the truth lives in MySQL, not in the connection.</p><p>[stranger] Normally the browser asks and the server answers. But when the answer takes minutes, the browser has to keep checking back, like a child asking "are we there yet?" Smarter tricks exist where the server pushes news instead, but for a slow, one-way update the simple checking is enough.</p><p>[expert] HTTP is client-initiated, so server-to-client updates need a workaround: polling, long polling, SSE (unidirectional over HTTP), or WebSockets (full duplex after an upgrade). I picked short polling for the report because grading is a minutes-long job with unidirectional updates, the state is durable in the database, and polling is stateless, trivially load-balanced and restart-safe. If we needed sub-second updates to thousands of users I would move to SSE first, because it is cheaper than WebSockets when traffic is one-way.</p></aside>
+<h2 id="frontend-why-react-why-vite-and-what-is-that-proxy"><span class="ch">6</span>Frontend: why React, why Vite, and what is that proxy?</h2>
+<h3 id="what-did-people-do-before-react">What did people do before React?</h3>
+<p>They wrote HTML, then used JavaScript to <strong>find an element and change it by hand</strong>.</p>
+<p>"Find the span with id <code>score</code>, set its text to 61. Find the list, add a new <code>li</code>. Remember to remove the old one."</p>
+<p>For a small page that is fine.</p>
+<p>For a real app, there are hundreds of such manual edits, and they must stay consistent with each other.</p>
+<ul><li>Change the data in one place and forget to update the screen in another, and now the page lies to the user.</li><li>Nobody knows which code touched which element.</li></ul>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: we keep the <strong>data</strong> and the <strong>screen</strong> in two places and must keep them in sync by hand.</p></aside>
+<h3 id="so-how-can-we-solve-this">So how can we solve this?</h3>
+<p>What if we only describe <strong>what the screen should look like for the current data</strong>, and let a tool do the editing?</p>
+<p>That is the idea behind <strong>React</strong>.</p>
+<p>You write small functions called <strong>components</strong>, which take data and return a description of the screen.</p>
+<p>When the data (the <strong>state</strong>) changes, React runs the function again, compares the new description with the old one, and updates only the parts of the real page that differ.</p>
+<aside class="callout analogy"><div class="tag">Think of it like this</div><p>A smart painter. You hand them a photo of how the wall should look now. They compare it to the wall and only repaint the patches that changed.</p></aside>
+<pre><code>const [answers, setAnswers] = useState({})   // the data
+// change the data -&gt; React redraws exactly what depends on it
+setAnswers({ ...answers, 3: &#x27;my answer&#x27; })</code></pre>
+<aside class="callout project"><div class="tag">In Abhyas.tech</div><p>The Practice screen holds the current question index and the answers in state. Press Next, the index changes, and React redraws the question card. You never touch the DOM by hand.</p></aside>
+<h3 id="what-is-vite-and-why-do-we-need-a-build-tool-at-all">What is Vite, and why do we need a build tool at all?</h3>
+<p>Browsers speak plain JavaScript, but we write modern code split into hundreds of files, using JSX (HTML-looking syntax) that browsers cannot read.</p>
+<p>Someone has to translate, bundle and optimise.</p>
+<p><strong>Vite</strong> does that, and during development it serves your files instantly and refreshes the page when you save.</p>
+<p><code>npm run build</code> produces the small, fast files you would ship.</p>
+<h3 id="what-is-that-proxy-in-the-architecture-and-what-is-cors">What is that "proxy" in the architecture, and what is CORS?</h3>
+<p>Here is a rule that surprises beginners.</p>
+<p>A page loaded from <code>localhost:5173</code> is <strong>not allowed</strong> to read answers from <code>localhost:8080</code>, because the port differs.</p>
+<p>Why would browsers be so strict?</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>Imagine you are logged into your bank in one tab, and a random site in another tab could silently call the bank's API using your cookies and read the result. That would be a disaster.</p></aside>
+<p>So the browser enforces the <strong>same-origin policy</strong>: a page can freely talk to its own origin (protocol + host + port), and talking to others requires the other server's permission, given through <strong>CORS</strong> headers.</p>
+<p>We could configure CORS on Spring Boot. But there is a cleaner trick.</p>
+<p>What if the browser only ever talks to <strong>one</strong> origin?</p>
+<p>In development, the Vite server on 5173 receives every request. Pages and scripts it serves itself, and anything starting with <code>/api</code> it forwards to Spring on 8080.</p>
+<p>From the browser's point of view there is <strong>one origin</strong>, so there is no cross-origin request and no CORS to configure.</p>
+<p>This single decision gives a free bonus: because everything is same-origin, the login cookie can use <code>SameSite=Strict</code>, a strong protection against forged requests (chapter 9).</p>
+<aside class="callout stranger"><div class="tag">Explain it to a stranger</div><p>The browser refuses to let a page from one address read data from another address, to protect you. We avoid the problem by making the browser talk to a single address, which quietly passes the data requests on to the real server behind it.</p><p>[expert] Under the same-origin policy a cross-origin fetch needs explicit CORS opt-in. In dev, Vite's proxy forwards <code>/api</code> to Spring Boot so the browser sees one origin: no CORS, and <code>SameSite=Strict</code> cookies work. In production the same effect comes from serving the static build and the API behind one reverse proxy.</p></aside>
+<h3 id="how-is-the-frontend-organised-and-where-does-it-keep-its-data">How is the frontend organised, and where does it keep its data?</h3>
+<ul><li><strong>Routes</strong> (React Router) map URLs to screens: <code>/practice</code>, <code>/resumes</code>, <code>/history</code>, <code>/sessions/:id/report</code>.</li><li>A small <code>fetch</code> wrapper centralises the cookie, JSON handling and the 401 rule: if any call returns "not logged in", the app sends you to login and brings you back.</li><li>The practice screen has <strong>no top bar</strong> on purpose: you can not wander away by accident, you must press "Leave session".</li><li>Accessibility is built in: every input has a label, errors have an icon plus the word "Error" (never color alone), progress bars are announced to screen readers.</li></ul>
+<aside class="callout warn"><div class="tag">Watch out</div><p>A small honesty note for interviews. The TRD planned TanStack Query for data fetching, but the current code uses plain <code>fetch</code> with <code>useEffect</code> and a <code>setTimeout</code> loop for polling, and TanStack Query is not in <code>package.json</code>. Say what the code does, and if asked, say you would adopt TanStack Query to get caching and retries for free.</p></aside>
+<h2 id="backend-what-does-the-server-actually-do"><span class="ch">7</span>Backend: what does the server actually do?</h2>
+<h3 id="why-do-we-need-a-backend-at-all-could-the-browser-do-everything">Why do we need a backend at all? Could the browser do everything?</h3>
+<p>Try it in your head.</p>
+<p>Put the whole app in the browser: parse the PDF, store resumes in the browser, grade answers, call the AI.</p>
+<ul><li><strong>Secrets leak.</strong> To call an AI provider the browser needs an API key. Anything in the browser can be read by the user. Anyone could steal the key and run up your bill.</li><li><strong>No shared truth.</strong> Data stored in one browser does not exist on another laptop. Two users cannot be kept apart.</li><li><strong>Cheating.</strong> If grading runs in the browser, a user can change the code and give themselves full marks.</li></ul>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: the browser is the user's computer. It cannot be trusted with secrets, shared data or rules.</p></aside>
+<p>So we need a computer <strong>we</strong> control, which holds the secrets, owns the data, and enforces the rules.</p>
+<p>That is the backend.</p>
+<h3 id="what-does-spring-boot-do-for-us">What does Spring Boot do for us?</h3>
+<p>A server program has to do boring things: listen on a port, parse HTTP, turn JSON into objects, validate input, talk to a database, handle errors, manage threads.</p>
+<p>Writing all that by hand would take weeks.</p>
+<p><strong>Spring Boot</strong> is a Java framework that provides these ready-made, so you write only the interesting part: "when someone calls <code>POST /api/sessions</code>, do this".</p>
+<p>You mark a class and a method, and Spring wires the URL to your code.</p>
+<h3 id="why-is-the-code-split-into-controllers-services-and-repositories">Why is the code split into controllers, services and repositories?</h3>
+<p>Imagine one giant method that reads the HTTP request, checks the login, runs the rules, writes SQL and formats the response.</p>
+<p>Now change the database. Everything breaks.</p>
+<p>Now test the rules. You cannot, without starting a web server.</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: when one piece of code has several jobs, any change can break any job.</p></aside>
+<p>So we give each layer exactly one job.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Layer</th><th scope="col">One job</th><th scope="col">Abhyas example</th></tr></thead><tbody><tr><td>Controller</td><td>translate HTTP to a method call and back</td><td><code>SessionController</code></td></tr><tr><td>Service</td><td>the real rules of the app</td><td><code>SessionService</code>, <code>GradingService</code></td></tr><tr><td>Repository</td><td>talk to the database</td><td>JPA repositories</td></tr></tbody></table></div>
+<aside class="callout analogy"><div class="tag">Think of it like this</div><p>A restaurant again. The waiter (controller) takes the order and brings the plate. The chef (service) cooks by the recipe. The pantry clerk (repository) fetches the ingredients. The waiter never cooks, and the chef never walks to the table.</p></aside>
+<p>Abhyas also groups packages <strong>by feature</strong> (<code>auth</code>, <code>resume</code>, <code>session</code>, <code>ai</code>, <code>story</code>, <code>export</code>) rather than by layer, so everything about sessions lives in one folder.</p>
+<h3 id="how-does-the-server-know-who-is-calling">How does the server know who is calling?</h3>
+<p>Every request under <code>/api</code> (except signup, login and logout) first passes through an <strong>interceptor</strong>.</p>
+<p>It reads the cookie, checks the token, and puts the user's id on the request.</p>
+<p>If anything is wrong, it stops the request with <code>401</code>.</p>
+<p>Then, in every service, the user id is passed into every query, so you only ever see your own rows.</p>
+<aside class="callout project"><div class="tag">In Abhyas.tech</div><p>Helper methods like <code>requireOwnedResume(userId, id)</code> throw "not found" for somebody else's data. Controllers never load a resume or a session by id alone. This is the single most important security rule in the code.</p></aside>
+<h3 id="what-is-a-thread-and-why-does-it-matter-here">What is a thread, and why does it matter here?</h3>
+<p>A server handles many requests at the same time, each on its own <strong>thread</strong> (a worker doing one thing).</p>
+<p>Now think about grading. It takes a minute or two, because calling an AI is slow.</p>
+<p>If grading ran on the request thread, the user's Submit button would hang for two minutes, and the worker would be stuck for all that time.</p>
+<p>We will return to this in chapter 12, because it is the heart of the "Submit returns at once" design.</p>
+<aside class="callout stranger"><div class="tag">Explain it to a stranger</div><p>The backend is the trusted computer in the middle. It keeps the secrets, owns the data and applies the rules, because the user's own browser can never be trusted with those. Inside, the code is split so each part does one job: one takes requests, one holds the rules, one talks to the database.</p><p>[expert] A stateless Spring Boot REST API with layered, feature-packaged design: controllers handle transport, services own business logic and transactions, JPA repositories own persistence. An interceptor authenticates each request from a signed cookie and injects the user id; every repository call is scoped by it, giving tenant isolation at the query level.</p></aside>
+<h2 id="database-where-does-the-data-live-and-why-a-database"><span class="ch">8</span>Database: where does the data live, and why a database?</h2>
+<h3 id="why-not-just-save-things-in-files">Why not just save things in files?</h3>
+<p>Try saving resumes and answers in text files.</p>
+<ul><li>Two requests write the same file at the same moment. One overwrites the other.</li><li>The power goes out halfway through writing. You have half a file.</li><li>You want "all unmastered questions for user 4, weakest first". You must open every file and loop through it yourself, slowly.</li><li>You want to guarantee that a resume always belongs to a real user. A file has no way to enforce that.</li></ul>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problems: concurrent writes, crashes mid-write, slow searching, and no way to enforce rules about the data.</p></aside>
+<p>So how can we solve these?</p>
+<p>Use software built just for storing data safely.</p>
+<p>That is a <strong>database</strong>.</p>
+<p>It gives you four gifts: fast search (<strong>indexes</strong>), safe changes (<strong>transactions</strong>), enforced rules (<strong>constraints</strong>), and many users at once.</p>
+<h3 id="why-a-relational-database-like-mysql">Why a relational database like MySQL?</h3>
+<p>Our data is full of relationships.</p>
+<p>A user has resumes. A resume has points. A session belongs to a resume. A session has attempts. An attempt points to a question.</p>
+<p>A <strong>relational</strong> database stores each kind of thing in a <strong>table</strong> (rows and columns) and connects tables with <strong>keys</strong>.</p>
+<ul><li><strong>Primary key</strong>: a unique id for each row.</li><li><strong>Foreign key</strong>: a column that points to a row in another table, such as <code>attempt.session_id</code>.</li></ul>
+<p>The database refuses to save a foreign key that points to nothing.</p>
+<aside class="callout analogy"><div class="tag">Think of it like this</div><p>A school register. One sheet lists students, another lists classes, and a third sheet lists which student is in which class using ids, not by rewriting the whole student each time.</p></aside>
+<p>Here is the whole picture of Abhyas.tech's tables.</p>
+<figure class="diagram"><figcaption><strong>Database.</strong> Eleven main tables. Solid arrows are required links, dashed arrows are optional ones. <a href="database.html" target="_blank" rel="noopener">Open full size</a></figcaption><iframe src="database.html" title="Database diagram" loading="lazy"></iframe></figure>
+<h3 id="how-do-i-read-this-diagram-like-a-story">How do I read this diagram like a story?</h3>
+<p>Start at <code>app_user</code>, the account. Everything traces back to it.</p>
+<ul><li>A user <strong>uploads</strong> a <code>resume</code> (<code>resume.user_id</code>) for a target <code>role</code>.</li><li>The resume is split into <code>resume_point</code> rows, one per project bullet, experience bullet or skill. Some link to a <code>skill</code>.</li><li>A user starts a <code>practice_session</code> for a resume. The session has many <code>attempt</code> rows, one per question slot (19 for a quiz).</li><li>Each attempt points to a <code>question</code>, either written for this resume or taken from the shared <code>bank_question</code>.</li><li><code>bank_performance</code> remembers, <strong>per user</strong>, how well that user did on each bank question. That is why mastery follows you from one resume to the next.</li><li><code>story</code> rows are your saved STAR stories.</li></ul>
+<aside class="callout root"><div class="tag">The root cause</div><p>A good question to ask about any table: who owns this row? In Abhyas, nearly every answer is "the user", and deleting the user cascades through the tree, so account deletion leaves nothing behind.</p></aside>
+<h3 id="what-is-a-migration-and-why-flyway">What is a migration, and why Flyway?</h3>
+<p>The database structure changes as the app grows: a new column today, a new table tomorrow.</p>
+<p>If everyone edits their local database by hand, no two machines match.</p>
+<p>So the structure is written as numbered SQL files (<code>V1__schema.sql</code>, <code>V2__...</code>), and <strong>Flyway</strong> runs the ones not yet applied, in order, on startup.</p>
+<p>Code and database change together, in version control.</p>
+<p>Abhyas sets <code>ddl-auto=validate</code>, which means the app <strong>refuses to start</strong> if the Java entities and the real tables disagree.</p>
+<p>That turns a silent bug into a loud one, on the first second.</p>
+<h3 id="why-does-it-mention-a-generated-column-and-a-unique-index">Why does it mention a "generated column" and a "unique index"?</h3>
+<p>We want a rule: a user can have only one <code>in_progress</code> session at a time.</p>
+<p>You could check this in Java. But two requests at the same moment can both check, both see none, and both create one.</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: rules enforced only in application code can be raced.</p></aside>
+<p>So we make the database enforce it.</p>
+<p>A generated column <code>open_user_id</code> holds the user id only when the session is <code>in_progress</code>, and a <strong>unique index</strong> on it makes a second open session impossible, no matter how many requests arrive.</p>
+<p>The same thinking applies to <code>ON DELETE CASCADE</code>: the database, not the code, guarantees that deleting an account deletes its rows.</p>
+<h3 id="what-is-a-transaction">What is a transaction?</h3>
+<p>Saving a resume means inserting one <code>resume</code> row and many <code>resume_point</code> rows.</p>
+<p>What if it fails halfway?</p>
+<p>You would have a resume with half its points.</p>
+<p>A <strong>transaction</strong> groups several changes into one all-or-nothing unit.</p>
+<p>Either every change is saved, or none is.</p>
+<aside class="callout analogy"><div class="tag">Think of it like this</div><p>A bank transfer. Money must leave one account and arrive in the other. It can never leave and then vanish.</p><p>[project] Saving a resume runs in one transaction. Skills are matched to the existing <code>skill</code> table by name, and the app never creates new skills from resumes.</p><p>[stranger] A database is a tidy, super-fast filing cabinet that many people can use at once without messing each other up. It also refuses to keep information that breaks the rules, like an answer that belongs to no one.</p><p>[expert] MySQL 8 with InnoDB, a normalised schema with foreign keys and cascading deletes. Flyway owns schema evolution and Hibernate runs in <code>validate</code> mode. Invariants that must hold under concurrency, like a single open session per user, are enforced with a generated column and a unique index, not with application checks. JSON columns store flexible payloads such as key facts, checklists and the parsed resume. Everything is UTC.</p></aside>
+<h2 id="how-does-login-work-passwords-cookies-and-jwt"><span class="ch">9</span>How does login work? Passwords, cookies and JWT</h2>
+<h3 id="what-is-the-very-first-problem-storing-passwords">What is the very first problem? Storing passwords</h3>
+<p>The user types a password. We must remember it to check it next time.</p>
+<p>The lazy way is to store it as typed.</p>
+<p>Now picture a hacker who reads your database for one minute.</p>
+<p>They hold every user's password. And since many people reuse passwords, they can now log in to those users' email and bank.</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: if we can read the password, so can anyone who steals the database.</p></aside>
+<p>So how can we solve this?</p>
+<p>What if we store something from which the password <strong>cannot be recovered</strong>, yet can still be <strong>checked</strong>?</p>
+<p>That is a <strong>hash</strong>: a one-way scramble.</p>
+<p><code>hash("hello")</code> always gives the same output, but no one can turn the output back into "hello".</p>
+<p>At login: hash what the user typed, and compare with the stored hash.</p>
+<h3 id="why-bcrypt-and-not-just-a-normal-hash">Why BCrypt and not just a normal hash?</h3>
+<p>Fast hashes (like SHA-256) are a gift to attackers: they can try billions of guesses per second.</p>
+<p>Also, two users with the same password would have the same hash, so cracking one cracks both.</p>
+<p><strong>BCrypt</strong> fixes both.</p>
+<ul><li>It adds a random <strong>salt</strong> to every password, so equal passwords give different hashes.</li><li>It is deliberately <strong>slow</strong> and tunable, so each guess costs the attacker real time.</li></ul>
+<aside class="callout warn"><div class="tag">Watch out</div><p>Why does Abhyas limit passwords to 72 characters? BCrypt only looks at the first 72 bytes. Allowing longer ones would silently ignore the rest.</p></aside>
+<h3 id="what-if-someone-just-keeps-guessing">What if someone just keeps guessing?</h3>
+<p>That is a brute-force attack.</p>
+<p>So Abhyas counts failed attempts per login id and blocks login for 5 minutes after 5 failures.</p>
+<p>The error message is identical for "no such user" and "wrong password", so an attacker cannot discover which user ids exist.</p>
+<p>The counter lives in memory and resets on restart. That is accepted for a laptop app, and a shared store like Redis would be used if it ran on many servers.</p>
+<h3 id="after-login-how-does-the-server-remember-me-two-designs">After login, how does the server remember me? Two designs</h3>
+<p>We saw the problem in chapter 3: HTTP forgets you. We want the browser to carry a proof of login.</p>
+<p>There are two classic designs.</p>
+<p><strong>Design A: server-side sessions.</strong></p>
+<p>After login the server creates a record in its memory or database: <code>session 8f3a... belongs to user 4</code>.</p>
+<p>It gives the browser only the random id <code>8f3a...</code>.</p>
+<p>On each request the server looks the id up.</p>
+<ul><li>Easy to cancel: delete the record and the user is logged out at once.</li><li>But the server must keep and look up a record for every logged-in user, and with many servers they must all share that store.</li></ul>
+<p><strong>Design B: signed tokens.</strong></p>
+<p>The server puts the facts inside the note itself, "this is user 4, valid until 8 pm", and <strong>signs</strong> it. On each request it only checks the signature.</p>
+<ul><li>No lookup, no stored sessions, any server can verify it.</li><li>But it is hard to cancel before it expires.</li></ul>
+<h3 id="what-is-a-jwt-exactly">What is a JWT, exactly?</h3>
+<p><strong>JWT</strong> (JSON Web Token, say "jot") is the standard format for Design B.</p>
+<p>It is three pieces joined by dots: <code>header.payload.signature</code></p>
+<pre><code>eyJhbGciOiJIUzI1NiJ9 . eyJzdWIiOiI0IiwiZXhwIjoxNzYwMDAwMDAwfQ . 9xK...signature...
+   header                       payload (claims)                      signature</code></pre>
+<ul><li><strong>Header</strong>: which algorithm signs it. Abhyas uses HS256.</li><li><strong>Payload</strong>: the <strong>claims</strong>, which are the facts. Abhyas puts the user id in <code>sub</code>, the time it was issued in <code>iat</code>, and the expiry in <code>exp</code>.</li><li><strong>Signature</strong>: computed from the header, the payload and a <strong>secret</strong> only the server knows.</li></ul>
+<p>Here is the most important thing to understand, and the one interviewers love to test.</p>
+<aside class="callout warn"><div class="tag">Watch out</div><p>A JWT is <strong>signed, not encrypted</strong>. Anyone can decode the payload (it is just Base64 text). The signature only proves <strong>nobody changed it</strong>. So never put secrets in a JWT.</p></aside>
+<h3 id="why-can-t-an-attacker-just-edit-the-payload">Why can't an attacker just edit the payload?</h3>
+<p>Suppose the attacker changes <code>sub</code> from 4 to 1 to become an admin.</p>
+<p>The signature was computed over the original payload.</p>
+<p>They do not know the secret, so they cannot compute a matching signature for the new one.</p>
+<p>When the server checks, the signature does not match, and the token is rejected.</p>
+<p>Think of it as a wax seal on a letter: anyone can read the letter, but nobody can fake the seal.</p>
+<h3 id="what-does-abhyas-s-token-code-actually-do">What does Abhyas's token code actually do?</h3>
+<p>Issuing:</p>
+<pre><code>claims = subject(userId), issuedAt(now), expiresAt(now + 8 hours)
+jwt    = sign(header HS256, claims, secret)</code></pre>
+<p>Verifying a token from the cookie, in order:</p>
+<ol><li>Parse it. Garbage means "not logged in".</li><li>Check the algorithm is exactly HS256. (This blocks the old "alg: none" trick, where an attacker claims no signature is needed.)</li><li>Check the signature with the secret.</li><li>Check <code>exp</code> is in the future.</li><li>Return the user id from <code>sub</code>.</li></ol>
+<p>Any failure at all returns "empty", and the interceptor answers <code>401</code>.</p>
+<p>The secret must be at least 32 bytes, and the app refuses to start without it.</p>
+<h3 id="where-should-the-token-be-stored-localstorage-or-a-cookie">Where should the token be stored: localStorage or a cookie?</h3>
+<p>This choice decides how safe the login is.</p>
+<ul><li><strong>localStorage</strong>: JavaScript can read it. If an attacker injects a script into your page (<strong>XSS</strong>, cross-site scripting), they can read and steal the token.</li><li><strong>Cookie with <code>HttpOnly</code></strong>: JavaScript cannot read it at all. An injected script cannot steal it.</li></ul>
+<p>But cookies bring a different danger.</p>
+<p>The browser attaches cookies <strong>automatically</strong>, even if the request was triggered by another site's page. A malicious page could make your browser send "delete my account" with your cookie. That is <strong>CSRF</strong> (cross-site request forgery).</p>
+<p>So Abhyas uses a cookie with three flags.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Flag</th><th scope="col">What it does</th><th scope="col">Which attack it stops</th></tr></thead><tbody><tr><td><code>HttpOnly</code></td><td>JavaScript cannot read the cookie</td><td>stealing the token through XSS</td></tr><tr><td><code>SameSite=Strict</code></td><td>the browser never sends it on requests that start from another site</td><td>CSRF</td></tr><tr><td><code>Secure</code></td><td>only sent over HTTPS (switched on outside localhost)</td><td>eavesdropping</td></tr></tbody></table></div>
+<p>Because the Vite proxy makes everything one origin (chapter 6), <code>SameSite=Strict</code> works without side effects, and Spring's CSRF token machinery is deliberately turned off.</p>
+<h3 id="what-is-the-weakness-of-jwt-and-how-does-abhyas-live-with-it">What is the weakness of JWT, and how does Abhyas live with it?</h3>
+<p>You cannot easily "cancel" a signed token. If it leaks, it works until <code>exp</code>.</p>
+<p>Abhyas keeps the risk small: the lifetime is 8 hours, there is no refresh token, and expiry simply sends the user to login and back to where they were.</p>
+<p>For a bigger system you would use short-lived access tokens plus refresh tokens, or a revocation list.</p>
+<h3 id="authentication-versus-authorization">Authentication versus authorization</h3>
+<ul><li><strong>Authentication</strong>: who are you? (the JWT answers this)</li><li><strong>Authorization</strong>: what may you touch? (the user-scoped queries answer this)</li></ul>
+<p>A valid login does not mean you can read every resume. Every query adds <code>WHERE user_id = me</code>.</p>
+<aside class="callout stranger"><div class="tag">Explain it to a stranger</div><p>When you log in, the server hands your browser a stamped, tamper-proof note saying who you are, and it expires in 8 hours. The browser shows it on every click. Nobody can change the note without breaking the stamp, and the note is kept where websites' scripts cannot peek at it.</p><p>[expert] The password is stored as a salted BCrypt hash, with a per-login-id throttle. A successful login issues an HS256 JWT with <code>sub</code>, <code>iat</code> and <code>exp</code>, carried in an <code>HttpOnly</code>, <code>SameSite=Strict</code> cookie. A servlet interceptor verifies algorithm, signature and expiry, and sets the user id. JWT is stateless, so it scales horizontally without a session store, at the price of no instant revocation, which I limit with an 8-hour lifetime. HttpOnly addresses XSS token theft, SameSite=Strict addresses CSRF, and the single-origin proxy lets both work together.</p><p>[project] Cookie name <code>rdt_session</code>. Library: <code>nimbus-jose-jwt</code> (chosen over <code>jjwt</code> to avoid a second Jackson version next to Spring Boot). Account deletion needs the password again and deletes the <code>app_user</code> row, and the cascade removes everything else.</p></aside>
+<h2 id="how-does-the-resume-parser-work"><span class="ch">10</span>How does the resume parser work?</h2>
+<h3 id="what-is-the-problem-why-can-t-we-just-read-the-text-of-a-pdf">What is the problem? Why can't we just "read the text" of a PDF?</h3>
+<p>You look at a resume and see a heading, a job title, a date, three bullets.</p>
+<p>It feels like text.</p>
+<p>But a PDF is not a document of paragraphs. It is a set of <strong>drawing instructions</strong>: "put the characters <code>Ex</code> at position (72, 700) in bold 12 pt, put <code>perience</code> at (84, 700)".</p>
+<p>A PDF was designed to look identical everywhere, not to be understood by a computer.</p>
+<p>There is no tag saying "this is a heading" or "this is a job".</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: a PDF stores where ink goes on a page, not what the words mean.</p></aside>
+<p>So the parser has to <strong>reconstruct meaning from geometry</strong>: where text sits, how big it is, whether it is bold.</p>
+<h3 id="where-should-the-parsing-happen-the-browser-or-the-server">Where should the parsing happen: the browser or the server?</h3>
+<p>Think about what you are sending.</p>
+<p>A resume has your name, phone, email, history. Very personal.</p>
+<ul><li>If we parse in the <strong>browser</strong>, the PDF never leaves your laptop. No upload, no storage, no waiting for a server.</li><li>If we parse on the <strong>server</strong>, we receive and handle sensitive files.</li></ul>
+<p>So how can we get the best of both?</p>
+<p>Parse in the browser <strong>first</strong>, and use the server only as a backup when the browser's attempt looks poor.</p>
+<p>That is exactly Abhyas's design.</p>
+<p>Here is the journey from the PDF to a saved resume, and onwards to a report.</p>
+<figure class="diagram"><figcaption><strong>Data flow.</strong> Left to right: input, parse, store, practice, output. The scrubbed fallback path only runs when the browser parse is incomplete. <a href="dataflow.html" target="_blank" rel="noopener">Open full size</a></figcaption><iframe src="dataflow.html" title="Data flow diagram" loading="lazy"></iframe></figure>
+<h3 id="what-are-the-steps-inside-the-browser-parser">What are the steps inside the browser parser?</h3>
+<p>The parser is a copy of an open-source project called <strong>OpenResume</strong>, which is why the whole repo is under the AGPL-3.0 licence.</p>
+<p>It is a pipeline of four small steps.</p>
+<p>Each step solves one problem and hands a cleaner result to the next.</p>
+<h3 id="step-1-how-do-we-get-the-text-out-read-pdf">Step 1: how do we get the text out? (<code>read-pdf</code>)</h3>
+<p>We use <strong>PDF.js</strong>, the library that Firefox uses to display PDFs.</p>
+<p>It returns <strong>text items</strong>: little chunks of text, each with <code>x</code>, <code>y</code>, <code>width</code>, the font name and whether the line ends there (<code>hasEOL</code>).</p>
+<p>That is our raw material: words with coordinates and fonts.</p>
+<h3 id="step-2-how-do-we-make-lines-group-text-items-into-lines">Step 2: how do we make lines? (<code>group-text-items-into-lines</code>)</h3>
+<p>We have chunks. A human sees lines.</p>
+<p>The parser walks the chunks: when a chunk says "end of line", it closes the current line.</p>
+<p>But there is a catch.</p>
+<p>Some PDFs break one word into several chunks (because of kerning or the tool that created them), like <code>Exper</code> and <code>ience</code>.</p>
+<p>So the parser measures a <strong>typical character width</strong>, then merges neighbouring chunks if the gap between them is smaller than that width, adding a space only when it should.</p>
+<aside class="callout analogy"><div class="tag">Think of it like this</div><p>Joining dotted beads into a string. If two beads are touching, they belong to the same word.</p></aside>
+<h3 id="step-3-how-do-we-find-sections-like-experience-and-education-group-lines-into-sections">Step 3: how do we find sections like Experience and Education? (<code>group-lines-into-sections</code>)</h3>
+<p>Here comes the key insight.</p>
+<p>How do you, as a human, spot a section title without reading?</p>
+<p>It sits alone on its line, and it looks louder: <strong>bold</strong> and often <strong>ALL CAPS</strong>.</p>
+<p>So the rule is a heuristic (a smart guess):</p>
+<ul><li>A line with a single chunk that is <strong>bold and all uppercase</strong> is a section title. This works for well-made resumes.</li><li>As a weaker backup: a short title (two words at most) that starts with a capital and contains a keyword like experience, education, project or skill.</li></ul>
+<p>Every line after a title belongs to that section until the next title.</p>
+<p>Lines before the first title are the <strong>profile</strong> (name, email, phone, location).</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>We cannot know the meaning, but we can know the habit: people make headings look different from body text.</p></aside>
+<h3 id="step-4-how-do-we-pull-out-the-actual-fields-extract-resume-from-sections">Step 4: how do we pull out the actual fields? (<code>extract-resume-from-sections</code>)</h3>
+<p>Now every section has its lines, and we need fields: name, email, school, degree, company, bullets.</p>
+<p>Here the parser uses a <strong>feature-scoring system</strong>.</p>
+<p>It is a way to pick the best answer when you cannot be sure.</p>
+<p>For each candidate piece of text, you ask yes/no questions, and each "yes" adds or subtracts points.</p>
+<ul><li>"Does it contain an <code>@</code>?" gives a big score for being the email.</li><li>"Does it look like a phone number (digits, maybe dashes or brackets)?" gives a big score for being the phone.</li><li>"Is it bold, near the top, all letters, no digits?" gives a score for being the name.</li><li>"Does it contain a digit?" subtracts points from being a name.</li></ul>
+<p>The candidate with the <strong>highest total score</strong> wins.</p>
+<p>Why is this clever? Because no single rule is reliable, but the <strong>sum</strong> of many weak signals is.</p>
+<aside class="callout analogy"><div class="tag">Think of it like this</div><p>A detective. Nobody leaves a signed confession, but if the suspect was near the scene, has no alibi and owns the weapon, you are fairly sure.</p></aside>
+<p>Bullets are easy: lines that start with a bullet symbol become <code>descriptions</code>, and companies, titles and dates are found by the same scoring.</p>
+<h3 id="then-what-does-abhyas-do-with-the-raw-result-tidy">Then what does Abhyas do with the raw result? (tidy)</h3>
+<p>OpenResume's output is rough, so Abhyas cleans it before showing it:</p>
+<ul><li>Splits skill lines like "Languages: Java, C" into separate skills.</li><li>Reads the real link URLs from the PDF's hidden link annotations.</li><li>Splits a degree and its date when they came as one string.</li><li>Puts a project title back if it got swapped with its technology line.</li><li>Does not treat technology lines as resume points.</li></ul>
+<h3 id="how-does-the-app-decide-the-parse-is-bad">How does the app decide the parse is bad?</h3>
+<p>A parser built on habits fails when a resume breaks the habits, for example a two-column layout, where reading left to right across the page mixes both columns into nonsense.</p>
+<p>So Abhyas runs a <strong>"looks incomplete"</strong> test. The browser parse is judged poor when any of these is true:</p>
+<ul><li>There is no name.</li><li>There is neither experience nor projects.</li><li>Fewer than 3 resume points in total.</li><li>Low quality: an education entry with no school, or a project with no name.</li></ul>
+<p>If the parse is poor, the <strong>fallback</strong> runs.</p>
+<h3 id="what-is-the-fallback-and-why-does-it-need-the-server">What is the fallback, and why does it need the server?</h3>
+<p>The browser result is not good enough, and rules cannot fix a two-column page.</p>
+<p>What can? An AI model, which reads text more like a human.</p>
+<p>But we promised the browser never calls an AI provider (keys would leak). So the PDF goes to our server just for this one request:</p>
+<ol><li>The server checks the file really is a PDF by its first bytes (<code>%PDF-</code>) and that it is at most 1 MB.</li><li><strong>Apache PDFBox</strong> extracts the text and the hidden links.</li><li>A <strong>scrubber</strong> removes phone numbers and emails before anything leaves the server. The <code>[phone removed]</code> and <code>[email removed]</code> placeholders replace them.</li><li>The scrubbed text goes to <strong>Groq</strong> with temperature 0 and an instruction to return the same JSON shape, with <code>null</code> for anything unknown (so it cannot invent facts).</li><li>The reply is validated, and the PDF is <strong>discarded</strong>. Nothing is stored.</li></ol>
+<p>The phone and email are filled back in on our server from the original text, never given to the AI.</p>
+<p>What if the AI is unavailable? The app keeps the browser's rough parse and asks the user to fix it.</p>
+<p>Before 4 October 2026 it showed an empty form, which made the app unusable without AI. Good engineering means the app still works when its smartest part fails.</p>
+<h3 id="why-is-there-a-review-screen-at-all">Why is there a Review screen at all?</h3>
+<p>No parser, rule-based or AI, is perfect.</p>
+<p>And everything downstream, every question and every mark, is built from this data.</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>Garbage in, garbage out. So we put a human in the loop at the cheapest possible moment: right after parsing, before anything is saved.</p></aside>
+<p>The user edits the fields in one form with collapsible sections.</p>
+<p>Empty sections are opened and marked "Nothing found".</p>
+<p>Once saved, a resume is <strong>read-only</strong> (except its interview date), so questions and results always match the resume they were built from.</p>
+<h3 id="what-happens-when-the-user-saves">What happens when the user saves?</h3>
+<p>In one transaction:</p>
+<ol><li>Insert the <code>resume</code> row.</li><li>Insert one <code>resume_point</code> row per project bullet, experience bullet and skill.</li><li>Match skills to the shared <code>skill</code> table by case-insensitive name. No match means <code>skill_id</code> stays empty, and <strong>no skill is ever created from a resume</strong>, so the skills stay clean.</li></ol>
+<p>Then, after the save, one Groq call writes about 8 open questions about the projects and experience, each with 3 to 6 <strong>key facts</strong> (true statements used later for grading).</p>
+<p>If AI is down, no questions are stored and the practice bank fills in. A retry happens later, at most once per resume every 10 minutes.</p>
+<h3 id="what-is-the-role-skills-check">What is the Role skills check?</h3>
+<p>You said you are aiming for "Backend Developer". Does your resume prove it?</p>
+<p>The check takes each skill of the role, with its aliases ("Spring Boot" and "SpringBoot"), and looks for it as a <strong>whole word, ignoring case</strong>, in every resume point.</p>
+<p>The output has two lists: skills with evidence (each linked to the resume point that shows it), and skills without. No AI is needed.</p>
+<aside class="callout stranger"><div class="tag">Explain it to a stranger</div><p>A PDF only remembers where each word is drawn, not what it means. So the app looks at the position and style of the words: a bold, all-capital line alone on its row is probably a heading. If that guesswork fails, a smart assistant reads the text instead, with your phone number and email blacked out first. Then you double check the result.</p><p>[expert] The pipeline is PDF.js text items, then line grouping by EOL and gap-merging against a typical glyph width, then section grouping by typographic heading heuristics (bold and uppercase, with keyword fallback), then field extraction with a feature-scoring system that sums weak signals. A completeness test routes poor results to a server-side fallback: PDFBox text extraction, PII scrubbing, then an LLM at temperature 0 constrained to our JSON schema, with nulls for unknowns. A review step keeps a human in the loop, and the persisted resume is immutable so derived questions stay consistent.</p><p>[project] Limits and flow: PDF only (header-checked), at most 1 MB, parsed in browser first, fallback via <code>POST /api/resumes/parse-fallback</code>. The PDF and any audio are never stored. Known limit of the browser parser: single-column English resumes work best.</p></aside>
+<h2 id="how-does-the-app-use-ai-safely"><span class="ch">11</span>How does the app use AI safely?</h2>
+<h3 id="why-use-ai-at-all">Why use AI at all?</h3>
+<p>Some jobs rules cannot do well.</p>
+<ul><li>Turn a messy resume into clean questions.</li><li>Judge whether a free-text answer actually says "I added a cache and measured p95 latency".</li><li>Write encouraging, specific feedback.</li><li>Turn speech into text.</li></ul>
+<p>An <strong>LLM</strong> (large language model) can read and write language, so it fits these jobs.</p>
+<p>But look at what an LLM costs us.</p>
+<h3 id="what-problems-come-with-llms">What problems come with LLMs?</h3>
+<ul><li><strong>They can be wrong with confidence.</strong> An LLM may invent a plausible fact or hand out generous marks.</li><li><strong>They are not deterministic.</strong> The same input can give different outputs.</li><li><strong>They can fail.</strong> Timeouts, bad JSON, and rate limits (free tiers say "429, slow down" often).</li><li><strong>They cost money and time.</strong> Each call is slow.</li><li><strong>Privacy.</strong> Whatever you send leaves your machine.</li><li><strong>Secrets.</strong> The API key must never reach users.</li></ul>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: an AI is a powerful but unreliable, slow, limited and external worker. We must wrap it so its mistakes cannot harm the product.</p></aside>
+<h3 id="so-how-can-we-solve-each-problem">So how can we solve each problem?</h3>
+<p>This is where the design of Abhyas becomes interesting. Each risk gets its own guard.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Risk</th><th scope="col">Guard</th><th scope="col">How it works</th></tr></thead><tbody><tr><td>Invented marks</td><td><strong>Java adds up the marks</strong></td><td>The AI only ticks yes/no on a checklist. Java counts the ticks. Marks are never taken from the AI.</td></tr><tr><td>Fake proof</td><td><strong>Evidence rule</strong></td><td>Every "yes" must include a quote. Java checks the quote really appears in the user's answer. If not, the tick flips to "no".</td></tr><tr><td>Randomness</td><td><strong>Temperature 0 and JSON only</strong></td><td>Ask for the most predictable output in a fixed structure, then validate it.</td></tr><tr><td>Bad JSON</td><td><strong>Validate and retry once</strong></td><td>If the reply does not parse, retry one time, then fall back.</td></tr><tr><td>Rate limits</td><td><strong>AiGate</strong></td><td>Stops hammering a provider that said "429", see below.</td></tr><tr><td>Provider down</td><td><strong>Fallback graders</strong></td><td>Keyword grader and template feedback take over.</td></tr><tr><td>Privacy</td><td><strong>Scrubber</strong></td><td>Phone and email are removed from every outgoing text.</td></tr><tr><td>Leaked keys</td><td><strong>Server-only calls</strong></td><td>Only the backend holds keys. The browser never calls a provider.</td></tr><tr><td>Slow calls</td><td><strong>Background grading</strong></td><td>The user never waits on the AI (chapter 12).</td></tr></tbody></table></div>
+<aside class="callout project"><div class="tag">In Abhyas.tech</div><p>The grading rule in one sentence: the AI proposes ticks with quotes, Java checks the quotes and adds the marks.</p></aside>
+<h3 id="what-is-aiclient">What is AiClient?</h3>
+<p><code>AiClient</code> is the <strong>one</strong> place in the code that talks to AI providers.</p>
+<p>That is deliberate: guards written once are guards that cannot be forgotten.</p>
+<p>For every call it: removes phone and email, sets temperature 0, asks for JSON only, applies a timeout (20 s, and 40 s for audio), parses and validates the answer, and retries once on a 5xx, a timeout or invalid JSON.</p>
+<p>Logs hold timings and error types, <strong>never</strong> the prompt or the reply.</p>
+<h3 id="what-is-aigate-and-why-is-it-called-a-circuit-breaker">What is AiGate, and why is it called a circuit breaker?</h3>
+<p>Say Groq returns <code>429 Too Many Requests</code>.</p>
+<p>If every one of the next 50 calls tries anyway, each fails slowly, the user waits, and you may be blocked longer.</p>
+<p>So how can we solve this?</p>
+<p>Remember the failure for a while, and answer "unavailable" <strong>immediately</strong> without calling.</p>
+<p>That idea is the <strong>circuit breaker pattern</strong>, the same as the fuse in your house: when something is wrong, the circuit opens so the damage does not spread.</p>
+<p><code>AiGate</code> keeps, per provider (<code>groq-chat</code>, <code>groq-whisper</code>, <code>gemma</code>), the time until it is usable again.</p>
+<ul><li>A per-minute limit: wait for the reply's <code>Retry-After</code> seconds (15 minutes if it gives none).</li><li>A daily limit: wait until the next UTC midnight.</li></ul>
+<p>While unavailable, the app uses its fallbacks. State lives in memory and resets on restart.</p>
+<h3 id="what-is-the-fallback-and-why-is-it-silent">What is the fallback, and why is it silent?</h3>
+<p>Each AI job has a non-AI twin, so the product keeps working.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Job</th><th scope="col">AI version</th><th scope="col">Fallback</th></tr></thead><tbody><tr><td>Project questions</td><td>Groq</td><td>the practice bank, then generic templates</td></tr><tr><td>Grade brief and voice answers</td><td>Groq checklist</td><td><code>KeywordGrader</code>, which ticks items by keyword match and uses the matching sentence as the quote</td></tr><tr><td>Feedback and report</td><td>Gemma</td><td><code>TemplateFeedback</code>: ticks, key facts, "what to fix", numbers only</td></tr><tr><td>Voice to text</td><td>Groq Whisper</td><td>the browser's Web Speech API, or typing</td></tr></tbody></table></div>
+<p>The switch has no banner, because the user came to practice, not to manage infrastructure.</p>
+<p>But honesty matters, so each attempt stores <code>graded_by</code> as <code>java</code>, <code>ai</code> or <code>fallback</code>.</p>
+<p>A keyword-graded answer says "Graded without AI... may be too strict... does not count toward mastery", with a <strong>Regrade with AI</strong> button.</p>
+<h3 id="which-ai-does-what-and-why-two-providers">Which AI does what, and why two providers?</h3>
+<ul><li><strong>Groq</strong> is fast: chat for parsing, questions and checklists, and Whisper for speech to text.</li><li><strong>Google AI Studio (Gemma)</strong> writes the kinder, longer feedback and the report.</li></ul>
+<p>Each has its own free-tier limits, and splitting the work spreads the load. Gemma calls are spaced 7 seconds apart for that reason.</p>
+<h3 id="why-is-the-voice-stuff-built-this-way">Why is the voice stuff built this way?</h3>
+<p>The browser records WebM/Opus audio for at most 3 minutes with <code>MediaRecorder</code> and uploads it. The server sends it to Whisper, counts words, duration, words per minute and filler words, and returns the transcript.</p>
+<p><strong>Nothing is saved yet.</strong> The audio is held only in memory or a temp file and deleted.</p>
+<p>If Whisper fails, the voice question stays and the user speaks again using the browser's own <strong>Web Speech API</strong> (in Chrome, that audio goes to Google, and the privacy note says so). If there is no microphone, the user types the answer, graded like a brief answer for 5 marks.</p>
+<aside class="callout stranger"><div class="tag">Explain it to a stranger</div><p>The AI is a clever but sometimes sloppy helper. So we never let it do the sums or make promises we cannot check. It must show a quote for every tick, our own code checks the quote, and our code adds up the marks. If the helper is tired or away, a simpler checker steps in.</p><p>[expert] The LLM is treated as an untrusted component. Output is constrained to JSON and validated, scores are computed deterministically in Java from boolean checklists, and an evidence rule requires each positive item to carry a verbatim quote that Java substring-matches against the answer, which cuts hallucinated credit. A per-provider circuit breaker (<code>AiGate</code>) handles 429s and daily quotas, and each AI-backed interface has a deterministic fallback implementation. PII is scrubbed at the single egress point.</p><p>[project] Three interfaces each with an AI and a fallback implementation: questions, grading and feedback. One <code>AiClient</code> for every call. Providers' model IDs live in config because they change often.</p></aside>
+<h2 id="what-happens-when-i-press-submit-background-work-and-async-design"><span class="ch">12</span>What happens when I press Submit? Background work and async design</h2>
+<h3 id="what-would-happen-if-grading-ran-inside-the-submit-request">What would happen if grading ran inside the Submit request?</h3>
+<p>Count the work.</p>
+<ul><li>Java marks 5 multiple-correct and 5 fill-in-the-blank answers. Instant.</li><li>Groq grades 9 brief and voice answers, one at a time, about a second or two each.</li><li>Gemma writes feedback for each of them, with a 7-second gap between calls to respect its limit.</li><li>Gemma writes the final report.</li></ul>
+<p>That is easily one to two minutes.</p>
+<p>If the browser waits for that, the Submit button hangs. A mobile network blip kills the request and the user has no idea whether anything was graded. The server thread is also locked for all that time.</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: a slow job is welded to a request that should answer in a blink.</p></aside>
+<h3 id="so-how-can-we-solve-this">So how can we solve this?</h3>
+<p>Split the two things.</p>
+<ol><li><strong>Accept</strong> the work and answer at once: "Got it, your session is completed."</li><li><strong>Do</strong> the work later, on a separate worker, and let the client see the results when they are ready.</li></ol>
+<p>This is the <strong>asynchronous job</strong> pattern, and it is how emails, video uploads and payment processing work everywhere.</p>
+<aside class="callout analogy"><div class="tag">Think of it like this</div><p>A coat check. You hand over your coat and immediately get a ticket. The attendant hangs the coat in the back. You come back whenever you like, and show the ticket.</p></aside>
+<p>Here is the exact conversation, step by step.</p>
+<figure class="diagram"><figcaption><strong>Submit and grade sequence.</strong> Read it top to bottom. The user is answered at step 3, long before the grading finishes. <a href="sequence.html" target="_blank" rel="noopener">Open full size</a></figcaption><iframe src="sequence.html" title="Submit and grade sequence diagram" loading="lazy"></iframe></figure>
+<h3 id="how-do-i-read-the-sequence-diagram">How do I read the sequence diagram?</h3>
+<ol><li>The user sends <code>POST /submit</code>.</li><li>The API puts the session in a queue for the worker. (Dashed arrow: it is only a hand-off.)</li><li>The API replies <strong>at once</strong> with "completed". The user sees the report page with empty rows.</li><li>The worker, in the background, marks multiple-correct and blanks with plain Java.</li><li>For each brief and voice answer the worker asks Groq for a checklist with quotes. Groq replies. The worker checks the quotes and saves the score and mastery.</li><li>For each answer the worker asks Gemma for feedback, waiting 7 seconds between calls. Gemma answers with text, or with a <code>429</code>.</li><li>The worker saves "feedback ready" to the database.</li><li>Meanwhile the browser keeps asking <code>GET session</code> every few seconds and shows whichever rows are ready.</li></ol>
+<aside class="callout root"><div class="tag">The root cause</div><p>The most important design choice: the <strong>database is the shared notebook</strong>. The worker writes progress there, the browser reads progress from there. They never talk to each other directly.</p></aside>
+<h3 id="why-is-the-worker-a-single-thread">Why is the worker a single thread?</h3>
+<p>It looks like a limitation, but it is a decision.</p>
+<p>Gemma's free tier allows very few calls per minute. Ten workers would trip the limit immediately.</p>
+<p>One worker means calls go out <strong>one at a time</strong>, in order, with a deliberate pause. The code is simple, with no locks and no races.</p>
+<p>The trade-off is throughput: two users submitting at the same moment wait in line. For a laptop-sized app that is perfectly fine.</p>
+<aside class="callout warn"><div class="tag">Watch out</div><p>An interviewer may ask "what happens if the server restarts mid-grading?" The answer: on startup, every completed session that still has a <code>pending</code> status is picked up and finished from where it stopped. That is why progress is stored in the database, not in memory.</p></aside>
+<h3 id="how-is-each-type-of-answer-marked">How is each type of answer marked?</h3>
+<ul><li><strong>Multiple-correct (2 marks).</strong> <code>marks = max(0, 2 × (correct picked − wrong picked) ÷ correct options)</code>, rounded to the nearest half. Why subtract wrong picks? Otherwise a user could tick every box and get full marks. Examples: both right gives 2, one right plus one wrong gives 0, one right out of two gives 1.</li><li><strong>Fill in the blank (2 marks).</strong> Trim and ignore case, compare with the accepted wordings. One blank is worth 2, two blanks 1 each. A blank Java marked wrong is re-checked by one Groq call for <strong>meaning</strong>, so "REST controller" and <code>@RestController</code> can both pass.</li><li><strong>Brief (5) and voice (10).</strong> An AI-ticked checklist, the evidence rule, and Java summing the ticks.</li></ul>
+<h3 id="why-not-let-the-ai-give-a-mark-out-of-5">Why not let the AI give a mark out of 5?</h3>
+<p>Because that number would be a vibe.</p>
+<p>Two runs could give 3 and 4 for the same answer, and you could never explain why.</p>
+<p>A checklist of yes/no items with a quoted proof is <strong>auditable</strong>: you can point at every tick and say "this sentence earned it".</p>
+<aside class="callout stranger"><div class="tag">Explain it to a stranger</div><p>Pressing Submit just hands your answers to a worker and tells you "received". The worker marks them in the background, one at a time, and your report page checks back every few seconds to show whatever is ready, like picking up your coat later with a ticket.</p><p>[expert] Submit is a command that transitions the session to completed and enqueues a grading job on a single-thread executor, returning immediately. The worker is idempotent and resumable, because per-attempt <code>graded_by</code>, <code>feedback_status</code> and <code>report_status</code> live in MySQL and a startup recovery task resumes any pending session. The client polls the resource, which is simple and stateless. The single thread is intentional back-pressure for rate-limited providers.</p></aside>
+<h2 id="how-is-a-practice-session-built-and-why-do-questions-come-back"><span class="ch">13</span>How is a practice session built, and why do questions come back?</h2>
+<h3 id="what-is-the-problem-with-a-normal-question-list">What is the problem with a normal question list?</h3>
+<p>A fixed list of questions gives every user the same quiz forever.</p>
+<ul><li>It does not know your resume.</li><li>It does not know which questions you got wrong.</li><li>Once you see the answer, you may memorise it without learning.</li></ul>
+<aside class="callout root"><div class="tag">The root cause</div><p>The root problem: practice that does not adapt wastes your time on what you already know and ignores what you do not.</p></aside>
+<h3 id="so-how-can-we-solve-this">So how can we solve this?</h3>
+<p>Remember, for every question, how you did, and build each new session from that memory.</p>
+<p>Weak questions are asked again first. Strong questions rest and return later.</p>
+<p>This is the idea behind <strong>spaced repetition</strong>.</p>
+<h3 id="what-does-one-session-look-like-from-start-to-report">What does one session look like, from start to report?</h3>
+<figure class="diagram"><figcaption><strong>Practice session workflow.</strong> Three lanes: what the user does, what the backend does, and the fallback path that keeps grading alive. <a href="workflow.html" target="_blank" rel="noopener">Open full size</a></figcaption><iframe src="workflow.html" title="Practice session workflow diagram" loading="lazy"></iframe></figure>
+<p>Read it left to right.</p>
+<ol><li><strong>Start.</strong> The user picks a resume on Home. The backend <strong>builds 19 slots</strong>, putting the unmastered questions first.</li><li><strong>Answer.</strong> One question per screen. Each answer is saved when the user presses Next, so closing the tab loses nothing. There is no feedback during the session.</li><li><strong>Submit.</strong> Returns at once (chapter 12).</li><li><strong>Grade.</strong> Java first, then the AI. If the AI is down, the lower lane (keywords and templates) takes over, so <strong>AI errors never block the report</strong>.</li><li><strong>Report.</strong> The page polls until it is ready.</li></ol>
+<h3 id="why-exactly-19-questions-and-80-marks">Why exactly 19 questions and 80 marks?</h3>
+<p>It is a fixed shape so sessions are comparable.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Part</th><th scope="col">Questions</th><th scope="col">Marks each</th><th scope="col">Total</th></tr></thead><tbody><tr><td>Multiple correct</td><td>5</td><td>2</td><td>10</td></tr><tr><td>Fill in the blank</td><td>5</td><td>2</td><td>10</td></tr><tr><td>Brief answer (3 technical, 2 behavioral, 1 about your project)</td><td>6</td><td>5</td><td>30</td></tr><tr><td>Voice answer (1 behavioral, 2 about your project)</td><td>3</td><td>10</td><td>30</td></tr><tr><td><strong>Total</strong></td><td><strong>19</strong></td><td></td><td><strong>80</strong></td></tr></tbody></table></div>
+<p>If the pool of unmastered and new questions is too small, the missing slots are never left empty. They are filled from the practice bank, then the generic templates, and finally resting questions.</p>
+<h3 id="how-does-the-order-of-questions-get-chosen">How does the order of questions get chosen?</h3>
+<p>For each part the builder takes:</p>
+<ol><li><strong>Unmastered</strong> questions first: asked at least once and not mastered. Lowest last score first, then the one asked longest ago. A question that was only keyword-graded counts as 0, so it comes back early for a proper AI grade.</li><li>Remaining slots are filled randomly from <strong>new</strong> questions (never asked) and <strong>rested</strong> ones (mastered more than a month ago).</li></ol>
+<p>Mastered questions less than a month old are skipped, so you spend your time where it counts.</p>
+<h3 id="what-does-mastered-mean-and-what-is-the-lifecycle-of-a-question">What does "mastered" mean, and what is the lifecycle of a question?</h3>
+<figure class="diagram"><figcaption><strong>Mastery lifecycle.</strong> A question moves right along the mastery path, or drops into the weak loop and is picked first next time. <a href="lifecycle.html" target="_blank" rel="noopener">Open full size</a></figcaption><iframe src="lifecycle.html" title="Mastery lifecycle diagram" loading="lazy"></iframe></figure>
+<p>Follow one question.</p>
+<ol><li><strong>New</strong>: never asked.</li><li><strong>In a session</strong>: you answered it.</li><li><strong>Graded</strong>: the score is compared with a threshold for its type. The thresholds: multiple-correct 2 of 2, fill-in-the-blank 2 of 2, brief 4 of 5, voice 8 of 10 (a typed voice answer needs 4 of 5).</li><li>If it passes, it is <strong>Mastered</strong> and is skipped for a month. Then it is <strong>Rested</strong>, and eligible to return.</li><li>If it does not pass, it falls into the <strong>weak loop</strong> (Unmastered) and is picked first next time, until you master it.</li></ol>
+<p>Why does a mastered question come back at all? Because remembering fades.</p>
+<p>A month later you may not defend that bullet any more, and an interviewer will not care that you could last month.</p>
+<h3 id="why-is-mastery-stored-per-user-not-per-resume">Why is mastery stored per user, not per resume?</h3>
+<p>If you upload a second resume that also mentions Java, the bank question "What is lazy loading?" is the <strong>same</strong> question.</p>
+<p>You already mastered it, so it should not appear again.</p>
+<p>So the memory for bank questions lives in <code>bank_performance</code>, keyed by user and question.</p>
+<p>Questions written for one specific resume project belong to that resume.</p>
+<h3 id="why-do-some-answers-not-count-toward-mastery">Why do some answers not count toward mastery?</h3>
+<p>A fallback (keyword) grade can be too harsh or too generous.</p>
+<p>If it could mark a question "mastered", a user might never see it again by luck.</p>
+<p>So the rule: multiple-correct and blanks always count (they are marked by exact rules), but brief and voice count <strong>only when graded by AI</strong>. Fallback grades never set mastered.</p>
+<h3 id="what-is-interview-mode">What is Interview mode?</h3>
+<p>The same engine with a different shape: 6 questions, spoken or typed, 3 minutes each, and after every answer the AI writes <strong>one follow-up</strong> from what you just said, like a real interviewer would.</p>
+<p>The follow-up is written once and stored, so a page reload shows the same question. The timer lives only in the browser, and the server accepts an answer any time while the session is open.</p>
+<aside class="callout stranger"><div class="tag">Explain it to a stranger</div><p>The app remembers how you did on every question. Questions you missed come back first, and questions you aced take a month's rest, so you spend your time where you are weak, like a good teacher who keeps returning to the topics you find hard.</p><p>[expert] Session construction is a deterministic, mastery-aware sampler with part quotas and a layered fallback for pool exhaustion. Mastery state is <code>bank_performance(user, bank_question)</code> for shared bank items and on the <code>question</code> row for resume-specific items, with a one-month rest window, which is a coarse spaced-repetition schedule. AI-dependent item types only update mastery when graded by the AI, so degraded grading cannot distort the schedule.</p></aside>
+<h2 id="security-privacy-logging-and-testing-how-do-we-trust-it"><span class="ch">14</span>Security, privacy, logging and testing: how do we trust it?</h2>
+<h3 id="what-are-the-main-ways-this-app-could-hurt-a-user">What are the main ways this app could hurt a user?</h3>
+<p>Think like an attacker, then like a careless developer.</p>
+<ul><li>Read someone else's resume. (<strong>Authorization</strong> bug.)</li><li>Steal the login. (<strong>XSS</strong>, <strong>CSRF</strong>, weak storage.)</li><li>Guess passwords. (<strong>Brute force</strong>.)</li><li>Leak personal data to a third party. (<strong>Privacy</strong>.)</li><li>Leak a secret key from the repo. (<strong>Secrets</strong>.)</li><li>Put resume text in a log file that many people can read. (<strong>Logging</strong>.)</li></ul>
+<p>Each of these has a specific guard.</p>
+<h3 id="what-is-defence-in-depth">What is "defence in depth"?</h3>
+<p>Never rely on one lock.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Danger</th><th scope="col">First lock</th><th scope="col">Second lock</th></tr></thead><tbody><tr><td>Reading another user's data</td><td>every query scoped by user id</td><td>another user's id returns 404, so even existence is hidden</td></tr><tr><td>Stolen cookie via XSS</td><td><code>HttpOnly</code></td><td>short 8-hour lifetime</td></tr><tr><td>CSRF</td><td><code>SameSite=Strict</code></td><td>one origin, no CORS</td></tr><tr><td>Password guessing</td><td>BCrypt slowness</td><td>login throttle and identical errors</td></tr><tr><td>PII to AI</td><td>scrubber on every call</td><td>resume points only, never the profile</td></tr><tr><td>Secret leakage</td><td>keys only in environment or a gitignored file</td><td><code>.env.example</code> lists names, never values</td></tr><tr><td>Stored sensitive files</td><td>the PDF and audio are never stored</td><td>export strips phone and email</td></tr><tr><td>Data left after deletion</td><td>cascade deletes</td><td>a final check counts rows for the deleted user</td></tr></tbody></table></div>
+<h3 id="what-is-not-allowed-in-the-logs-and-why">What is not allowed in the logs, and why?</h3>
+<p>Logs are copied, searched, shipped to other tools, and read by many people.</p>
+<p>So the rule is strict: logs may contain ids, endpoints, status codes, provider names, durations and error types. They may <strong>never</strong> contain resume text, answers, transcripts, prompts, AI replies, passwords, tokens or keys.</p>
+<p>Even debug logging of AI requests is off. A unit test checks that the exception handler and <code>AiClient</code> do not put request bodies in messages.</p>
+<h3 id="how-do-we-test-it">How do we test it?</h3>
+<div class="table-wrap"><table><thead><tr><th scope="col">Layer</th><th scope="col">Tool</th><th scope="col">What it proves</th></tr></thead><tbody><tr><td>Rules</td><td>JUnit</td><td>marks formula, blank matching, evidence rule, mastery rules, slot quotas</td></tr><tr><td>Database</td><td>Testcontainers with a real MySQL 8</td><td>migrations run, generated columns, the unique open-session index, cascade deletes</td></tr><tr><td>AI layer</td><td>JUnit with a fake provider</td><td>bad JSON then retry then fallback, a 429 opens the gate, the scrubber works, no personal text in logs</td></tr><tr><td>Security</td><td>MockMvc</td><td>another user gets 404, logged out gets 401, login throttle, export only for completed sessions</td></tr><tr><td>Frontend</td><td>Vitest</td><td>the "looks incomplete" test, parse mapping, API error handling</td></tr><tr><td>Manual</td><td>you</td><td>a checklist after every build step, plus hand-grading about 20 answers against the AI</td></tr></tbody></table></div>
+<p>Why a <strong>real</strong> MySQL in tests, not an in-memory fake?</p>
+<p>Because the schema uses MySQL-specific features (generated columns, JSON, CHECK constraints). A fake database would pass tests that production would fail.</p>
+<aside class="callout warn"><div class="tag">Watch out</div><p>Be honest in interviews about what is not verified. At the time of writing, the V1 SQL had not been run against a real MySQL, and the new redesign had only been compiled, not viewed in a browser. Saying what you have not tested builds more trust than pretending.</p><p>[stranger] We assume things will go wrong and put several locks on every door. Even if one lock fails, the next one still protects your data, and we only keep what we truly need.</p><p>[expert] Isolation is enforced at the data-access layer (user-scoped queries plus 404-not-403 to avoid existence oracles), authentication uses an HttpOnly SameSite=Strict JWT cookie behind a same-origin proxy, input is validated at the edge, secrets come from the environment, outbound text is PII-scrubbed at a single egress point, and logs are content-free. Integration tests run against real MySQL via Testcontainers so DB-level invariants are actually exercised.</p></aside>
+<h2 id="system-design-putting-it-all-together"><span class="ch">15</span>System design: putting it all together</h2>
+<h3 id="what-is-system-design-really">What is system design, really?</h3>
+<p>Every chapter so far solved a small problem.</p>
+<p>System design is the skill of asking, for a whole product: <strong>what parts do we need, how do they talk, where does data live, and what breaks first when more people arrive?</strong></p>
+<p>It is not a list of famous tools. It is a chain of "this hurts, so we add that".</p>
+<h3 id="how-should-i-think-about-any-system-design-question-five-steps">How should I think about any system design question? Five steps</h3>
+<ol><li><strong>Clarify what it must do.</strong> Who uses it, and what are the 3 to 5 key actions? (Abhyas: upload a resume, practise, get a marked report.)</li><li><strong>Clarify how well it must do it.</strong> How many users? How fast? Can it lose data? Can it be down? These are the <strong>non-functional</strong> needs.</li><li><strong>Sketch the simplest thing that works.</strong> Client, server, database.</li><li><strong>Find the bottleneck.</strong> Which part is slow, expensive or fragile first?</li><li><strong>Fix that bottleneck, and say what it costs.</strong> Then repeat from step 4.</li></ol>
+<aside class="callout root"><div class="tag">The root cause</div><p>Good designs grow in response to measured pain. Starting with Kafka and Kubernetes for 20 users is not engineering, it is decoration.</p></aside>
+<h3 id="what-are-the-basic-building-blocks-and-what-problem-does-each-solve">What are the basic building blocks, and what problem does each solve?</h3>
+<div class="table-wrap"><table><thead><tr><th scope="col">Block</th><th scope="col">The problem it solves</th></tr></thead><tbody><tr><td><strong>Client</strong> (browser, app)</td><td>the human needs an interface</td></tr><tr><td><strong>DNS</strong></td><td>humans use names, machines use IPs</td></tr><tr><td><strong>Server (API)</strong></td><td>the secrets, rules and shared data must live somewhere we trust</td></tr><tr><td><strong>Database</strong></td><td>data must survive crashes and be searchable and consistent</td></tr><tr><td><strong>Cache</strong> (Redis, in-memory)</td><td>asking the database the same thing again and again is slow and costly</td></tr><tr><td><strong>Queue</strong> (RabbitMQ, SQS, Kafka)</td><td>slow work must not block the user, and bursts need smoothing</td></tr><tr><td><strong>Worker</strong></td><td>something has to take jobs off the queue</td></tr><tr><td><strong>Load balancer</strong></td><td>one server cannot take all the traffic, and must not be a single point of failure</td></tr><tr><td><strong>CDN</strong></td><td>files (JS, CSS, images) are far from users, so serve copies from nearby</td></tr><tr><td><strong>Object storage</strong> (S3)</td><td>big files do not belong in the database</td></tr><tr><td><strong>Rate limiter</strong></td><td>one user or a bug must not use up everyone's share</td></tr><tr><td><strong>Monitoring and logs</strong></td><td>you cannot fix what you cannot see</td></tr></tbody></table></div>
+<h3 id="which-of-these-does-abhyas-already-have-and-which-does-it-skip-on-purpose">Which of these does Abhyas already have, and which does it skip on purpose?</h3>
+<p>Look back at the architecture diagram.</p>
+<figure class="diagram"><figcaption><strong>Architecture.</strong> The same picture as chapter 1. Now look at it as a system designer: what is there, and what is missing? <a href="architecture.html" target="_blank" rel="noopener">Open full size</a></figcaption><iframe src="architecture.html" title="Architecture diagram" loading="lazy"></iframe></figure>
+<div class="table-wrap"><table><thead><tr><th scope="col">Block</th><th scope="col">In Abhyas today</th><th scope="col">Why this is fine now</th></tr></thead><tbody><tr><td>Client</td><td>React app</td><td>yes</td></tr><tr><td>Server</td><td>one Spring Boot process</td><td>one laptop-scale deployment</td></tr><tr><td>Database</td><td>one MySQL</td><td>every table is simple and small</td></tr><tr><td>Queue and worker</td><td>an in-process single-thread executor</td><td>tiny volume, and the database stores the progress</td></tr><tr><td>Cache</td><td>none (only the JPA first-level cache)</td><td>no read is slow yet</td></tr><tr><td>Load balancer, CDN</td><td>none</td><td>one server, localhost</td></tr><tr><td>Rate limiting</td><td>login throttle and AiGate, both in memory</td><td>resets on restart is accepted</td></tr><tr><td>Object storage</td><td>none</td><td>the PDF and audio are deliberately never stored</td></tr></tbody></table></div>
+<h3 id="now-the-interview-twist-what-if-it-had-1-000-000-users">Now the interview twist: "What if it had 1,000,000 users?"</h3>
+<p>Do not panic and do not list tools. Walk it as a chain of pains.</p>
+<p><strong>Pain 1: one server is not enough.</strong></p>
+<p>Add more copies of the Spring Boot app behind a <strong>load balancer</strong>.</p>
+<p>This works easily <strong>because the app is stateless</strong>: the login is a JWT carried by the client, not a session stored in server memory. Any copy can answer any request.</p>
+<p>That is the payoff of the JWT decision from chapter 9.</p>
+<p><strong>Pain 2: the in-memory pieces stop working.</strong></p>
+<p>The login throttle and <code>AiGate</code> live in each server's memory. With 10 servers, each has its own count, so an attacker gets 10 times more guesses, and one server may hammer a provider that another already knows is limited.</p>
+<p>Fix: move that shared state to <strong>Redis</strong>.</p>
+<p><strong>Pain 3: the single-thread executor is a bottleneck and a single point of failure.</strong></p>
+<p>If the server dies, queued grading waits (it is recoverable, but late). And one thread cannot grade thousands of sessions.</p>
+<p>Fix: replace the in-process executor with a real <strong>message queue</strong> and a pool of <strong>worker</strong> machines.</p>
+<p>The AI providers' rate limits now become the real cap, so workers need a <strong>shared rate limiter</strong> and a priority policy.</p>
+<p>The report page can keep polling, or switch to SSE if updates need to be snappier.</p>
+<p><strong>Pain 4: the database gets busy.</strong></p>
+<ul><li>First <strong>index</strong> the slow queries and look at the query plans.</li><li>Then add <strong>read replicas</strong> for read-heavy pages such as History.</li><li>Cache the shared, rarely changing data: roles, skills, the practice bank.</li><li>Much later, <strong>shard</strong> by user id. This is possible because every row traces back to a user.</li></ul>
+<p><strong>Pain 5: the AI bill and limits.</strong></p>
+<p>Groq and Gemma have free-tier limits and cost money at scale.</p>
+<ul><li>Cache results when the same question and answer repeat.</li><li>Use the keyword grader first for obvious zeroes.</li><li>Batch calls where the provider allows.</li><li>Make the fallback quality good enough to keep users happy during throttling.</li></ul>
+<p><strong>Pain 6: the front door.</strong></p>
+<p>Serve the static React build from a <strong>CDN</strong>, and put the API behind HTTPS with <code>Secure</code> cookies.</p>
+<p><strong>Pain 7: seeing what is going on.</strong></p>
+<p>Add metrics (latency, error rate, queue depth, AI success rate, fallback rate), centralised logs without personal content, and alerts.</p>
+<aside class="callout root"><div class="tag">The root cause</div><p>Notice the pattern: each change fixes a named pain and costs something (complexity, money, consistency). Say both halves out loud.</p></aside>
+<h3 id="which-trade-offs-should-i-be-ready-to-discuss">Which trade-offs should I be ready to discuss?</h3>
+<ul><li><strong>Consistency versus availability.</strong> With one MySQL primary, writes are consistent. Replicas can lag a little, so "read your own write" pages (such as the report right after Submit) should read from the primary.</li><li><strong>Polling versus push.</strong> Polling is simplest and most robust. Push is snappier and costlier.</li><li><strong>Stateless JWT versus server sessions.</strong> JWT scales without a store but cannot be revoked instantly. Server sessions are revocable but need a shared store.</li><li><strong>Synchronous versus asynchronous.</strong> Async removes waiting but adds states (pending, ready) the UI must show.</li><li><strong>Monolith versus microservices.</strong> One deployable app is easier to build, test and debug. Split only when teams or scaling needs force it. Abhyas is a well-organised <strong>modular monolith</strong>, packaged by feature, so splitting later is possible.</li><li><strong>Build versus buy.</strong> The parser copies an open-source project (and accepts AGPL) instead of building one from scratch, and PDFBox plus an LLM are used as a safety net.</li></ul>
+<aside class="callout stranger"><div class="tag">Explain it to a stranger</div><p>System design is deciding which boxes a product needs and how they connect. You start with the smallest working set, and add more boxes only when something becomes too slow, too fragile or too busy.</p><p>[expert] Abhyas is a stateless modular monolith with a relational store, an in-process async worker for rate-limited provider calls, and durable job state in the database. To scale: horizontal API replicas behind a load balancer (enabled by JWT statelessness), shared state for throttling and gating in Redis, an external queue with worker autoscaling bounded by provider quotas, read replicas and caching for shared reference data, a CDN for static assets, and observability across latency, queue depth and fallback rate. Each step is driven by a measured bottleneck.</p></aside>
+<h2 id="the-interview-playbook"><span class="ch">16</span>The interview playbook</h2>
+<h3 id="how-should-i-answer-a-question-in-an-interview">How should I answer a question in an interview?</h3>
+<p>Use this shape. It matches how this guide works.</p>
+<ol><li><strong>Say what it is in one sentence.</strong> (The stranger version.)</li><li><strong>Say why it exists</strong>: the problem without it.</li><li><strong>Say how it works</strong>, in three steps at most.</li><li><strong>Say where you used it</strong> in Abhyas.tech.</li><li><strong>Say the trade-off or limit</strong>, which shows depth.</li></ol>
+<p>Then stop. Let them ask. A short, clear answer that invites a follow-up beats a long lecture.</p>
+<h3 id="what-is-my-2-minute-pitch-of-the-project">What is my 2-minute pitch of the project?</h3>
+<p>"Abhyas.tech helps people prepare for interviews by defending their own resume.</p>
+<p>You upload a PDF, and it is parsed in the browser, so your file never has to leave your laptop. If the parse looks incomplete, a server-side fallback uses PDFBox and an LLM, after removing phone and email.</p>
+<p>You check the result, and the app writes questions from your own projects and experience, plus a reviewed bank.</p>
+<p>A session has 19 questions worth 80 marks: multiple choice, blanks, written answers and spoken answers.</p>
+<p>When you submit, the server answers immediately and grades in the background. The AI only ticks a checklist with quotes, Java verifies the quotes and adds the marks.</p>
+<p>Weak questions come back first, and mastered ones rest for a month.</p>
+<p>The stack is React, Spring Boot on Java 21 and MySQL, with a JWT in an HttpOnly cookie.</p>
+<p>Every design choice follows one idea: the AI is powerful but unreliable, so the app must stay correct and useful without it."</p>
+<h3 id="which-questions-are-likely-and-how-do-i-answer-them">Which questions are likely, and how do I answer them?</h3>
+<p><strong>Q1. What happens when you type a URL and press Enter?</strong></p>
+<p>DNS turns the name into an IP. The browser opens a TCP connection, and for HTTPS a TLS handshake. It sends an HTTP request. The server answers with HTML, and the browser then fetches the CSS and JavaScript the page needs, and runs them.</p>
+<p><strong>Q2. What is the difference between the internet and the web?</strong></p>
+<p>The internet is the network of networks (the roads). The web is a service on top of it (pages and data over HTTP).</p>
+<p><strong>Q3. What is an API and what makes one RESTful?</strong></p>
+<p>It is a contract for software to use software. REST means nouns in URLs, verbs as HTTP methods, JSON bodies, standard status codes, and stateless requests.</p>
+<p><strong>Q4. PUT versus POST versus PATCH?</strong></p>
+<p>POST creates or triggers an action and is not repeat-safe. PUT replaces and is idempotent. PATCH changes part. In Abhyas: <code>POST /sessions</code>, <code>PUT .../attempts/3</code>, <code>PATCH /resumes/1</code>.</p>
+<p><strong>Q5. 401 versus 403 versus 404?</strong></p>
+<p>401 means not authenticated. 403 means authenticated but not allowed. I return 404 for another user's data, so that I do not even confirm it exists.</p>
+<p><strong>Q6. What is idempotency, and why care?</strong></p>
+<p>Repeating the request leaves the same result, which makes retries after a network failure safe.</p>
+<p><strong>Q7. What is JWT and how is it verified?</strong></p>
+<p>A signed token in three parts: header, payload with claims, and signature. The server recomputes the signature using its secret, checks the algorithm, and checks <code>exp</code>. It is signed, not encrypted, so it must hold no secrets.</p>
+<p><strong>Q8. Why a cookie and not localStorage?</strong></p>
+<p><code>HttpOnly</code> stops JavaScript, so XSS cannot steal the token. The cost is CSRF risk, handled by <code>SameSite=Strict</code> and a single origin.</p>
+<p><strong>Q9. What is the weakness of JWT?</strong></p>
+<p>No instant revocation. Mitigate with a short lifetime, refresh tokens and a deny-list when needed.</p>
+<p><strong>Q10. Why hash passwords with BCrypt?</strong></p>
+<p>One-way, salted so equal passwords differ, and deliberately slow to make guessing expensive.</p>
+<p><strong>Q11. What is XSS? What is CSRF?</strong></p>
+<p>XSS is an attacker running a script on your page, so it can read what JavaScript can read. CSRF is another site making your browser send an authenticated request. HttpOnly helps against the first, SameSite against the second.</p>
+<p><strong>Q12. What is CORS and why does it exist?</strong></p>
+<p>The same-origin policy blocks a page from reading responses of another origin. CORS lets a server allow specific origins. I avoid it by proxying through a single origin.</p>
+<p><strong>Q13. Why React?</strong></p>
+<p>It keeps the screen a function of the data, and updates only what changed, instead of hand-editing the DOM.</p>
+<p><strong>Q14. What is state, and why did the screen re-render?</strong></p>
+<p>State is data that changes over time. When it changes, React runs the component again and applies the difference.</p>
+<p><strong>Q15. How do you get live updates, and why polling?</strong></p>
+<p>Options are polling, long polling, SSE, WebSockets. I chose polling because the update is slow and one-way, the state is durable in the DB, and polling is stateless and restart-safe.</p>
+<p><strong>Q16. Why a relational database?</strong></p>
+<p>The data is relational and I need constraints, transactions and joins.</p>
+<p><strong>Q17. What is a foreign key, an index and a transaction?</strong></p>
+<p>Foreign key: a column that must point to an existing row. Index: a structure that makes lookups fast, with a cost on writes. Transaction: an all-or-nothing group of changes.</p>
+<p><strong>Q18. How do you enforce "one open session per user"?</strong></p>
+<p>In the database, not in code: a generated column plus a unique index, so even simultaneous requests cannot create two.</p>
+<p><strong>Q19. Why Flyway?</strong></p>
+<p>Versioned, repeatable schema changes that run on startup, so every machine has the same schema, and <code>ddl-auto=validate</code> fails fast on a mismatch.</p>
+<p><strong>Q20. How does the resume parser work?</strong></p>
+<p>PDF.js gives positioned text items. I group them into lines, split the lines into sections using heading heuristics (bold plus uppercase, keyword fallback), and extract fields with a feature-scoring system. If the result looks incomplete, a server fallback uses PDFBox and an LLM after PII scrubbing. The user reviews before saving.</p>
+<p><strong>Q21. Why parse in the browser first?</strong></p>
+<p>Privacy, cost and speed: the file stays local, and there is no server work for most resumes.</p>
+<p><strong>Q22. How do you stop the LLM from lying about marks?</strong></p>
+<p>It never produces marks. It ticks a checklist, each yes must quote the answer, Java verifies the quote with a substring match, and Java sums the ticks.</p>
+<p><strong>Q23. What if the AI is down or rate-limited?</strong></p>
+<p><code>AiGate</code> is a circuit breaker per provider. The app falls back to keyword grading and template feedback, and labels those answers as graded without AI.</p>
+<p><strong>Q24. Why is Submit asynchronous?</strong></p>
+<p>Grading takes minutes because of AI calls and rate-limit spacing. I accept the work, return at once, run a single-thread worker, store progress in the database and let the page poll.</p>
+<p><strong>Q25. What if the server restarts during grading?</strong></p>
+<p>Progress is in MySQL. On startup any completed session with pending parts is resumed.</p>
+<p><strong>Q26. Why a single-thread worker?</strong></p>
+<p>Gemma's rate limit is tight, so one-at-a-time calls with a 7-second gap are simplest and safe. It trades throughput for simplicity.</p>
+<p><strong>Q27. How does the app decide which questions to ask?</strong></p>
+<p>Unmastered first (lowest score, longest ago), then random from new and rested. Mastered ones rest for a month. Missing slots fall back to the bank, templates and rested questions.</p>
+<p><strong>Q28. Why is mastery per user?</strong></p>
+<p>A bank question is the same question across all your resumes, so what you learned should carry over.</p>
+<p><strong>Q29. How do you protect user data?</strong></p>
+<p>Every query is scoped by user id, other users get 404, PII is scrubbed before AI calls, PDFs and audio are never stored, logs contain no content, and secrets are in the environment.</p>
+<p><strong>Q30. How would you scale it?</strong></p>
+<p>Stateless API replicas behind a load balancer, Redis for shared throttling and gate state, a real queue and worker pool, read replicas and caching for reference data, a CDN, and observability. Each is added only when a measured bottleneck demands it.</p>
+<p><strong>Q31. What would you do differently?</strong></p>
+<p>Honest, concrete answers: adopt TanStack Query for fetching, add refresh tokens or revocation, move throttling to a shared store, run the V1 SQL on a real MySQL early, and add end-to-end tests.</p>
+<p><strong>Q32. What was the hardest design decision?</strong></p>
+<p>Making AI unreliable-by-design: the evidence rule, Java-summed marks and silent fallbacks, so quality did not depend on any one provider.</p>
+<h3 id="what-are-the-follow-up-traps-and-what-should-i-say">What are the follow-up traps, and what should I say?</h3>
+<ul><li>"Is a JWT encrypted?" <strong>No. It is signed. Anyone can read the payload.</strong></li><li>"Can you log a user out immediately?" <strong>Not with a pure JWT. I rely on an 8-hour expiry, and would add a deny-list or sessions if instant logout mattered.</strong></li><li>"Why not microservices?" <strong>One team, one deployment, simple transactions. A modular monolith keeps the option open.</strong></li><li>"Why not WebSockets?" <strong>The need is one-way and slow, and polling is cheaper to run.</strong></li><li>"Is the data safe from the AI companies?" <strong>Phone and email are removed, only resume points are sent, nothing is stored by us. But the provider's free-tier data policy still needs to be checked, and I say so.</strong></li><li>"Does your system always work?" <strong>It degrades: with no AI, you still get questions, marks and templated feedback.</strong></li></ul>
+<h3 id="how-do-i-practise-switching-between-stranger-and-expert">How do I practise switching between stranger and expert?</h3>
+<p>Pick any chapter, set a timer, and do three rounds.</p>
+<ol><li><strong>Ten-year-old round.</strong> Explain it in 30 seconds with one analogy and no jargon.</li><li><strong>Colleague round.</strong> Explain it in 90 seconds with the right terms and one trade-off.</li><li><strong>Interviewer round.</strong> Explain it in 2 minutes: problem, mechanism, where you used it, limits, and what you would change.</li></ol>
+<p>If you get stuck, you have found the exact sentence to re-read.</p>
+<aside class="callout think"><div class="tag">Pause and think</div><p>A final check for every topic: can I say why it exists without using the topic's own name?</p></aside>
+<h2 id="glossary-quick-definitions"><span class="ch">17</span>Glossary: quick definitions</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">Term</th><th scope="col">Simple meaning</th></tr></thead><tbody><tr><td>API</td><td>A menu of things one program lets another program ask for</td></tr><tr><td>REST</td><td>URLs are things, HTTP methods are actions</td></tr><tr><td>HTTP / HTTPS</td><td>The web's rulebook, and the private version</td></tr><tr><td>Stateless</td><td>The server does not remember you between requests</td></tr><tr><td>Cookie</td><td>A note the browser stores and sends back automatically</td></tr><tr><td>JWT</td><td>A signed, readable token with claims such as user and expiry</td></tr><tr><td>Hash / salt / BCrypt</td><td>One-way scramble / random extra per password / a slow safe password hash</td></tr><tr><td>XSS / CSRF</td><td>A malicious script on your page / a malicious site making your browser send a request</td></tr><tr><td>CORS / same-origin</td><td>Browser rule about reading other sites' responses, and its opt-in</td></tr><tr><td>Proxy</td><td>A middle server that forwards requests</td></tr><tr><td>Component / state</td><td>A reusable piece of screen / data that changes over time</td></tr><tr><td>Controller / service / repository</td><td>Takes requests / holds the rules / talks to the database</td></tr><tr><td>Transaction</td><td>An all-or-nothing group of database changes</td></tr><tr><td>Foreign key</td><td>A column that must point to an existing row</td></tr><tr><td>Index</td><td>A lookup shortcut that speeds reads</td></tr><tr><td>Migration</td><td>A versioned change to the database structure</td></tr><tr><td>Cascade</td><td>Deleting a parent also deletes its children</td></tr><tr><td>Idempotent</td><td>Doing it twice gives the same result as once</td></tr><tr><td>Polling / SSE / WebSocket</td><td>Keep asking / server pushes one way / two-way channel</td></tr><tr><td>Async job</td><td>Work done later, in the background, while the user gets an answer now</td></tr><tr><td>Thread / executor</td><td>A worker doing one thing / a pool or single worker that runs jobs</td></tr><tr><td>LLM</td><td>A large language model that reads and writes text</td></tr><tr><td>Temperature</td><td>How random an LLM's output is (0 is most predictable)</td></tr><tr><td>Hallucination</td><td>A confident but invented answer</td></tr><tr><td>Circuit breaker</td><td>Stop calling a failing service for a while, and answer "unavailable" at once</td></tr><tr><td>Fallback</td><td>A simpler backup that keeps the feature working</td></tr><tr><td>Evidence rule</td><td>A tick counts only if its quote is really in the answer</td></tr><tr><td>Mastered</td><td>A question whose mark reached its threshold, resting for a month</td></tr><tr><td>Spaced repetition</td><td>Reviewing things at growing gaps, weak ones more often</td></tr><tr><td>Heuristic</td><td>A smart rule of thumb that is usually right</td></tr><tr><td>Feature scoring</td><td>Adding up many weak signals to choose the best candidate</td></tr><tr><td>PII</td><td>Personal data such as phone and email</td></tr><tr><td>Monolith / microservices</td><td>One deployable app / many small independent services</td></tr><tr><td>Load balancer</td><td>Spreads requests over several servers</td></tr><tr><td>Cache</td><td>A fast copy of data that is slow to fetch</td></tr><tr><td>Queue</td><td>A waiting line for jobs</td></tr><tr><td>Horizontal / vertical scaling</td><td>More machines / a bigger machine</td></tr></tbody></table></div>
+</main>
+</div>
+<script>
+(function(){
+ var toc=document.getElementById('toc'),btn=document.querySelector('.menu-btn');
+ btn.addEventListener('click',function(){var o=toc.classList.toggle('open');btn.setAttribute('aria-expanded',o)});
+ toc.addEventListener('click',function(e){if(e.target.tagName==='A')toc.classList.remove('open')});
+ var links=[].slice.call(toc.querySelectorAll('a[href^="#"]')).filter(function(a){return a.className!=='brand'});
+ var map={};links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a});
+ if(!('IntersectionObserver' in window))return;
+ var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){links.forEach(function(a){a.classList.remove('on')});var a=map[e.target.id];if(a){a.classList.add('on');a.scrollIntoView({block:'nearest'})}}})},{rootMargin:'0px 0px -75% 0px'});
+ document.querySelectorAll('h2[id],h3[id]').forEach(function(h){io.observe(h)});
+})();
+</script>
+</body>
+</html>

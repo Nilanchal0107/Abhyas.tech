@@ -1,5 +1,8 @@
 import { useEffect, useId, useState } from 'react'
+import { Link } from 'react-router'
 import { api, startSession } from './api/client.js'
+import { Alert, Loading, Spinner } from './ui.jsx'
+import { ArrowLeft, Calendar, ChartLineUp, CheckCircle, FileText, FolderOpen, Plus, Target, Trash, ListMagnifyingGlass, Pencil } from '@phosphor-icons/react'
 
 const day = (iso) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 
@@ -32,26 +35,33 @@ export function Open({ id, pointId, onBack, onChanged }) {
     } catch (e) { setError(e.errors?.[0]?.message ?? e.message) }
   }
 
-  if (error && !resume) return <><button type="button" onClick={onBack}>Back to resumes</button><p role="alert">! Error: {error}</p></>
-  if (!resume) return <p>Loading…</p>
+  if (error && !resume) return <><button type="button" onClick={onBack}><ArrowLeft size={18} aria-hidden="true" />Back to resumes</button><Alert>{error}</Alert></>
+  if (!resume) return <Loading />
 
   const label = { experience_bullet: 'Experience', project_bullet: 'Project', skill: 'Skill' }
   return (
     <>
-      <button type="button" onClick={onBack}>Back to resumes</button>
-      <h1>{resume.fileName}</h1>
-      <p>Target role: {resume.targetRole.name} · Saved resumes are read-only, except the interview date.</p>
-      <div>
-        <label htmlFor={dateId}>Interview date (optional)</label>
-        <input id={dateId} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        <button type="button" onClick={saveDate}>Save date</button>
-        <p aria-live="polite">{msg}</p>
-        <p className="error" role="alert">{error ? `! Error: ${error}` : ''}</p>
+      <button type="button" className="small quiet" onClick={onBack}><ArrowLeft size={18} aria-hidden="true" />Back to resumes</button>
+      <div className="page-head" style={{ marginTop: 8 }}>
+        <span className="eyebrow">Resume</span>
+        <h1>{resume.fileName}</h1>
+        <p>Target role: {resume.targetRole.name} · Saved resumes are read-only, except the interview date.</p>
       </div>
+      <section aria-label="Interview date">
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label htmlFor={dateId}>Interview date (optional)</label>
+          <div className="add-row">
+            <input id={dateId} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <button type="button" onClick={saveDate}>Save date</button>
+          </div>
+        </div>
+        <p aria-live="polite" className="muted" style={{ margin: '8px 0 0' }}>{msg}</p>
+        <Alert>{error}</Alert>
+      </section>
       <h2>{resume.parsed.profile?.name ?? 'Your resume'}</h2>
-      <h2>Resume points ({resume.points.length})</h2>
+      <h3 style={{ marginTop: 0 }}>Resume points ({resume.points.length})</h3>
       {resume.points.length === 0 ? <p>Nothing found.</p> : (
-        <ol>{resume.points.map((p) => <li key={p.id} id={`point-${p.id}`} style={p.id === pointId ? { background: 'Mark' } : undefined}><strong>{label[p.kind]}:</strong> {p.text}</li>)}</ol>
+        <ol className="points sheet" style={{ padding: '0 24px' }}>{resume.points.map((p) => <li key={p.id} id={`point-${p.id}`} className={p.id === pointId ? 'picked' : undefined}><span><span className="kind">{label[p.kind]}</span>{p.text}</span></li>)}</ol>
       )}
     </>
   )
@@ -86,33 +96,48 @@ export default function ResumeList({ onUpload, onPractice, onOpen, onCheck }) {
     } catch (e) { setRowError({ [id]: e.message }) }
   }
 
-  if (error) return <p role="alert">! Error: {error}</p>
-  if (!resumes) return <p>Loading…</p>
+  if (error) return <Alert>{error}</Alert>
+  if (!resumes) return <Loading />
 
   return (
     <>
-      <h1>Your resumes</h1>
-      <p><button type="button" className="primary" onClick={onUpload}>Upload a resume</button></p>
-      {resumes.length === 0 && <p>No resumes yet. Upload one to get your first questions.</p>}
+      <div className="head-row">
+        <div className="page-head">
+          <span className="eyebrow">Library</span>
+          <h1>Your resumes</h1>
+        </div>
+        <button type="button" className="primary" onClick={onUpload}><Plus size={18} weight="bold" aria-hidden="true" />Upload a resume</button>
+      </div>
+      {resumes.length === 0 && <p className="muted">No resumes yet. Upload one to get your first questions.</p>}
       {resumes.map((r) => (
         <section key={r.id} aria-label={r.fileName}>
-          <h2>{r.fileName}</h2>
-          <p className="muted">Target role: {r.targetRole.name} · Uploaded {day(r.createdAt)} · Mastered questions: {r.masteredCount}</p>
+          <div className="sheet-head">
+            <FileText size={32} className="file-icon" aria-hidden="true" />
+            <div>
+              <h2>{r.fileName}</h2>
+              <p className="meta">
+                <span><Target size={16} aria-hidden="true" />Target role: {r.targetRole.name}</span>
+                <span><Calendar size={16} aria-hidden="true" />Uploaded {day(r.createdAt)}</span>
+                <span><CheckCircle size={16} aria-hidden="true" />Mastered questions: {r.masteredCount}</span>
+              </p>
+            </div>
+          </div>
           <div className="actions">
-            <button type="button" className="primary" onClick={() => start(r.id)}>Practice with this resume</button>
-            <button type="button" onClick={() => onCheck(r.id, r.fileName)}>Role skills check</button>
-            <button type="button" onClick={() => onOpen(r.id)}>Open</button>
-            <button type="button" className="danger" onClick={() => setConfirm(r.id)}>Delete</button>
+            <button type="button" className="primary" onClick={() => start(r.id)}><Pencil size={18} aria-hidden="true" />Practice with this resume</button>
+            <button type="button" onClick={() => onCheck(r.id, r.fileName)}><ListMagnifyingGlass size={18} aria-hidden="true" />Role skills check</button>
+            <Link to={`/resumes/${r.id}/progress`} className="btn"><ChartLineUp size={18} aria-hidden="true" />Progress</Link>
+            <button type="button" onClick={() => onOpen(r.id)}><FolderOpen size={18} aria-hidden="true" />Open</button>
+            <button type="button" className="danger" onClick={() => setConfirm(r.id)}><Trash size={18} aria-hidden="true" />Delete</button>
           </div>
           {confirm === r.id && (
-            <p role="alert">
-              Delete this resume and its questions and scores?{' '}
-              <button type="button" className="danger" onClick={() => remove(r.id)}>Delete</button>{' '}
-              <button type="button" onClick={() => setConfirm(null)}>Cancel</button>
-            </p>
+            <div role="alert" className="alert" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+              <span>Delete this resume and its questions and scores?</span>
+              <button type="button" className="danger small" onClick={() => remove(r.id)}>Delete</button>
+              <button type="button" className="small" onClick={() => setConfirm(null)}>Cancel</button>
+            </div>
           )}
-          {preparing === r.id && <p aria-live="polite">Preparing your questions…</p>}
-          {rowError[r.id] && <p role="alert">! Error: {rowError[r.id]}</p>}
+          <p className="loading" aria-live="polite">{preparing === r.id && <><Spinner />Preparing your questions…</>}</p>
+          <Alert>{rowError[r.id]}</Alert>
         </section>
       ))}
     </>

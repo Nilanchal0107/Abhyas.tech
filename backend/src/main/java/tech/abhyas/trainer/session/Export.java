@@ -37,6 +37,7 @@ final class Export {
         meta.put("sessionDate", completed == null ? null : completed.substring(0, 10));
         meta.put("roleName", ((Map<String, Object>) detail.get("role")).get("name"));
         meta.put("voicePartSkipped", detail.get("voiceSkipped"));
+        meta.put("mode", detail.get("mode"));
         out.put("metadata", meta);
         out.put("resume", cleanResume(resume));
         out.put("gapCheck", gap);
@@ -58,6 +59,7 @@ final class Export {
                 for (String k : List.of("selectedOptions", "blankAnswers", "text", "transcript", "answeredVia")) user.put(k, ans.get(k));
             }
             row.put("userAnswer", user);
+            if (a.get("followUp") != null) row.put("followUp", a.get("followUp")); // interview mode: the AI follow-up and the reply
             row.put("correctOptions", a.get("correctOptions"));
             row.put("acceptedAnswers", a.get("acceptedAnswers"));
             qa.add(row);

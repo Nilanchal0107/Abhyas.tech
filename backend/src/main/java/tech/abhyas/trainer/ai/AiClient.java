@@ -44,8 +44,10 @@ public class AiClient {
         this.whisperTimeout = Duration.ofSeconds(whisperTimeoutSeconds);
     }
 
-    /** Sends the scrubbed prompt, returns the reply once it parses and passes {@code valid}. */
-    /** A short cooldown or Retry-After (at most {@link #SHORT_WAIT_SECONDS}) is waited out once instead of failing at once. */
+    /**
+     * Sends the scrubbed prompt, returns the reply once it parses and passes {@code valid}. A short cooldown or Retry-After
+     * (at most {@link #SHORT_WAIT_SECONDS}) is waited out once; a longer one fails at once.
+     */
     public Optional<JsonNode> json(Provider provider, String prompt, Predicate<JsonNode> valid) {
         String body = Scrubber.scrub(prompt) + JSON_ONLY;
         long left = gate.secondsLeft(provider);
@@ -54,8 +56,8 @@ public class AiClient {
     }
 
     /**
-     * Like {@link #json}, but a rate-limit reply that carries Retry-After is waited out once (at most {@link #MAX_WAIT_SECONDS}
-     * seconds, through {@code sleepMillis}) and the call is repeated. A second limit reply puts the provider on cooldown.
+     * Like {@link #json}, but a rate-limit reply whose Retry-After is at most {@link #MAX_WAIT_SECONDS} seconds is waited out once
+     * (through {@code sleepMillis}) and the call is repeated. A longer one, or a second limit reply, puts the provider on cooldown.
      */
     public Optional<JsonNode> jsonPatient(Provider provider, String prompt, Predicate<JsonNode> valid, LongConsumer sleepMillis) {
         String body = Scrubber.scrub(prompt) + JSON_ONLY;
@@ -90,9 +92,10 @@ public class AiClient {
                 log.warn("ai provider={} failure={}", provider.id(), f.kind());
                 switch (f.kind()) {
                     case RATE_LIMIT -> {
-                        if (sleepMillis != null && !waited && f.retryAfterSeconds() > 0) { // honor Retry-After once, without using up an attempt
+                        // honor a Retry-After that fits under the cap once, without using up an attempt; waiting part of a longer one only fails again
+                        if (sleepMillis != null && !waited && f.retryAfterSeconds() > 0 && f.retryAfterSeconds() <= maxWaitSeconds) {
                             waited = true;
-                            sleepMillis.accept(Math.min(f.retryAfterSeconds(), maxWaitSeconds) * 1000L);
+                            sleepMillis.accept(f.retryAfterSeconds() * 1000L);
                             i--;
                             continue;
                         }

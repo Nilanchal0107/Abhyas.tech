@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import { api } from './api/client.js'
+import { Alert } from './ui.jsx'
 
 // W4 target role field: a combobox over GET /roles. Arrow keys move, Enter picks, Escape closes.
 export default function RoleSearch({ onPick }) {
@@ -58,8 +59,8 @@ export default function RoleSearch({ onPick }) {
           ))}
         </ul>
       )}
-      <p aria-live="polite">{roles && !roles.length && !picked ? 'No role found. Try "Backend", "Data" or "DevOps".' : ''}</p>
-      {error && <p className="error" role="alert">! Error: {error}</p>}
+      <p aria-live="polite" className="muted" style={{ margin: '4px 0 0' }}>{roles && !roles.length && !picked ? 'No role found. Try "Backend", "Data" or "DevOps".' : ''}</p>
+      <Alert>{error}</Alert>
     </div>
   )
 }

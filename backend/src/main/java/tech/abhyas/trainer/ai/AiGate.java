@@ -24,13 +24,13 @@ public class AiGate {
         return until == null || !clock.instant().isBefore(until);
     }
 
-    /** A per-minute limit clears when the provider says so; a fixed 15 minutes would block every later call long after it cleared. */
     /** Whole seconds until the provider may be called again, 0 when it may be called now. */
     public long secondsLeft(Provider p) {
         Instant until = unavailableUntil.get(p);
         return until == null ? 0 : Math.max(0, (Duration.between(clock.instant(), until).toMillis() + 999) / 1000);
     }
 
+    /** A per-minute limit clears when the provider says so; a fixed 15 minutes would block every later call long after it cleared. */
     public void rateLimited(Provider p, int retryAfterSeconds) {
         unavailableUntil.put(p, clock.instant().plus(retryAfterSeconds > 0 ? Duration.ofSeconds(retryAfterSeconds) : RATE_LIMIT_COOLDOWN));
     }

@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -119,22 +120,30 @@ public class ResumeService {
     public Map<String, Object> roleSkillsCheck(long userId, long id) {
         Map<String, Object> resume = one(userId, id);
         Map<?, ?> role = (Map<?, ?>) resume.get("targetRole");
-        Map<Long, List<Map<String, Object>>> bySkill = new LinkedHashMap<>();
-        jdbc.query("SELECT id, text, skill_id FROM resume_point WHERE resume_id = :r AND skill_id IS NOT NULL ORDER BY position",
-                Map.of("r", id), rs -> {
-                    bySkill.computeIfAbsent(rs.getLong("skill_id"), k -> new ArrayList<>())
-                            .add(Map.of("id", rs.getLong("id"), "text", rs.getString("text")));
-                });
+        // every point (Skills line, project and experience bullets) is searched for the skill name or an alias (ticket 04)
+        List<Map<String, Object>> all = jdbc.queryForList("SELECT id, kind, text FROM resume_point WHERE resume_id = :r ORDER BY position", Map.of("r", id));
         List<Map<String, Object>> with = new ArrayList<>(), without = new ArrayList<>(), withStored = new ArrayList<>();
         for (Map<String, Object> s : jdbc.queryForList("""
-                SELECT s.id, s.name FROM role_skill rs JOIN skill s ON s.id = rs.skill_id WHERE rs.role_id = :role ORDER BY s.name""",
+                SELECT s.id, s.name, (SELECT GROUP_CONCAT(a.alias SEPARATOR '\\n') FROM skill_alias a WHERE a.skill_id = s.id) AS aliases
+                FROM role_skill rs JOIN skill s ON s.id = rs.skill_id WHERE rs.role_id = :role ORDER BY s.name""",
                 Map.of("role", role.get("id")))) {
             long skillId = ((Number) s.get("id")).longValue();
-            List<Map<String, Object>> pts = bySkill.get(skillId);
+            String name = (String) s.get("name");
+            List<Pattern> terms = new ArrayList<>(List.of(SkillMatcher.of(name)));
+            if (s.get("aliases") != null) for (String a : ((String) s.get("aliases")).split("\n")) terms.add(SkillMatcher.of(a));
+            List<Map<String, Object>> pts = new ArrayList<>();
+            for (Map<String, Object> p : all) {
+                String text = (String) p.get("text");
+                if (terms.stream().anyMatch(t -> t.matcher(text).find())) pts.add(p);
+            }
+            // a bullet shows as the evidence; the Skills line that only repeats the skill name goes unless it is all there is
+            if (pts.stream().anyMatch(p -> !"skill".equals(p.get("kind"))))
+                pts.removeIf(p -> "skill".equals(p.get("kind")) && name.equalsIgnoreCase(((String) p.get("text")).strip()));
+            pts = pts.stream().map(p -> Map.<String, Object>of("id", p.get("id"), "text", p.get("text"))).toList();
             Map<String, Object> skill = new LinkedHashMap<>();
             skill.put("skillId", skillId);
-            skill.put("skill", s.get("name"));
-            if (pts == null) { without.add(skill); continue; }
+            skill.put("skill", name);
+            if (pts.isEmpty()) { without.add(skill); continue; }
             Map<String, Object> st = new LinkedHashMap<>(skill); // the stored shape keeps ids only (database-schema 4.5)
             st.put("resumePointIds", pts.stream().map(p -> p.get("id")).toList());
             withStored.add(st);

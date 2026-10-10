@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { ArrowsClockwise, Check, FileText, ListChecks, Microphone, Plus, ShieldCheck, Target, X } from '@phosphor-icons/react'
+import { ArrowRight, ArrowsClockwise, CheckCircle, FileText, ListChecks, Microphone, Plus, ShieldCheck, Target, XCircle } from '@phosphor-icons/react'
+import { Logo } from './ui.jsx'
 import './styles/landing.css'
 
 // Fill these in when the links exist. An empty string hides that link.
@@ -26,7 +27,7 @@ const FAQ = [
   ['What kinds of questions will I get?', 'Multiple correct, fill in the blank, brief typed answers and voice answers, all built from your resume points and your target role skills.'],
   ['How are my answers marked?', 'Multiple correct answers are marked by the app. Brief and voice answers are marked on a yes or no checklist, and each tick shows the sentence from your answer that earned it.'],
   ['When does a question stop coming back?', 'When you reach its mastery mark. A mastered question rests for at least one month before it can return.'],
-  ['What happens to my resume and recordings?', 'Only you can see them. The original PDF and your voice recordings are never stored, and your phone number and email are never sent to an AI service.'],
+  ['What happens to my resume and recordings?', 'Only you can see them. The original PDF and your voice recordings are never stored, and your phone number and email are never sent to an AI service. If our transcription is down, Chrome turns your speech into text itself and sends that audio to Google; we still store none.'],
   ['Can I use a session in other tools?', 'Yes. Export JSON downloads one completed session with your answers, marks and feedback. Your phone number and email are removed.'],
   ['What is the story bank?', 'A place to keep your STAR stories (Situation, Task, Action, Result) ready for behavioral questions.'],
   ['Does it cost anything?', 'Creating an account is free. Abhyas.tech is open source under the AGPL 3.0 license.'],
@@ -61,8 +62,8 @@ export default function Landing({ signedIn }) {
   }, [menu])
 
   const cta = signedIn
-    ? <Link to="/practice" className="lp-btn lp-primary">Go to practice</Link>
-    : <Link to="/login?mode=signup" className="lp-btn lp-primary">Create a free account</Link>
+    ? <Link to="/practice" className="lp-btn lp-primary">Go to practice<ArrowRight size={18} aria-hidden="true" /></Link>
+    : <Link to="/login?mode=signup" className="lp-btn lp-primary">Create a free account<ArrowRight size={18} aria-hidden="true" /></Link>
 
   const navLinks = signedIn
     ? <Link to="/practice" className="lp-btn lp-primary">Go to practice</Link>
@@ -73,7 +74,7 @@ export default function Landing({ signedIn }) {
       <a className="lp-skip" href="#content">Skip to content</a>
 
       <header className="lp-nav">
-        <Link to="/" className="lp-brand">Abhyas.tech</Link>
+        <Link to="/" className="lp-brand" aria-label="Abhyas.tech home"><Logo size={30} />Abhyas<em>.tech</em></Link>
         <nav aria-label="Account" className="lp-nav-links">{navLinks}</nav>
         <button type="button" className="lp-burger" aria-expanded={menu} aria-controls="lp-menu" aria-label={menu ? 'Close menu' : 'Open menu'} onClick={() => setMenu(!menu)}>
           <span /><span />
@@ -85,14 +86,18 @@ export default function Landing({ signedIn }) {
 
       <main id="content">
         <section className="lp-hero lp-wrap">
-          <h1 className="lp-h1" data-reveal>Defend every line<br />of your resume.</h1>
+          <h1 className="lp-h1" data-reveal>
+            Defend <span className="lp-under">every line
+              <svg viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M2 9 C 38 3, 80 13, 120 6 S 180 7, 198 4" fill="none" stroke="var(--pen)" strokeWidth="5" strokeLinecap="round" /></svg>
+            </span><br />of your resume.
+          </h1>
           <p className="lp-lead" data-reveal style={{ '--d': '100ms' }}>
             Abhyas.tech turns your resume into interview questions, marks every answer against your own resume points,
             and brings the weak ones back until you can explain them.
           </p>
           <div data-reveal style={{ '--d': '200ms' }}>{cta}</div>
           <p className="lp-proof" data-reveal style={{ '--d': '300ms' }}>
-            <ShieldCheck size={20} aria-hidden="true" /> No PDF or voice recording is ever stored. Delete your account and data anytime.
+            <ShieldCheck size={20} weight="fill" aria-hidden="true" /> No PDF or voice recording is ever stored. Delete your account and data anytime.
           </p>
 
           <figure className="lp-mock" data-reveal style={{ '--d': '400ms' }} aria-label="Example of a marked answer">
@@ -101,11 +106,11 @@ export default function Landing({ signedIn }) {
               <p className="lp-mock-q">Your resume says you cut API response time from 840 ms to 210 ms. What did you change first?</p>
             </div>
             <div className="lp-mock-in">
-              <p className="lp-mock-tag">Marked 4 of 5</p>
+              <p className="lp-mock-tag">Marked <span className="mark lp-score">4 of 5</span></p>
               <ul className="lp-mock-list">
-                <li><Check size={16} aria-hidden="true" /> <span>Named the slow query<small>"I traced it to an unindexed join on orders."</small></span></li>
-                <li><Check size={16} aria-hidden="true" /> <span>Gave the before and after<small>"It dropped from 840 ms to 210 ms."</small></span></li>
-                <li><X size={16} aria-hidden="true" /> <span>Missed: how you measured it</span></li>
+                <li className="yes"><CheckCircle size={18} weight="fill" aria-label="Done" /> <span>Named the slow query<small>"I traced it to an unindexed join on orders."</small></span></li>
+                <li className="yes"><CheckCircle size={18} weight="fill" aria-label="Done" /> <span>Gave the before and after<small>"It dropped from 840 ms to 210 ms."</small></span></li>
+                <li className="no"><XCircle size={18} weight="fill" aria-label="Missing" /> <span>Missed: how you measured it</span></li>
               </ul>
             </div>
           </figure>
@@ -165,7 +170,7 @@ export default function Landing({ signedIn }) {
           <h2 id="faq" className="lp-h2" data-reveal>Questions</h2>
           {FAQ.map(([q, a]) => (
             <details key={q} className="lp-card" data-reveal>
-              <summary>{q}<Plus size={20} aria-hidden="true" /></summary>
+              <summary>{q}<Plus size={20} weight="bold" aria-hidden="true" /></summary>
               <p>{a}</p>
             </details>
           ))}

@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Abhyas.tech Database",
+    "output": "database.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "user",
+      "type": "security",
+      "label": "app_user",
+      "sublabel": "accounts",
+      "pos": [
+        40,
+        230
+      ],
+      "size": [
+        170,
+        60
+      ]
+    },
+    {
+      "id": "role",
+      "type": "database",
+      "label": "role",
+      "sublabel": "target roles",
+      "pos": [
+        290,
+        70
+      ],
+      "size": [
+        170,
+        60
+      ]
+    },
+    {
+      "id": "skill",
+      "type": "database",
+      "label": "skill",
+      "sublabel": "with skill_alias",
+      "pos": [
+        790,
+        70
+      ],
+      "size": [
+        170,
+        60
+      ]
+    },
+    {
+      "id": "resume",
+      "type": "database",
+      "label": "resume",
+      "sublabel": "read-only after save",
+      "pos": [
+        290,
+        230
+      ],
+      "size": [
+        170,
+        60
+      ]
+    },
+    {
+      "id": "point",
+      "type": "database",
+      "label": "resume_point",
+      "sublabel": "bullets, skills",
+      "pos": [
+        540,
+        230
+      ],
+      "size": [
+        170,
+        60
+      ]
+    },
+    {
+      "id": "bank",
+      "type": "database",
+      "label": "bank_question",
+      "sublabel": "starter bank",
+      "pos": [
+        790,
+        230
+      ],
+      "size": [
+        170,
+        60
+      ]
+    },
+    {
+      "id": "perf",
+      "type": "database",
+      "label": "bank_performance",
+      "sublabel": "mastery per user",
+      "pos": [
+        1040,
+        230
+      ],
+      "size": [
+        170,
+        60
+      ]
+    },
+    {
+      "id": "session",
+      "type": "database",
+      "label": "practice_session",
+      "sublabel": "quiz or interview",
+      "pos": [
+        290,
+        390
+      ],
+      "size": [
+        170,
+        60
+      ]
+    },
+    {
+      "id": "attempt",
+      "type": "database",
+      "label": "attempt",
+      "sublabel": "answer, score",
+      "pos": [
+        540,
+        390
+      ],
+      "size": [
+        170,
+        60
+      ]
+    },
+    {
+      "id": "question",
+      "type": "database",
+      "label": "question",
+      "sublabel": "project or bank",
+      "pos": [
+        790,
+        390
+      ],
+      "size": [
+        170,
+        60
+      ]
+    },
+    {
+      "id": "story",
+      "type": "database",
+      "label": "story",
+      "sublabel": "story bank",
+      "pos": [
+        40,
+        390
+      ],
+      "size": [
+        170,
+        60
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "e2",
+      "from": "resume",
+      "to": "user",
+      "label": "user_id",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e3",
+      "from": "resume",
+      "to": "role",
+      "label": "target role"
+    },
+    {
+      "id": "e4",
+      "from": "point",
+      "to": "resume",
+      "label": "resume_id"
+    },
+    {
+      "id": "e5",
+      "from": "point",
+      "to": "skill",
+      "label": "skill_id",
+      "variant": "dashed"
+    },
+    {
+      "id": "e8",
+      "from": "bank",
+      "to": "skill",
+      "label": "skill_id",
+      "variant": "dashed"
+    },
+    {
+      "id": "e9",
+      "from": "perf",
+      "to": "bank",
+      "label": "bank_question"
+    },
+    {
+      "id": "e10",
+      "from": "session",
+      "to": "resume",
+      "label": "resume_id"
+    },
+    {
+      "id": "e11",
+      "from": "attempt",
+      "to": "session",
+      "label": "session_id"
+    },
+    {
+      "id": "e12",
+      "from": "attempt",
+      "to": "question",
+      "label": "question_id"
+    },
+    {
+      "id": "e7",
+      "from": "question",
+      "to": "bank",
+      "label": "bank link",
+      "variant": "dashed"
+    },
+    {
+      "id": "e13",
+      "from": "story",
+      "to": "user",
+      "label": "user_id"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Scoped by user",
+      "items": [
+        "Every table traces back to app_user; deleting an account cascades"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Mastery",
+      "items": [
+        "bank_performance holds mastery per user, so it follows the user across resumes"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Not drawn",
+      "items": [
+        "Also FKs: role.owner, question.resume, session.user, perf.user, story.attempt",
+        "Small tables: role_alias, role_skill, skill_alias, gap_result, story_tag, story_resume_point",
+        "key_fact was dropped in V6"
+      ]
+    }
+  ]
+}

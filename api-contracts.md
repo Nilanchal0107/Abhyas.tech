@@ -106,13 +106,14 @@ All string fields can be `null`. Arrays can be empty. Resume points are created 
 
 ### 2.3 `Question` (as shown to the user)
 ```json
-{ "id": 301, "type": "multiple_correct", "theme": null, "isBehavioral": false,
+{ "id": 301, "type": "multiple_correct", "theme": null, "isBehavioral": false, "isGapSkill": false,
   "text": "In Order Service you used Spring Data JPA. Which statements about lazy loading are true?",
   "options": [{ "key": "A", "text": "..." }, { "key": "B", "text": "..." }, { "key": "C", "text": "..." }, { "key": "D", "text": "..." }],
   "blankCount": null }
 ```
 - `options` is set only for `multiple_correct` (4 options). `blankCount` (1 or 2) only for `fill_blank`. For a fill-in-the-blank question the `text` contains `________` once per blank.
 - `theme` is one of `teamwork`, `conflict`, `failure`, `leadership`, `deadline_pressure`, and is `null` for technical questions. `isBehavioral` is `theme != null`.
+- `isGapSkill` is `true` for a bank question whose skill is on the target role's list but not on the resume. The practice screen labels it "Likely to be asked for this role" (skill-bank D4). Always `false` for behavioral, AI and template questions.
 
 ### 2.4 `Answer`
 ```json
@@ -161,8 +162,9 @@ Once the session is `completed`, each attempt also has (all `null` while grading
 ```json
 { "id": 41, "status": "completed", "startedAt": "...", "completedAt": "...",
   "resume": { "id": 7, "fileName": "Paras_Resume.pdf" }, "role": { "id": 12, "name": "Backend Developer" },
-  "voiceSkipped": false, "maxMarks": 80, "totalMarks": 61.5, "answeredCount": 19, "questionCount": 19 }
+  "mode": "quiz", "voiceSkipped": false, "maxMarks": 80, "totalMarks": 61.5, "answeredCount": 19, "questionCount": 19 }
 ```
+`mode` is `quiz` or `interview`.
 `totalMarks` is `null` unless the session is `completed` and graded.
 
 ### 2.7 `SessionDetail`
@@ -181,7 +183,8 @@ Once the session is `completed`, each attempt also has (all `null` while grading
 ```
 - While `in_progress`: `totalMarks`, `report`, `marksByPart`, `masteredCount`, `weakestPoints` are `null`, `gradingComplete` is `false`, and `attempts` carry only the in-progress fields.
 - `report.status` is `pending`, `ready` or `none`. `gradingComplete` is `true` when the session is `completed`, `totalMarks` is set, `report.status` is not `pending`, and no attempt has `feedback.status = "pending"`.
-- `marksByPart` has no `voice` row when `voiceSkipped` is true. `maxMarks` is 80, or 50 when the voice part was skipped.
+- `voiceSkipped` is `false` for every new session (a session always has the voice part, ticket 19); it can be `true` only on sessions made before that. `marksByPart` has no `voice` row when it is true, and `maxMarks` is then 50.
+- `mode` is as in `SessionSummary`. In an interview each `Attempt` also has `followUp`: `null`, or `{ "text": "...", "answered": true, "answer": "..." }`. The follow-up text is shown while the session is in progress; the reply is the typed text or transcript.
 - `weakestPoints`: up to 3 resume points behind the lowest-scoring unmastered questions *(my decision)*.
 
 ## 3. Auth
@@ -231,12 +234,12 @@ Errors: `not-a-pdf`, `file-too-large` (over 1 MB), `ai-unavailable` (the UI keep
 { "fileName": "Paras_Resume.pdf", "targetRoleId": 12, "interviewDate": "2026-11-20",
   "parseSource": "openresume", "parsed": { "...": "ParsedResume" } }
 ```
-Creates the resume, then its resume points in one transaction, then starts key-fact drafting (a `pending` point is retried later). The resume is read-only afterwards.
+Creates the resume, then its resume points in one transaction, then starts the one AI call that writes its project questions with key facts (retried later if it fails). The resume is read-only afterwards.
 Response `201`: `{ "resume": { "...": "ResumeSummary" } }`.
 Errors: `validation` (limits in 1.2), `not-found` (the role does not exist or is another user's private role).
 
 ### `GET /resumes` (W3, W2)
-Response `200`: `{ "resumes": [ ResumeSummary, ... ] }`, the most recently used first (`lastUsedAt` descending, never-used ones by `createdAt`). Also triggers a retry of `pending` key facts for the user's resumes, one point at a time (FR-8).
+Response `200`: `{ "resumes": [ ResumeSummary, ... ] }`, the most recently used first (`lastUsedAt` descending, never-used ones by `createdAt`). Also retries the project questions (FR-8) of the user's resumes that still have none.
 
 ### `GET /resumes/{id}` (W3 Open)
 Response `200`:
@@ -251,7 +254,7 @@ Read-only. `kind` is `project_bullet`, `experience_bullet` or `skill`. The key-f
 Request `{ "interviewDate": "2026-12-01" }` or `{ "interviewDate": null }`. The only editable field. Response `200`: `{ "resume": { "...": "ResumeSummary" } }`. Errors: `validation`, `not-found`.
 
 ### `DELETE /resumes/{id}` (W3)
-Response `204`. Deletes the resume with its points, key facts, role skills result, questions, sessions and attempts. Errors: `not-found`, `session-open` (an unfinished session uses this resume, `sessionId` is returned).
+Response `204`. Deletes the resume with its points, role skills result, questions, sessions and attempts. Errors: `not-found`, `session-open` (an unfinished session uses this resume, `sessionId` is returned).
 
 ### `GET /resumes/{id}/role-skills-check` (W7)
 Computes the check, stores it in `gap_result`, and returns it.
@@ -262,11 +265,21 @@ Computes the check, stores it in `gap_result`, and returns it.
 ```
 Both lists can be empty (if the resume has no matched skills, the UI shows the empty state in W7). Errors: `not-found`.
 
+### `GET /resumes/{id}/progress` ("Guide me", ticket 14)
+Built from stored attempts of the user's **completed** sessions of this resume; no AI. Only bank questions carry a skill, so project questions are not counted. `percent` is marks over max marks, rounded.
+```json
+{ "resumeId": 7, "sessionCount": 3,
+  "skills": [{ "skillId": 3, "skill": "Docker", "marks": 1, "maxMarks": 4, "percent": 25,
+               "bySession": [{ "sessionId": 40, "completedAt": "...", "percent": 0 }, { "sessionId": 44, "completedAt": "...", "percent": 50 }] }],
+  "studyNext": [{ "skillId": 3, "skill": "Docker", "reason": "low-marks" }, { "skillId": 31, "skill": "Kubernetes", "reason": "gap" }] }
+```
+`skills` is weakest first. `studyNext` is the 3 lowest skills under 100% (`low-marks`) then up to 3 of the role's skills the resume does not show (`gap`). Errors: `not-found` (another user's resume too).
+
 ## 6. Practice sessions (FR-9 to FR-15, W2, W8, W9, W10)
 
 ### `POST /sessions` (W2, W3 "Practice with this resume")
-Request `{ "resumeId": 7 }`. Builds the 19 slots (or 16 without the voice part) with the rules in `trd.md` 7.2, generating missing questions first. This call can take several seconds ("Preparing your questions..."). Response `201`: `{ "session": SessionDetail }` with all `attempts` (every slot's question and no answers yet).
-Errors: `not-found` (resume), `session-open` (`sessionId`).
+Request `{ "resumeId": 7, "mode": "quiz" }`. `mode` is `quiz` (default) or `interview`. A quiz builds the 19 slots with the rules in `trd.md` 7.2; an interview builds 6 `voice` slots (4 technical, 2 behavioral, 10 marks each). Neither makes an AI call at start. This call can take several seconds ("Preparing your questions..."). Response `201`: `{ "session": SessionDetail }` with all `attempts` (every slot's question and no answers yet).
+Errors: `not-found` (resume), `session-open` (`sessionId`), `validation` (`mode`).
 
 ### `GET /sessions?status=completed&limit=1` (W2, W10)
 Query `status` is `in_progress`, `completed` or `abandoned` (optional), `limit` 1 to 50 (optional, default all). Response `200`: `{ "sessions": [ SessionSummary, ... ] }`, newest first. Errors: `validation` (bad `status` or `limit`).
@@ -291,6 +304,12 @@ Request `{ "answer": Answer-like }`. Fields by question type:
 `answeredVia` is set by the server for the other types. Saving the same body twice gives the same result. Response `200`: `{ "attempt": Attempt }` (in-progress fields only).
 The transcript and stats come from the client (the transcribe response). A user could change them, which only affects their own practice grade and is accepted *(my decision)*.
 Errors: `validation` (wrong shape for the question type, limits in 1.2, an option key not in the question), `not-found` (no such position), `session-closed`.
+
+### `POST /sessions/{id}/attempts/{position}/follow-up` (W8i, interview only)
+No body. Call it after the main answer is saved. Writes the one follow-up with Groq (from the question, its key facts and the answer) the first time, stores it and returns it; repeating the call returns the same text. Without Groq the text is a generic follow-up. Response `200`: `{ "attempt": Attempt }` with `followUp`. Errors: `validation` (the question is not answered yet, or the session is a quiz), `not-found`, `session-closed`.
+
+### `PUT /sessions/{id}/attempts/{position}/follow-up` (W8i, interview only)
+Request `{ "answer": { "text": "...", "answeredVia": "typed" } }`, or the recorded shape of a voice answer above (the transcribe call is the same). `{ "answer": null }` clears it. Response `200`: `{ "attempt": Attempt }`. Errors: `validation` (wrong shape, or no follow-up exists yet), `not-found`, `session-closed`.
 
 ### `POST /sessions/{id}/attempts/{position}/transcribe` (W8 voice)
 `multipart/form-data` with one field `audio` (WebM/Opus, up to 3 minutes and 5 MB). The audio is held only for the request and deleted. Nothing is saved.
@@ -404,6 +423,8 @@ Built on request, never stored. UTF-8. **Phone and email are removed** (the keys
 | `GET /sessions` | 200 | W2, W10 |
 | `GET /sessions/{id}` | 200 | W8, W9 |
 | `PUT /sessions/{id}/attempts/{position}` | 200 | W8 |
+| `POST /sessions/{id}/attempts/{position}/follow-up` | 200 | W8i |
+| `PUT /sessions/{id}/attempts/{position}/follow-up` | 200 | W8i |
 | `POST /sessions/{id}/attempts/{position}/transcribe` | 200 | W8 |
 | `POST /sessions/{id}/submit` | 202 (200 on repeat) | W8 |
 | `POST /sessions/{id}/attempts/{position}/regrade` | 202 | W9 |
@@ -425,3 +446,5 @@ Built on request, never stored. UTF-8. **Phone and email are removed** (the keys
 ## 11. Change log
 
 **v1** (3 October 2026): created from the API grilling session (Q1 to Q10).
+
+- 5 October 2026 (ticket 13): `mode` on `POST /sessions`, `SessionSummary` and `SessionDetail`; `Attempt.followUp`; new `POST` and `PUT /sessions/{id}/attempts/{position}/follow-up`. Export `metadata.mode` and each answer's `followUp`.

@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Question Mastery Lifecycle",
+    "output": "lifecycle.html",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "Mastery path"
+    },
+    {
+      "id": "exceptions",
+      "label": "Weak loop"
+    }
+  ],
+  "states": [
+    {
+      "id": "new",
+      "type": "start",
+      "label": "New",
+      "sublabel": "never asked",
+      "lane": "main",
+      "col": 0,
+      "step": "01"
+    },
+    {
+      "id": "asked",
+      "type": "active",
+      "label": "In a session",
+      "sublabel": "answered",
+      "lane": "main",
+      "col": 1,
+      "step": "02"
+    },
+    {
+      "id": "graded",
+      "type": "decision",
+      "label": "Graded",
+      "sublabel": "score vs threshold",
+      "lane": "main",
+      "col": 2,
+      "step": "03"
+    },
+    {
+      "id": "mastered",
+      "type": "success",
+      "label": "Mastered",
+      "sublabel": "skipped for a month",
+      "lane": "main",
+      "col": 3,
+      "step": "04"
+    },
+    {
+      "id": "rested",
+      "type": "waiting",
+      "label": "Rested",
+      "sublabel": "over 1 month old",
+      "lane": "main",
+      "col": 4,
+      "step": "05"
+    },
+    {
+      "id": "weak",
+      "type": "failure",
+      "label": "Unmastered",
+      "sublabel": "picked first",
+      "lane": "exceptions",
+      "col": 2,
+      "tag": "repeat"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "from": "new",
+      "to": "asked"
+    },
+    {
+      "id": "t2",
+      "from": "asked",
+      "to": "graded"
+    },
+    {
+      "id": "t3",
+      "from": "graded",
+      "to": "mastered",
+      "variant": "emphasis"
+    },
+    {
+      "id": "t4",
+      "from": "mastered",
+      "to": "rested"
+    },
+    {
+      "id": "t5",
+      "from": "graded",
+      "to": "weak",
+      "label": "below",
+      "variant": "security",
+      "route": "drop"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Per user",
+      "items": [
+        "Mastery lives in bank_performance, so it follows the user across resumes"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Counting rules",
+      "items": [
+        "Brief and voice count only when graded by AI",
+        "Fallback grades never set mastered"
+      ]
+    }
+  ]
+}

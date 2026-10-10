@@ -1,6 +1,8 @@
 import { useId, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { postJson } from './api/client.js'
+import { XCircle, Eye, EyeSlash } from '@phosphor-icons/react'
+import { Alert, Brand } from './ui.jsx'
 
 // W1: log in / sign up. Errors show inline under the field or button that failed (UI-UX 7.1).
 export default function Login({ notice, onDone }) {
@@ -57,14 +59,16 @@ export default function Login({ notice, onDone }) {
         required
         {...props}
       />
-      {fieldErrors[key] && <p id={`${id}-${key}-err`} className="error">✗ {fieldErrors[key]}</p>}
+      {fieldErrors[key] && <p id={`${id}-${key}-err`} className="error"><XCircle size={18} weight="fill" aria-hidden="true" />{fieldErrors[key]}</p>}
     </div>
   )
 
   return (
+    <div className="login-page">
     <main id="content" className="login">
-      <h1><Link to="/" className="brand">Abhyas.tech</Link></h1>
-      {notice && <p role="status">{notice}</p>}
+      <h1><Link to="/" className="brand" aria-label="Abhyas.tech home"><Brand /></Link></h1>
+      <p className="tagline">{signup ? 'Make an account and bring your resume.' : 'Welcome back. Pick up where you left off.'}</p>
+      {notice && <p role="status" className="notice">{notice}</p>}
       <div className="switch" role="group" aria-label="Log in or sign up">
         <button type="button" aria-pressed={!signup} onClick={() => switchTo('login')}>Log in</button>
         <button type="button" aria-pressed={signup} onClick={() => switchTo('signup')}>Sign up</button>
@@ -76,14 +80,16 @@ export default function Login({ notice, onDone }) {
           autoComplete: signup ? 'new-password' : 'current-password',
         })}
         {signup && field('confirm', 'Confirm password', confirm, setConfirm, { type: show ? 'text' : 'password', autoComplete: 'new-password' })}
-        <div className="field">
+        <div className="field pw-row">
           <label>
-            <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} /> Show password
+            <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} />
+            {show ? <EyeSlash size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />} Show password
           </label>
         </div>
-        {formError && <p role="alert" className="error">✗ {formError}</p>}
+        <Alert>{formError}</Alert>
         <button type="submit" disabled={busy}>{signup ? 'Create account' : 'Log in'}</button>
       </form>
     </main>
+    </div>
   )
 }

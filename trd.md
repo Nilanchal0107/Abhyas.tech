@@ -22,7 +22,7 @@ This document says **how** the app is built. It does not repeat the requirements
 | 9 | Tests: JUnit, Testcontainers (real MySQL 8), Vitest. No end-to-end tests in v1. **A manual check after every build step.** | Q9 |
 | 10 | Backend packages **by feature**. Spring Data JPA, Flyway owns the schema (`ddl-auto=validate`). | Q10 |
 | 11 | Three AI interfaces (`GraderService`, `FeedbackService`, `QuestionService`) each with an AI and a fallback implementation. One `AiClient` for every AI call, which also removes phone and email from outgoing text. | Q11 |
-| 12 | Questions are generated at **session start**, only the missing slots, one Groq call per part. | Q12 |
+| 12 | Session start makes **no AI call**: slots come from the reviewed bank, stored project questions and generic templates. Project questions are written once per resume after the save. | Q12 |
 | 13 | PDF upload: PDF only (checked by header), **1 MB maximum**. The parse fallback runs when the browser parse is incomplete or low quality (see 7.1). | Q13 |
 | 14 | Resume skills are matched to existing skills only. **New skills are never created from resumes.** | Q14 |
 | 15 | Errors use RFC 7807 Problem Details. Secrets come from environment variables or a gitignored local config. | Q15 |
@@ -179,19 +179,19 @@ This document says **how** the app is built. It does not repeat the requirements
 3. **Fallback.** `POST /api/resumes/parse-fallback` sends the PDF. The backend extracts text and hidden links with PDFBox, removes phone and email, and asks Groq (temperature 0) for the same JSON structure, with `null` for anything missing. The file is discarded after the request. If AI is unavailable the Review form keeps the browser parse, with an inline message asking the user to check and fix it (`UI-UX.md` 7.1). It was an empty form until 4 October 2026, which made the app unusable without AI.
 4. **Review form.** The user edits and saves. `POST /api/resumes` sends the parsed JSON, the target role ID and the optional interview date.
 5. **Save.** In one transaction: insert `resume`, then `resume_point` rows (one per project bullet, experience bullet and skill, in order). Skills are matched to `skill` by case-insensitive name; `skill_id` stays empty when there is no match, and **no skill is ever created from a resume** (Q14). The resume is now **read-only** except `interview_date`.
-6. **Key facts.** After saving, the backend asks Groq for key facts, one resume point at a time. A success sets `key_facts_status = 'ready'`. A failure increments `key_facts_tries` and sets `last_try_at`, and the point stays `pending` (FR-8). `pending` points are retried when the user opens the Resume list or starts a session, at most one at a time, and not before 10 minutes after `last_try_at` *(my decision)*.
-7. **Role skills check.** `GET /api/resumes/{id}/role-skills-check` compares resume points that have a `skill_id` with the target role's skills, stores the JSON in `gap_result` and returns it.
+6. **Project questions.** After saving, the backend makes one Groq call that writes about 8 open questions about the resume's projects and experience, each with 3 to 6 key facts stored on the question (`question.key_facts`, `source = 'ai'`, no `resume_point_id`; 3 become `brief` and 5 `voice`). Only projects, experience and skills are sent, not the profile (FR-8, FR-9). A failure stores nothing and the bank and templates fill the slots. Resumes still without them are retried when the user opens the Resume list or starts a session, at most one try per resume every 10 minutes (kept in memory) *(my decision)*.
+7. **Role skills check.** `GET /api/resumes/{id}/role-skills-check` looks for each skill of the target role (its name and its `skill_alias` aliases, as whole words ignoring case, `SkillMatcher`) in every resume point, the Skills line and the project and experience bullets, stores the JSON in `gap_result` and returns it.
 
 ### 7.2 Building a session (FR-9, FR-13, Section 10)
 1. `POST /api/sessions` with a resume ID. If the user already has an `in_progress` session the request returns 409 (the unique index also enforces it).
-2. **Voice available?** If Whisper is on cooldown (see 7.5) or unconfigured, the voice part is left out: `voice_skipped = true`, 16 slots, `max_marks = 50`.
-3. **Per part, pick candidates** from `question` of this resume:
+2. **Always 19 slots, `max_marks = 80`.** Whisper being down does not change the parts: the browser's Web Speech API transcribes voice answers instead (7.3). `voice_skipped` stays `false`. After the picks below, any slot still missing is filled in this order: bank questions of the resume's skills, the role's gap skills, any other bank skill, the generic templates, and finally resting questions of the right kind not already in the session.
+3. **Per part, pick candidates** from `question` of this resume. For a question with `bank_question_id`, mastered, last score, last asked and times asked come from the signed-in user's `bank_performance` row (no row means new), so a result follows the user to their other resumes. Project questions use their own columns. The practice bank does not copy a bank question into the resume while the user has it mastered and it is less than a month old:
    - **Unmastered:** `mastered = false AND times_asked > 0`. Order by `COALESCE(last_score, 0)` ascending, then `last_asked_at` ascending. An unscored question (a brief or voice answer graded only by the fallback) counts as 0, so it comes back first for AI grading.
    - **New:** `times_asked = 0`. **Rested:** `mastered = true AND last_asked_at < now - 1 month`.
    - Slots left after the unmastered ones are filled at random from new plus rested.
-   - Quotas inside a part use the theme: brief is 4 technical (theme NULL) plus 2 behavioral, voice is 1 plus 2.
-4. **Missing slots** (the pools are too small): generate them (Q12). One Groq call per part, given the resume points with their key facts, returning questions each linked to a `resume_point_id`. Java validates them (right number of options, 1 to 3 correct with an option's own "A)" label removed, accepted answers present, 1 or 2 blanks, linked point exists), saves them to `question` and, if technical, also to `bank_question` without personal text (FR-20). If a call fails or its JSON is invalid after one retry, the slots come from the practice bank, and if the bank has nothing, from the generic templates (FR-20). Points still `pending` for key facts are covered by bank questions for their skill (FR-8).
-5. Insert the `practice_session` and its `attempt` rows (slots), set `resume.last_used_at`, set each chosen question's `last_asked_at` and `times_asked`. Return the session with the first question.
+   - Quotas inside a part: brief is 3 technical bank (theme NULL, from the bank), 2 behavioral and 1 project question (AI, `source = 'ai'`, no theme); voice is 1 behavioral and 2 project. A project quota the AI has not filled is topped up with technical bank questions.
+4. **Missing slots** (the pools are too small): none is generated by AI. They are filled from the practice bank, then the generic templates (FR-20), then resting questions (step 2).
+5. Insert the `practice_session` and its `attempt` rows (slots), set `resume.last_used_at`, set each chosen question's `last_asked_at` and `times_asked` (and the user's `bank_performance` row for a bank question; grading sets its `last_score` and `mastered`). Return the session with the first question.
 
 ### 7.3 Answering (FR-10, FR-15)
 - `PUT /api/sessions/{id}/attempts/{position}` saves one answer when the user presses Next: selected options, blank answers, or text. The session must be `in_progress`.
@@ -223,7 +223,7 @@ The report page polls `GET /api/sessions/{id}` every 2 to 3 seconds while `repor
 
 | Interface | AI implementation | Fallback implementation |
 |---|---|---|
-| `QuestionService` (questions, key facts, role skill drafts) | Groq | `BankQuestionService` (practice bank, then generic templates). Key facts and role skill drafts have no fallback: they stay `pending` or empty |
+| `QuestionService` (project questions with key facts) | Groq | `PracticeBank` (bank, then generic templates). No fallback for the project questions themselves: they are missing until a retry works |
 | `GraderService` (checklists, blank re-check) | Groq | `KeywordGrader` (blank re-check has none: blanks stay wrong) |
 | `FeedbackService` (feedback, report) | Gemma | `TemplateFeedback` (ticks, key facts, "what to fix" from missed items, numbers only) |
 
@@ -247,15 +247,16 @@ All under `/api`, JSON, cookie auth except signup and login. Errors are Problem 
 | `GET /roles?q=` | search roles | names and aliases, starter plus own roles |
 | `POST /resumes/parse-fallback` | parse a PDF with PDFBox and Groq | multipart, 1 MB, returns parsed JSON |
 | `POST /resumes` | save reviewed resume | parsed JSON, role ID, optional interview date |
-| `GET /resumes` | list with mastered counts | triggers retry of `pending` key facts |
+| `GET /resumes` | list with mastered counts | retries project questions for resumes that have none |
 | `GET /resumes/{id}` | one resume (read-only) | |
 | `PATCH /resumes/{id}` | change interview date | the only editable field |
 | `DELETE /resumes/{id}` | delete resume and its data | cascade |
 | `GET /resumes/{id}/role-skills-check` | role skills check | stores `gap_result` |
-| `POST /sessions` | start a session | body: resume ID. 409 if one is unfinished |
+| `POST /sessions` | start a session | body: resume ID and `mode` (`quiz` or `interview`). 409 if one is unfinished |
 | `GET /sessions` | history | |
 | `GET /sessions/{id}` | session, questions, answers, report | used for polling |
 | `PUT /sessions/{id}/attempts/{position}` | save one answer | |
+| `POST` and `PUT /sessions/{id}/attempts/{position}/follow-up` | interview: get the AI follow-up, save its answer | Groq writes it once from question, key facts and answer (FR-21) |
 | `POST /sessions/{id}/attempts/{position}/transcribe` | audio to transcript and stats | multipart, not saved |
 | `POST /sessions/{id}/submit` | finish and grade | returns at once |
 | `POST /sessions/{id}/abandon` | leave the session | |
@@ -293,7 +294,7 @@ All under `/api`, JSON, cookie auth except signup and login. Errors are Problem 
 
 | Layer | Tool | What it covers |
 |---|---|---|
-| Marking and rules | JUnit 5 | the multiple-correct formula, fill-in-the-blank matching and marks per blank, the evidence rule (a "yes" with a missing quote flips to "no"), mastery rules (including "fallback grades do not count"), session slot selection and quotas, the typed voice answer (5 marks, mastery 4 of 5), voice-skipped sessions (50 marks) |
+| Marking and rules | JUnit 5 | the multiple-correct formula, fill-in-the-blank matching and marks per blank, the evidence rule (a "yes" with a missing quote flips to "no"), mastery rules (including "fallback grades do not count"), session slot selection and quotas, the typed voice answer (5 marks, mastery 4 of 5), a Web Speech answer's stats, the 19-question total |
 | Database | Testcontainers, MySQL 8 | runs `V1__schema.sql` and `V2`, the generated columns, the unique open-session index, cascades on account deletion, the session-building queries |
 | AI layer | JUnit 5 with a fake provider | invalid JSON then retry then fallback, 429 sets the cooldown, the PII scrubber, no personal text in logs |
 | Security | JUnit 5 and MockMvc | another user's resume or session returns 404, logged-out returns 401, login throttle, the export only for completed sessions |
@@ -326,8 +327,8 @@ Order as in PRD Section 6. After each step **I remind you to run its manual chec
   2. Add a missing role: AI skills appear and can be edited. Remove the Groq key and try again: the list starts empty and you can type skills.
   3. Upload a file over 1 MB and a non-PDF: each shows an inline message.
   4. Upload a clear single-column resume: it fills the Review form with nothing missing. Upload a two-column resume: the fallback runs and the "please check" banner shows.
-  5. Edit and save. In MySQL check `resume`, `resume_point` (one row per bullet and skill) and `key_fact`. No row appears in `skill` that was not there before.
-  6. Remove the Groq key and save another resume: it is saved, key facts are `pending`, and they fill in after the key is back and you open the Resume list.
+  5. Edit and save. In MySQL check `resume`, `resume_point` (one row per bullet and skill) and, after a few seconds, `question` (about 8 rows with `source = 'ai'` and `key_facts`). No row appears in `skill` that was not there before.
+  6. Remove the Groq key and save another resume: it is saved with no project questions, and they appear after the key is back and you open the Resume list.
   7. Open the role skills check and compare it by eye with the resume.
   8. Delete the resume: its points, key facts and results are gone.
   9. Log in as a second user and open the first user's resume URL: "not found".
@@ -337,13 +338,13 @@ Order as in PRD Section 6. After each step **I remind you to run its manual chec
 - **Build:** session building and generation, the practice bank tables in use (the seed is built later), the practice session screens (W8 a to f), voice recording and transcription, autosave, abandon, Home (W2), History list (W10).
 - **Automated:** the session-selection and quota tests, the unique open-session index, the voice-skipped test, the fake-provider tests.
 - **Manual checks:**
-  1. Start a session: 19 slots in four parts, 5 multiple-correct, 5 fill-in-the-blank, 6 brief (4 technical, 2 behavioral), 3 voice.
+  1. Start a session: 19 slots in four parts, 5 multiple-correct, 5 fill-in-the-blank, 6 brief (3 technical, 2 behavioral, 1 project), 3 voice (1 behavioral, 2 project).
   2. Answer a few, close the tab, open Home: "Continue your practice session" shows and your answers are still there.
   3. Start a second session while one is open: it is refused.
   4. Leave the session: it shows as abandoned in History.
   5. Record a voice answer: the transcript shows, Re-record and Submit work, and the recording stops at 3 minutes.
   6. Deny the microphone: the typed answer box appears.
-  7. Stop the Whisper key: a new session has 16 questions and 50 marks, and History says "voice part skipped".
+  7. Stop the Whisper key: a new session still has 19 questions. Answer a voice question in Chrome: it asks you to speak again, then shows the browser's transcript. In a browser without Web Speech the typed box appears.
   8. Stop the Groq key: a session still starts using bank or generic questions, with no message.
   9. In MySQL check `question` (text, links) and `attempt` (one row per slot).
 - **Done when:** a session can be started, answered, saved and resumed, with and without AI.
@@ -392,7 +393,7 @@ Order as in PRD Section 6. After each step **I remind you to run its manual chec
 | Gemma pacing may need tuning | 7 seconds is an estimate. Measure real token use per call |
 | In-memory throttle and AI gate reset on restart | Accepted for a laptop-only app |
 | AGPL | Applies as long as the parser code is in the app (Section 11). Not legal advice |
-| `bank_starter.csv` | Drafted in `backend/src/main/resources/db/seed-draft/` (software development only), needs your review before `V4__starter_bank.sql` is moved to `db/migration/`. Until then fallback questions come from AI-saved bank rows and the generic templates |
+| `bank_starter.csv` | Drafted in `backend/src/main/resources/db/seed-draft/` (all 74 skills of the 11 roles plus behavioral, data in `bank_*.py`; review sheet `review.md`), needs your review before `V4__starter_bank.sql` is moved to `db/migration/`. Until then fallback questions come from AI-saved bank rows and the generic templates |
 | `roles_starter.csv` | The exact content is in `database-schema.md` Section 12. Needs your review |
 
 ## 15. Change log
@@ -400,3 +401,5 @@ Order as in PRD Section 6. After each step **I remind you to run its manual chec
 **v1** (3 October 2026): created from the TRD grilling session (Q1 to Q23).
 
 **v1.1** (3 October 2026): added `api-contracts.md`. Signup now logs the user in, password limit 72, voice upload limit 5 MB, error codes defined, and a session in progress hides correct answers and key facts.
+
+- 5 October 2026 (ticket 13): interview mode (FR-21). `SessionService.start` takes a mode and uses the `INTERVIEW` part list (one `voice` part: 4 technical, 2 behavioral) in place of the quiz parts; slot filling is unchanged. The follow-up is one Groq call (`SessionService.followUp`), and `GradingService` appends the follow-up answer to the main answer before the checklist and Gemma feedback. The 3-minute timer is in the browser.

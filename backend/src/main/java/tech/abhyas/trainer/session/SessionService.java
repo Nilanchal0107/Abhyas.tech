@@ -35,8 +35,9 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Service
 public class SessionService {
-    static final int MC_SLOTS = 5, MC_MARKS = 2, FB_SLOTS = 5, FB_MARKS = 2, BRIEF_MARKS = 5, MAX_BRIEF = 5000, VOICE_MARKS = 10, TYPED_VOICE_MARKS = 5, MAX_TRANSCRIPT = 10000, MAX_AUDIO = 5 * 1024 * 1024, MAX_SECONDS = 180, MAX_BLANK = 200, OPTIONS = 4, MAX_POINTS_IN_PROMPT = 60, MAX_TEXT = 500;
+    static final int MC_SLOTS = 5, MC_MARKS = 2, FB_SLOTS = 5, FB_MARKS = 2, BRIEF_MARKS = 5, MAX_BRIEF = 5000, VOICE_MARKS = 10, TYPED_VOICE_MARKS = 5, MAX_TRANSCRIPT = 10000, MAX_AUDIO = 5 * 1024 * 1024, MAX_SECONDS = 180, MAX_BLANK = 200;
     private static final JsonMapper JSON = JsonMapper.builder().build();
+    static final String BLANK = "________";
     private static final List<String> KEYS = List.of("A", "B", "C", "D");
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -59,7 +60,9 @@ public class SessionService {
     // ---- slot selection (pure) ----
 
     /** A stored question as seen by slot selection. {@code lastScore} and {@code lastAsked} can be null. */
-    record Candidate(long id, boolean mastered, int timesAsked, Double lastScore, LocalDateTime lastAsked, boolean behavioral) {}
+    record Candidate(long id, boolean mastered, int timesAsked, Double lastScore, LocalDateTime lastAsked, boolean behavioral, boolean project) {
+        Candidate(long id, boolean mastered, int timesAsked, Double lastScore, LocalDateTime lastAsked, boolean behavioral) { this(id, mastered, timesAsked, lastScore, lastAsked, behavioral, false); }
+    }
 
     /**
      * Unmastered asked questions first (lowest score, then oldest asked; no score counts as 0), then the rest of the
@@ -76,92 +79,6 @@ public class SessionService {
                 .map(Candidate::id).filter(id -> !out.contains(id)).toList());
         Collections.shuffle(fresh, random);
         for (int i = 0; out.size() < slots && i < fresh.size(); i++) out.add(fresh.get(i));
-        return out;
-    }
-
-    // ---- generated questions (pure validation) ----
-
-    /** A multiple-correct question accepted from the AI reply. */
-    record Generated(long pointId, String text, List<String> options, List<String> correct) {}
-
-    /** Keeps only well-formed questions linked to one of {@code pointIds}: 4 options, 1 to 3 correct keys (api-contracts 4.2). An option's own "A) " label is dropped. */
-    static List<Generated> validGenerated(JsonNode reply, Set<Long> pointIds) {
-        List<Generated> out = new ArrayList<>();
-        JsonNode list = reply.path("questions");
-        if (!list.isArray()) return out;
-        for (JsonNode q : list) {
-            String text = q.path("text").isString() ? q.path("text").asString().strip() : "";
-            JsonNode point = q.path("resumePointId"), opts = q.path("options"), correct = q.path("correct");
-            if (text.isEmpty() || text.length() > 1000 || !point.isIntegralNumber() || !pointIds.contains(point.asLong())) continue;
-            if (!opts.isArray() || opts.size() != OPTIONS || !correct.isArray() || correct.isEmpty()) continue;
-            List<String> o = new ArrayList<>();
-            for (int i = 0; i < OPTIONS; i++) o.add(opts.get(i).isString() ? opts.get(i).asString().strip().replaceFirst("^\\(?" + KEYS.get(i) + "[).:]\\s+", "") : "");
-            if (o.stream().anyMatch(s -> s.isEmpty() || s.length() > MAX_TEXT) || new LinkedHashSet<>(o).size() != OPTIONS) continue;
-            Set<String> keys = new LinkedHashSet<>();
-            for (JsonNode n : correct) keys.add(n.isString() ? n.asString().strip().toUpperCase() : "");
-            if (!KEYS.containsAll(keys) || keys.size() == OPTIONS) continue; // all four correct tests nothing
-            out.add(new Generated(point.asLong(), text, o, List.copyOf(keys)));
-        }
-        return out;
-    }
-
-    /** A fill-in-the-blank question accepted from the AI reply: one list of accepted wordings per blank. */
-    record GeneratedBlank(long pointId, String text, List<List<String>> accepted) {}
-
-    static final String BLANK = "________";
-
-    /**
-     * Keeps only questions with 1 or 2 marked blanks, accepted wordings for every blank, and a linked resume point (api-contracts 4.2).
-     * Models vary the blank's length and, for one blank, often send a flat list of wordings: both are accepted and stored in the usual form.
-     */
-    static List<GeneratedBlank> validBlanks(JsonNode reply, Set<Long> pointIds) {
-        List<GeneratedBlank> out = new ArrayList<>();
-        JsonNode list = reply.path("questions");
-        if (!list.isArray()) return out;
-        for (JsonNode q : list) {
-            String text = q.path("text").isString() ? q.path("text").asString().strip().replaceAll("_{3,}", BLANK) : "";
-            JsonNode point = q.path("resumePointId"), acc = q.path("accepted");
-            if (acc.isArray() && !acc.isEmpty() && acc.get(0).isString()) acc = JSON.createArrayNode().add(acc); // ["a","b"] means [["a","b"]]
-            int marks = text.split(java.util.regex.Pattern.quote(BLANK), -1).length - 1;
-            if (text.length() > 1000 || !point.isIntegralNumber() || !pointIds.contains(point.asLong())) continue;
-            if (marks < 1 || marks > 2 || !acc.isArray() || acc.size() != marks) continue;
-            List<List<String>> lists = new ArrayList<>();
-            boolean ok = true;
-            for (JsonNode one : acc) {
-                List<String> words = new ArrayList<>();
-                if (one.isArray()) for (JsonNode w : one) if (w.isString() && !w.asString().isBlank() && w.asString().strip().length() <= MAX_BLANK) words.add(w.asString().strip());
-                if (words.isEmpty()) ok = false;
-                lists.add(words);
-            }
-            if (ok) out.add(new GeneratedBlank(point.asLong(), text, lists));
-        }
-        return out;
-    }
-
-    /** A brief question accepted from the AI reply. {@code theme} null means technical; {@code pointId} is null only for some behavioral ones. */
-    record GeneratedBrief(Long pointId, String theme, String text) {}
-
-    /**
-     * Technical questions must be tied to a point that has key facts. Behavioral ones need one of the five themes and may
-     * link to any point of the resume, or none (themes are not skills, prd FR-20).
-     */
-    static List<GeneratedBrief> validBrief(JsonNode reply, Set<Long> withFacts, Set<Long> allPoints) {
-        List<GeneratedBrief> out = new ArrayList<>();
-        JsonNode list = reply.path("questions");
-        if (!list.isArray()) return out;
-        for (JsonNode q : list) {
-            String text = q.path("text").isString() ? q.path("text").asString().strip() : "";
-            if (text.isEmpty() || text.length() > 1000) continue;
-            JsonNode point = q.path("resumePointId");
-            String kind = q.path("kind").asString("");
-            if (kind.equals("technical")) {
-                if (point.isIntegralNumber() && withFacts.contains(point.asLong())) out.add(new GeneratedBrief(point.asLong(), null, text));
-            } else if (kind.equals("behavioral")) {
-                String theme = q.path("theme").asString("").strip().toLowerCase();
-                boolean linked = point.isIntegralNumber() && allPoints.contains(point.asLong());
-                if (THEMES.contains(theme) && (linked || point.isNull() || point.isMissingNode())) out.add(new GeneratedBrief(linked ? point.asLong() : null, theme, text));
-            }
-        }
         return out;
     }
 
@@ -189,6 +106,10 @@ public class SessionService {
         JsonNode t = answer.path("transcript"), st = answer.path("voiceStats");
         if (!t.isString() || t.asString().isBlank()) throw invalid("answer", "The recording has no text. Record again or type your answer.");
         if (t.asString().length() > MAX_TRANSCRIPT) throw invalid("answer", "The recording is too long.");
+        if (st.isObject() && st.size() == 1 && st.path("durationSeconds").isIntegralNumber() && st.path("durationSeconds").asLong() >= 0 && st.path("durationSeconds").asLong() <= MAX_SECONDS + 1) {
+            // a Web Speech answer has no timing, only the length the browser measured: Java counts the words
+            return new VoiceAnswer("voice", null, t.asString().strip(), JSON.writeValueAsString(VoiceStats.of(t.asString(), st.path("durationSeconds").asLong()).toMap()));
+        }
         Map<String, Object> stats = new LinkedHashMap<>();
         for (String k : List.of("wordsPerMinute", "fillerCount", "wordCount", "durationSeconds")) {
             if (!st.path(k).isIntegralNumber() || st.path(k).asLong() < 0 || st.path(k).asLong() > 100000) throw invalid("answer", "The recording numbers are not valid.");
@@ -230,33 +151,36 @@ public class SessionService {
 
     // ---- start ----
 
-    /** Slots of one kind inside a part: technical (no theme) or behavioral (themed). */
-    record Quota(boolean behavioral, int slots) {}
+    /** Slots of one kind inside a part: technical from the bank (no theme), behavioral (themed), or a project question the AI wrote for this resume. */
+    record Quota(boolean behavioral, boolean project, int slots) {
+        Quota(boolean behavioral, int slots) { this(behavioral, false, slots); }
+    }
 
-    /** The parts built so far, in session order (trd 7.2). Brief is 4 technical plus 2 behavioral. */
+    /** The parts, in session order (trd 7.2, ticket 17). Brief is 3 technical, 2 behavioral and 1 project; voice is 1 behavioral and 2 project. */
     record Part(String type, int marks, List<Quota> quotas) {}
     static final List<Part> PARTS = List.of(
             new Part("multiple_correct", MC_MARKS, List.of(new Quota(false, MC_SLOTS))),
             new Part("fill_blank", FB_MARKS, List.of(new Quota(false, FB_SLOTS))),
-            new Part("brief", BRIEF_MARKS, List.of(new Quota(false, 4), new Quota(true, 2))),
-            new Part("voice", VOICE_MARKS, List.of(new Quota(false, 1), new Quota(true, 2))));
+            new Part("brief", BRIEF_MARKS, List.of(new Quota(false, 3), new Quota(true, 2), new Quota(false, true, 1))),
+            new Part("voice", VOICE_MARKS, List.of(new Quota(true, 1), new Quota(false, true, 2))));
 
-    /** The parts of a session: the voice part is left out when voice transcription is unavailable. */
-    static List<Part> partsFor(boolean voiceSkipped) {
-        return voiceSkipped ? PARTS.stream().filter(p -> !p.type().equals("voice")).toList() : PARTS;
-    }
+    /** Interview mode (ticket 13): 6 spoken questions, 4 technical (the user's projects first) and 2 behavioral, 10 marks each (5 when typed). */
+    static final List<Part> INTERVIEW = List.of(new Part("voice", VOICE_MARKS, List.of(new Quota(false, true, 4), new Quota(true, 2))));
 
     static final List<String> THEMES = List.of("teamwork", "conflict", "failure", "leadership", "deadline_pressure");
 
     /** Picks each quota of a part on its own (technical and behavioral questions never fill each other's slots). */
     static List<List<Long>> pickQuotas(List<Candidate> all, List<Quota> quotas, LocalDateTime now, Random random) {
         List<List<Long>> out = new ArrayList<>();
-        for (Quota q : quotas) out.add(pick(all.stream().filter(c -> c.behavioral() == q.behavioral()).toList(), q.slots(), now, random));
+        for (Quota q : quotas) out.add(pick(all.stream().filter(c -> c.behavioral() == q.behavioral() && c.project() == q.project()).toList(), q.slots(), now, random));
         return out;
     }
 
     /** Builds the slots, generating missing questions first (can take several seconds). */
-    public Map<String, Object> start(long userId, long resumeId) {
+    public Map<String, Object> start(long userId, long resumeId) { return start(userId, resumeId, "quiz"); }
+
+    public Map<String, Object> start(long userId, long resumeId, String mode) {
+        if (!mode.equals("quiz") && !mode.equals("interview")) throw invalid("mode", "Use quiz or interview.");
         jdbc.queryForList("SELECT id FROM resume WHERE id = :r AND user_id = :me", Map.of("r", resumeId, "me", userId))
                 .stream().findFirst().orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "not-found", "We could not find that resume."));
         long open = openSession(userId);
@@ -265,22 +189,24 @@ public class SessionService {
         LocalDateTime now = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
         List<Long> slots = new ArrayList<>(); // question ids in session order
         List<Integer> marks = new ArrayList<>();
-        boolean voiceSkipped = !ai.available(Provider.GROQ_WHISPER); // no Whisper at the start: leave the voice part out (16 questions, 50 marks)
-        for (Part part : partsFor(voiceSkipped)) {
-            List<List<Long>> chosen = pickQuotas(candidates(resumeId, part.type()), part.quotas(), now, random);
+        // always 19 questions, 80 marks (ticket 19): with Whisper down the browser's Web Speech API gives the transcript of a voice answer
+        for (Part part : mode.equals("interview") ? INTERVIEW : PARTS) {
+            List<List<Long>> chosen = pickQuotas(candidates(userId, resumeId, part.type()), part.quotas(), now, random);
             boolean short_ = missing(part, chosen, false) + missing(part, chosen, true) > 0;
             if (short_) {
-                generate(resumeId, part.type(), missing(part, chosen, false), missing(part, chosen, true)); // AI first (it may do nothing)
-                chosen = pickQuotas(candidates(resumeId, part.type()), part.quotas(), now, random);
+                // no AI call here: project questions were written once after the save (ProjectQuestionService), the rest comes from the reviewed bank (skill-bank D3)
                 int stillTechnical = missing(part, chosen, false), stillBehavioral = missing(part, chosen, true);
                 if (stillTechnical + stillBehavioral > 0) { // then the practice bank, then generic templates, with no message to the user (FR-20)
                     bank.fill(resumeId, part.type(), stillTechnical, stillBehavioral);
-                    chosen = pickQuotas(candidates(resumeId, part.type()), part.quotas(), now, random);
+                    List<Candidate> all = candidates(userId, resumeId, part.type());
+                    chosen = pickQuotas(all, part.quotas(), now, random);
+                    topUpProject(part, chosen, all, now);
+                    relax(all, part.quotas(), chosen, random);
                 }
             }
             for (List<Long> ids : chosen) for (Long q : ids) { slots.add(q); marks.add(part.marks()); }
         }
-        // only a resume with nothing the bank or the templates can use (no bullets, no skills) ends up here
+        // only a resume (and a bank) with nothing at all to ask ends up here
         if (slots.isEmpty()) throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "ai-unavailable", "We could not prepare your questions right now. Please try again later.");
 
         int max = marks.stream().mapToInt(Integer::intValue).sum();
@@ -288,13 +214,17 @@ public class SessionService {
         try {
             sessionId = tx.execute(s -> {
                 var keys = new org.springframework.jdbc.support.GeneratedKeyHolder();
-                jdbc.update("INSERT INTO practice_session (user_id, resume_id, status, voice_skipped, max_marks) VALUES (:me, :r, 'in_progress', :skip, :max)",
-                        new MapSqlParameterSource("me", userId).addValue("r", resumeId).addValue("skip", voiceSkipped).addValue("max", max), keys);
+                jdbc.update("INSERT INTO practice_session (user_id, resume_id, status, mode, voice_skipped, max_marks) VALUES (:me, :r, 'in_progress', :mode, :skip, :max)",
+                        new MapSqlParameterSource("me", userId).addValue("r", resumeId).addValue("mode", mode).addValue("skip", false).addValue("max", max), keys);
                 long id = keys.getKey().longValue();
                 for (int i = 0; i < slots.size(); i++) {
                     jdbc.update("INSERT INTO attempt (session_id, question_id, position, max_marks) VALUES (:s, :q, :pos, :m)",
                             Map.of("s", id, "q", slots.get(i), "pos", i + 1, "m", marks.get(i)));
                     jdbc.update("UPDATE question SET times_asked = times_asked + 1, last_asked_at = UTC_TIMESTAMP(3) WHERE id = :q", Map.of("q", slots.get(i)));
+                    jdbc.update("""
+                            INSERT INTO bank_performance (user_id, bank_question_id, times_asked, last_asked_at)
+                            SELECT :me, bank_question_id, 1, UTC_TIMESTAMP(3) FROM question WHERE id = :q AND bank_question_id IS NOT NULL
+                            ON DUPLICATE KEY UPDATE bank_performance.times_asked = bank_performance.times_asked + 1, bank_performance.last_asked_at = UTC_TIMESTAMP(3)""", Map.of("me", userId, "q", slots.get(i)));
                 }
                 jdbc.update("UPDATE resume SET last_used_at = UTC_TIMESTAMP(3) WHERE id = :r", Map.of("r", resumeId));
                 return id;
@@ -305,6 +235,34 @@ public class SessionService {
         return detail(userId, sessionId);
     }
 
+    /**
+     * Last resort for a quota the bank and the templates could not fill: any stored question of the right kind that is not already in
+     * the part, even one that is still resting, so the session keeps its size (ticket 19). Nothing repeats inside a session.
+     */
+    static void relax(List<Candidate> all, List<Quota> quotas, List<List<Long>> chosen, Random random) {
+        Set<Long> used = new LinkedHashSet<>();
+        chosen.forEach(used::addAll);
+        for (int i = 0; i < quotas.size(); i++) {
+            int lack = quotas.get(i).slots() - chosen.get(i).size();
+            if (lack <= 0) continue;
+            boolean behavioral = quotas.get(i).behavioral();
+            List<Long> spare = new ArrayList<>(all.stream().filter(c -> c.behavioral() == behavioral && !used.contains(c.id())).map(Candidate::id).toList());
+            Collections.shuffle(spare, random);
+            for (Long id : spare.subList(0, Math.min(lack, spare.size()))) { chosen.get(i).add(id); used.add(id); }
+        }
+    }
+
+    /** A project quota the AI has not filled (no project questions yet) takes extra bank questions instead, so the part keeps its size. */
+    private void topUpProject(Part part, List<List<Long>> chosen, List<Candidate> all, LocalDateTime now) {
+        for (int i = 0; i < chosen.size(); i++) {
+            int lack = part.quotas().get(i).slots() - chosen.get(i).size();
+            if (!part.quotas().get(i).project() || lack <= 0) continue;
+            Set<Long> used = new LinkedHashSet<>();
+            chosen.forEach(used::addAll);
+            chosen.get(i).addAll(pick(all.stream().filter(c -> !c.behavioral() && !c.project() && !used.contains(c.id())).toList(), lack, now, random));
+        }
+    }
+
     /** Slots still missing in the technical (or behavioral) quotas of a part. */
     private static int missing(Part part, List<List<Long>> chosen, boolean behavioral) {
         int n = 0;
@@ -312,88 +270,21 @@ public class SessionService {
         return n;
     }
 
-    private List<Candidate> candidates(long resumeId, String type) {
-        return jdbc.query("SELECT id, mastered, times_asked, last_score, last_asked_at, theme IS NOT NULL AS behavioral FROM question WHERE resume_id = :r AND type = :t",
-                Map.of("r", resumeId, "t", type), (rs, i) -> new Candidate(rs.getLong("id"), rs.getBoolean("mastered"), rs.getInt("times_asked"),
+    /** A bank question's performance is the user's own row in bank_performance (none yet means new); a project question keeps its own columns. */
+    private List<Candidate> candidates(long userId, long resumeId, String type) {
+        return jdbc.query("""
+                SELECT q.id, IF(q.bank_question_id IS NULL, q.mastered, COALESCE(bp.mastered, FALSE)) AS mastered,
+                       IF(q.bank_question_id IS NULL, q.times_asked, COALESCE(bp.times_asked, 0)) AS times_asked,
+                       IF(q.bank_question_id IS NULL, q.last_score, bp.last_score) AS last_score,
+                       IF(q.bank_question_id IS NULL, q.last_asked_at, bp.last_asked_at) AS last_asked_at, q.theme IS NOT NULL AS behavioral, (q.source = 'ai' AND q.theme IS NULL) AS project
+                FROM question q LEFT JOIN bank_performance bp ON bp.user_id = :me AND bp.bank_question_id = q.bank_question_id
+                WHERE q.resume_id = :r AND q.type = :t""",
+                Map.of("me", userId, "r", resumeId, "t", type), (rs, i) -> new Candidate(rs.getLong("id"), rs.getBoolean("mastered"), rs.getInt("times_asked"),
                         rs.getObject("last_score") == null ? null : rs.getDouble("last_score"),
-                        rs.getTimestamp("last_asked_at") == null ? null : rs.getTimestamp("last_asked_at").toLocalDateTime(), rs.getBoolean("behavioral")));
+                        rs.getTimestamp("last_asked_at") == null ? null : rs.getTimestamp("last_asked_at").toLocalDateTime(), rs.getBoolean("behavioral"), rs.getBoolean("project")));
     }
 
-    /** One AI call per part for the missing questions. A failure just leaves the slots short. */
-    private void generate(long resumeId, String type, int technical, int behavioral) {
-        List<Map<String, Object>> points = jdbc.queryForList("""
-                SELECT p.id, p.text, (SELECT GROUP_CONCAT(k.fact_text ORDER BY k.position SEPARATOR ' | ') FROM key_fact k WHERE k.resume_point_id = p.id) AS facts
-                FROM resume_point p WHERE p.resume_id = :r ORDER BY p.position LIMIT :lim""", Map.of("r", resumeId, "lim", MAX_POINTS_IN_PROMPT));
-        if (points.isEmpty()) return;
-        Set<Long> ids = new LinkedHashSet<>(), withFacts = new LinkedHashSet<>();
-        StringBuilder list = new StringBuilder();
-        for (Map<String, Object> p : points) {
-            long id = ((Number) p.get("id")).longValue();
-            ids.add(id);
-            list.append("- id ").append(id).append(": ").append(p.get("text"));
-            if (p.get("facts") != null) { withFacts.add(id); list.append(" (facts: ").append(p.get("facts")).append(')'); }
-            list.append('\n');
-        }
-        // FR-9: test the topics behind a point, not recall of the resume's own words, and never assume what the resume does not say
-        StringBuilder sb = new StringBuilder("You are a technical interviewer writing practice questions from a candidate's resume. Each technical question tests whether the candidate "
-                + "understands the technology, concept or design choice behind a resume point (how it works, why it was used, what the alternatives are), answerable from technical "
-                + "knowledge. Never ask what the resume says or mentions, and never quote the resume back. Never assume anything the point does not state: no invented languages, "
-                + "tools, teams, deadlines, roles or results. ");
-        switch (type) {
-            case "fill_blank" -> sb.append("Write ").append(technical + 2)
-                    .append(" technical fill-in-the-blank questions, each about a different resume point below. Each is a general technical statement about a technology or concept used in the point, with one or two blanks written as ________ for key technical terms, and for every blank the accepted wordings (a short list, such as the name with and without a prefix). Do not blank a word just copied from the resume. Reply as {\"questions\":[{\"resumePointId\":1,\"text\":\"The ________ annotation marks a REST controller.\",\"accepted\":[[\"@RestController\",\"RestController\"]]}]} with one list of accepted wordings per blank, in order.\n");
-            case "brief", "voice" -> {
-                if (technical > 0) sb.append("Write ").append(technical + 1).append(" technical short-answer questions (kind \"technical\"), each about a different resume point that has facts, using that point's id. Ask how the candidate did something in that one point and why, so a good answer covers its facts; do not mix in other points or skills. ");
-                if (behavioral > 0) sb.append("Write ").append(behavioral + 1).append(" behavioral questions (kind \"behavioral\") in the STAR style, each with a theme from teamwork, conflict, failure, leadership, deadline_pressure, and optionally the id of a related resume point. Start with \"Tell me about a time\". You may name a project, but never state that the situation happened there (no \"the tight deadline on X\" or \"your team on X\" unless the point says so). ");
-                sb.append("Reply as {\"questions\":[{\"kind\":\"technical\",\"resumePointId\":1,\"text\":\"...\"},{\"kind\":\"behavioral\",\"theme\":\"teamwork\",\"resumePointId\":2,\"text\":\"...\"}]}.\n");
-            }
-            default -> sb.append("Write ").append(technical + 2)
-                    .append(" technical multiple-correct questions, each about a different resume point below and each with exactly 4 options. 1 to 3 options are correct and at least one is a plausible but wrong statement. Write the option text only, without A) or A. labels. Reply as {\"questions\":[{\"resumePointId\":1,\"text\":\"...\",\"options\":[\"...\",\"...\",\"...\",\"...\"],\"correct\":[\"A\"]}]} where correct lists the letters A to D.\n");
-        }
-        String prompt = sb.append("Resume points:\n").append(list).toString();
-        // the unique (resume_id, text_hash) index drops a repeat of a stored question
-        String insert = """
-                INSERT IGNORE INTO question (resume_id, resume_point_id, type, theme, text, options, correct_options, accepted_answers, source, provider, text_hash)
-                VALUES (:r, :p, :type, :theme, :text, :opts, :correct, :accepted, 'ai', 'groq', :hash)""";
-        switch (type) {
-            case "fill_blank" -> {
-                Optional<JsonNode> reply = ai.json(Provider.GROQ_CHAT, prompt, r -> !validBlanks(r, ids).isEmpty());
-                if (reply.isEmpty()) return;
-                PracticeBank.Ctx ctx = bank.context(resumeId);
-                for (GeneratedBlank g : validBlanks(reply.get(), ids)) {
-                    String accepted = JSON.writeValueAsString(g.accepted());
-                    jdbc.update(insert, new MapSqlParameterSource("r", resumeId).addValue("p", g.pointId()).addValue("type", type).addValue("theme", null).addValue("text", g.text())
-                            .addValue("opts", null).addValue("correct", null).addValue("accepted", accepted).addValue("hash", hash(g.text())));
-                    bank.learn(ctx, type, null, g.text(), null, null, accepted, "groq");
-                }
-            }
-            case "brief", "voice" -> {
-                Optional<JsonNode> reply = ai.json(Provider.GROQ_CHAT, prompt, r -> !validBrief(r, withFacts, ids).isEmpty());
-                if (reply.isEmpty()) return;
-                PracticeBank.Ctx ctx = bank.context(resumeId);
-                for (GeneratedBrief g : validBrief(reply.get(), withFacts, ids)) {
-                    jdbc.update(insert, new MapSqlParameterSource("r", resumeId).addValue("p", g.pointId()).addValue("type", type).addValue("theme", g.theme()).addValue("text", g.text())
-                            .addValue("opts", null).addValue("correct", null).addValue("accepted", null).addValue("hash", hash(g.text())));
-                    bank.learn(ctx, type, g.theme(), g.text(), null, null, null, "groq");
-                }
-            }
-            default -> {
-                Optional<JsonNode> reply = ai.json(Provider.GROQ_CHAT, prompt, r -> !validGenerated(r, ids).isEmpty());
-                if (reply.isEmpty()) return;
-                PracticeBank.Ctx ctx = bank.context(resumeId);
-                for (Generated g : validGenerated(reply.get(), ids)) {
-                    List<Map<String, String>> options = new ArrayList<>();
-                    for (int i = 0; i < OPTIONS; i++) options.add(Map.of("key", KEYS.get(i), "text", g.options().get(i)));
-                    String opts = JSON.writeValueAsString(options), correct = JSON.writeValueAsString(g.correct());
-                    jdbc.update(insert, new MapSqlParameterSource("r", resumeId).addValue("p", g.pointId()).addValue("type", type).addValue("theme", null).addValue("text", g.text())
-                            .addValue("opts", opts).addValue("correct", correct).addValue("accepted", null).addValue("hash", hash(g.text())));
-                    bank.learn(ctx, type, null, g.text(), opts, correct, null, "groq");
-                }
-            }
-        }
-    }
-
-    static String hash(String text) {
+    public static String hash(String text) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(text.strip().toLowerCase().getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
@@ -451,23 +342,24 @@ public class SessionService {
 
     /**
      * Attempts of a session (one position, or all). Without {@code graded} only the in-progress fields are present: never correct or
-     * accepted answers. With it, a marked attempt also carries its score, checklist, key facts and feedback (api-contracts 2.5);
-     * {@code gradedBy} is never included (FR-20).
+     * accepted answers. With it, a marked attempt also carries its score, checklist, key facts and feedback (api-contracts 2.5),
+     * and {@code gradedWithoutAi} when keyword matching gave the mark, so the report can offer a regrade (skill-bank D9).
      */
     private List<Map<String, Object>> attempts(long sessionId, Integer position, boolean graded) {
-        Map<Map<String, Object>, Long> keyFactPoint = new java.util.IdentityHashMap<>();
         List<Map<String, Object>> out = jdbc.query("""
-                SELECT a.id AS aid, a.position, a.max_marks, a.answered_via, a.selected_options, a.blank_answers, a.answer_text, a.transcript, a.voice_stats,
-                       a.score, a.checklist, a.blank_results, a.feedback_text, a.feedback_status,
-                       q.id AS qid, q.type, q.theme, q.text, q.options, q.correct_options, q.accepted_answers, q.key_facts, q.resume_point_id,
-                       JSON_LENGTH(q.accepted_answers) AS blank_count
-                FROM attempt a JOIN question q ON q.id = a.question_id WHERE a.session_id = :s AND (:p IS NULL OR a.position = :p) ORDER BY a.position""",
+                SELECT a.id AS aid, a.position, a.max_marks, a.answered_via, a.selected_options, a.blank_answers, a.answer_text, a.transcript, a.voice_stats, a.follow_up_text, a.follow_up_answer,
+                       a.score, a.checklist, a.blank_results, a.feedback_text, a.feedback_status, a.graded_by,
+                       q.id AS qid, q.type, q.theme, q.text, q.options, q.correct_options, q.accepted_answers, q.key_facts,
+                       JSON_LENGTH(q.accepted_answers) AS blank_count,
+                       (b.skill_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM resume_point p WHERE p.resume_id = q.resume_id AND p.skill_id = b.skill_id)) AS gap_skill
+                FROM attempt a JOIN question q ON q.id = a.question_id LEFT JOIN bank_question b ON b.id = q.bank_question_id WHERE a.session_id = :s AND (:p IS NULL OR a.position = :p) ORDER BY a.position""",
                 new MapSqlParameterSource("s", sessionId).addValue("p", position), (rs, i) -> {
             Map<String, Object> question = new LinkedHashMap<>();
             question.put("id", rs.getLong("qid"));
             question.put("type", rs.getString("type"));
             question.put("theme", rs.getString("theme"));
             question.put("isBehavioral", rs.getString("theme") != null);
+            question.put("isGapSkill", rs.getBoolean("gap_skill")); // a role skill the resume does not show (skill-bank D4)
             question.put("text", rs.getString("text"));
             question.put("options", rs.getString("options") == null ? null : JSON.readTree(rs.getString("options")));
             question.put("blankCount", rs.getObject("blank_count") == null ? null : rs.getInt("blank_count"));
@@ -477,6 +369,8 @@ public class SessionService {
             double m = rs.getDouble("max_marks");
             a.put("maxMarks", num(m));
             a.put("question", question);
+            a.put("followUp", rs.getString("follow_up_text") == null ? null : Map.of("text", rs.getString("follow_up_text"), "answered", rs.getString("follow_up_answer") != null,
+                    "answer", rs.getString("follow_up_answer") == null ? "" : rs.getString("follow_up_answer")));
             String via = rs.getString("answered_via");
             if (via == null) a.put("answer", null);
             else {
@@ -495,6 +389,7 @@ public class SessionService {
                 double score = rs.getDouble("score");
                 a.put("score", marked ? num(score) : null);
                 a.put("mastered", marked ? Grading.mastered(type, m, score) : null);
+                a.put("gradedWithoutAi", marked && "fallback".equals(rs.getString("graded_by")));
                 a.put("correctOptions", marked && type.equals("multiple_correct") ? JSON.readTree(rs.getString("correct_options")) : null);
                 a.put("acceptedAnswers", marked && type.equals("fill_blank") ? JSON.readTree(rs.getString("accepted_answers")) : null);
                 a.put("blankResults", marked && rs.getString("blank_results") != null ? JSON.readTree(rs.getString("blank_results")) : null);
@@ -502,7 +397,6 @@ public class SessionService {
                 a.put("keyFacts", null);
                 if (marked && brief && rs.getString("theme") == null) {
                     if (rs.getString("key_facts") != null) a.put("keyFacts", JSON.readTree(rs.getString("key_facts")));
-                    else if (rs.getObject("resume_point_id") != null) keyFactPoint.put(a, rs.getLong("resume_point_id"));
                 } else if (marked && brief) a.put("keyFacts", List.of()); // a behavioral question has no answer key
                 Map<String, Object> fb = null;
                 if (marked) {
@@ -517,10 +411,6 @@ public class SessionService {
             }
             return a;
         });
-        if (!keyFactPoint.isEmpty()) {
-            Map<Long, List<String>> facts = KeyFacts.load(jdbc, new LinkedHashSet<>(keyFactPoint.values()));
-            keyFactPoint.forEach((a, point) -> a.put("keyFacts", facts.getOrDefault(point, List.of())));
-        }
         return out;
     }
 
@@ -564,6 +454,70 @@ public class SessionService {
         return attempts(id, position, false).get(0);
     }
 
+    // ---- interview follow-up (ticket 13) ----
+
+    static final String FALLBACK_FOLLOW_UP = "Can you give one specific example of that, and tell me how it turned out?";
+
+    /** The prompt for the one follow-up. It sees the question, the answer key and what the candidate said, and must not add details of its own. */
+    static String followUpPrompt(String question, boolean behavioral, List<String> facts, String answer) {
+        StringBuilder sb = new StringBuilder("You are a job interviewer. Ask ONE short follow-up question about what the candidate just said, to probe the weakest or vaguest part of the answer. "
+                + "Use only what the candidate said and the question asked; never assume a project, tool, number or detail they did not state. Do not reveal the answer key or give hints.\n")
+                .append("Question (").append(behavioral ? "behavioral" : "technical").append("): ").append(question).append('\n');
+        if (!facts.isEmpty()) sb.append("Answer key (private, for you only): ").append(String.join("; ", facts)).append('\n');
+        return sb.append("Candidate answer: ").append(answer).append("\nReply as {\"followUp\":\"...\"}.").toString();
+    }
+
+    /** A usable follow-up from the AI reply: non-empty and at most 300 characters, else null. */
+    static String followUpText(JsonNode reply) {
+        JsonNode t = reply.path("followUp");
+        if (!t.isString()) return null;
+        String s = t.asString().strip();
+        return s.isEmpty() || s.length() > 300 ? null : s;
+    }
+
+    /**
+     * The follow-up to one answered interview question: written by Groq once and then kept, so repeating the call (a reload) returns the same
+     * text. Without AI it is a generic follow-up, so the interview never stops for it. Returns the attempt.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> followUp(long userId, long id, int position) {
+        interviewSession(userId, id);
+        Map<String, Object> a = attempts(id, position, false).stream().findFirst().orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "not-found", "We could not find that question."));
+        if (a.get("answer") == null) throw invalid("answer", "Answer the question first.");
+        if (a.get("followUp") != null) return a;
+        Map<String, Object> answer = (Map<String, Object>) a.get("answer"), question = (Map<String, Object>) a.get("question");
+        boolean behavioral = Boolean.TRUE.equals(question.get("isBehavioral"));
+        String said = String.valueOf(answer.get("transcript") != null ? answer.get("transcript") : answer.get("text"));
+        List<String> facts = new ArrayList<>();
+        if (!behavioral) {
+            for (String f : jdbc.queryForList("SELECT key_facts FROM question WHERE id = :q AND key_facts IS NOT NULL", Map.of("q", question.get("id")), String.class))
+                for (JsonNode n : JSON.readTree(f)) if (n.isString()) facts.add(n.asString());
+        }
+        String text = !ai.available(Provider.GROQ_CHAT) ? null
+                : ai.json(Provider.GROQ_CHAT, followUpPrompt((String) question.get("text"), behavioral, facts, said), r -> followUpText(r) != null).map(SessionService::followUpText).orElse(null);
+        jdbc.update("UPDATE attempt SET follow_up_text = :t WHERE session_id = :s AND position = :p AND follow_up_text IS NULL",
+                Map.of("t", text == null ? FALLBACK_FOLLOW_UP : text, "s", id, "p", position));
+        return attempts(id, position, false).get(0);
+    }
+
+    /** Saves (or clears) the answer to the follow-up, typed or transcribed. Shapes follow the voice answer (api-contracts 5). */
+    public Map<String, Object> saveFollowUpAnswer(long userId, long id, int position, JsonNode body) {
+        interviewSession(userId, id);
+        VoiceAnswer v = voiceAnswer(body == null ? null : body.get("answer"));
+        int rows = jdbc.update("UPDATE attempt SET follow_up_answer = :a WHERE session_id = :s AND position = :p AND follow_up_text IS NOT NULL",
+                new MapSqlParameterSource("a", v == null ? null : v.via().equals("typed") ? v.text() : v.transcript()).addValue("s", id).addValue("p", position));
+        if (rows == 0) throw invalid("answer", "There is no follow-up question to answer yet.");
+        return attempts(id, position, false).get(0);
+    }
+
+    /** An unfinished interview of this user, or the usual errors (404 for another user's, 409 when closed, 400 for a quiz). */
+    private Map<String, Object> interviewSession(long userId, long id) {
+        Map<String, Object> s = summary(userId, id);
+        if (!"in_progress".equals(s.get("status"))) throw closed();
+        if (!"interview".equals(s.get("mode"))) throw invalid("session", "Follow-up questions belong to interview sessions.");
+        return s;
+    }
+
     /** Transcribes one recorded voice answer. The audio is held only for this request; nothing is saved (trd 7.3). */
     public Map<String, Object> transcribe(long userId, long id, int position, byte[] audio, String contentType) {
         if (!"in_progress".equals(summary(userId, id).get("status"))) throw closed();
@@ -605,6 +559,31 @@ public class SessionService {
         return new Submitted(started, detail(userId, id));
     }
 
+    /**
+     * Sends one keyword-graded answer back to the grading worker once AI is available (skill-bank D9). The worker marks it again, rewrites
+     * its feedback and the report, and updates the total; an AI mark then counts toward mastery. Refused while grading is still running.
+     */
+    public Map<String, Object> regrade(long userId, long id, int position) {
+        Map<String, Object> s = detail(userId, id); // another user's session is 404
+        List<String> by = jdbc.queryForList("SELECT COALESCE(graded_by, '') FROM attempt WHERE session_id = :s AND position = :p", Map.of("s", id, "p", position), String.class);
+        if (by.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "not-found", "We could not find that question.");
+        if (!by.get(0).equals("fallback")) throw regradeUnavailable("This answer is already graded.");
+        if (!Boolean.TRUE.equals(s.get("gradingComplete"))) throw regradeUnavailable("Wait until marking and feedback are finished.");
+        if (!ai.available(Provider.GROQ_CHAT)) throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "ai-unavailable", "AI grading is not available right now. Please try again later.");
+        tx.executeWithoutResult(t -> {
+            jdbc.update("""
+                    UPDATE attempt SET score = NULL, checklist = NULL, graded_by = NULL, feedback_text = NULL, feedback_status = 'pending'
+                    WHERE session_id = :s AND position = :p AND graded_by = 'fallback'""", Map.of("s", id, "p", position));
+            jdbc.update("UPDATE practice_session SET report_status = 'pending' WHERE id = :s", Map.of("s", id)); // the report quotes the total
+        });
+        grading.regrade(id);
+        return detail(userId, id);
+    }
+
+    private static ApiException regradeUnavailable(String message) {
+        return new ApiException(HttpStatus.CONFLICT, "regrade-unavailable", message);
+    }
+
     public Map<String, Object> abandon(long userId, long id) {
         Map<String, Object> s = summary(userId, id);
         if ("completed".equals(s.get("status"))) throw closed();
@@ -625,7 +604,7 @@ public class SessionService {
     /** SessionSummary rows (api-contracts 2.6), scoped to the user. */
     private List<Map<String, Object>> summaries(long userId, Long id, String status, Integer limit) {
         return jdbc.query("""
-                SELECT s.id, s.status, s.voice_skipped, s.max_marks, s.total_marks, r.id AS resume_id, r.file_name, ro.id AS role_id, ro.name AS role_name,
+                SELECT s.id, s.status, s.mode, s.voice_skipped, s.max_marks, s.total_marks, r.id AS resume_id, r.file_name, ro.id AS role_id, ro.name AS role_name,
                        CONCAT(DATE_FORMAT(s.started_at, '%Y-%m-%dT%H:%i:%s.'), LPAD(MICROSECOND(s.started_at) DIV 1000, 3, '0'), 'Z') AS started_at,
                        CONCAT(DATE_FORMAT(s.completed_at, '%Y-%m-%dT%H:%i:%s.'), LPAD(MICROSECOND(s.completed_at) DIV 1000, 3, '0'), 'Z') AS completed_at,
                        (SELECT COUNT(*) FROM attempt a WHERE a.session_id = s.id AND a.answered_via IS NOT NULL) AS answered,
@@ -637,6 +616,7 @@ public class SessionService {
                     Map<String, Object> out = new LinkedHashMap<>();
                     out.put("id", rs.getLong("id"));
                     out.put("status", rs.getString("status"));
+                    out.put("mode", rs.getString("mode"));
                     out.put("startedAt", rs.getString("started_at"));
                     out.put("completedAt", rs.getString("completed_at"));
                     out.put("resume", Map.of("id", rs.getLong("resume_id"), "fileName", rs.getString("file_name")));

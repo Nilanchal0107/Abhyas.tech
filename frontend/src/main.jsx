@@ -1,4 +1,5 @@
 import '@fontsource-variable/geist'
+import '@fontsource-variable/fraunces'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/tokens.css'

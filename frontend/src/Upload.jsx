@@ -5,6 +5,8 @@ import RoleSearch from './RoleSearch.jsx'
 import Review from './Review.jsx'
 import RoleSkills from './RoleSkills.jsx'
 import { Open } from './ResumeList.jsx'
+import { Alert, Spinner, Steps } from './ui.jsx'
+import { ArrowRight, Sparkle } from '@phosphor-icons/react'
 import { checkFile, looksIncomplete, lowQuality, notAResume, toParsedResume } from './lib/resume.js'
 
 // W4: file + target role + optional interview date. The PDF is parsed in the browser first.
@@ -89,32 +91,41 @@ export default function Upload() {
     <>
       {p && (
         <>
-          <button type="button" onClick={scanWithAi} disabled={reading}>Scan with AI</button>
-          <p aria-live="polite">{reading ? 'Reading your resume...' : ''}</p>
-          {result.error && <p>! This looks incomplete and the extra check failed: {result.error}</p>}
+          <div className="actions" style={{ marginTop: 0 }}>
+            <button type="button" className="small" onClick={scanWithAi} disabled={reading}><Sparkle size={18} aria-hidden="true" />Scan with AI</button>
+            <span className="loading" aria-live="polite">{reading && <><Spinner />Reading your resume...</>}</span>
+          </div>
+          {result.error && <p className="notice">This looks incomplete and the extra check failed: {result.error}</p>}
           <Review key={result.token} initial={p} byAi={result.byAi} unavailable={result.unavailable} fileName={file.name}
             roleId={role.id} interviewDate={date || null} parseSource={result.byAi ? 'ai_fallback' : 'openresume'}
             onBack={() => setResult(null)} onSaved={setSaved} />
         </>
       )}
       <div hidden={!!p}>
-      <h1>Upload</h1>
-      <p>Step 1 of 3: Upload</p>
-      <div>
-        <label htmlFor={fileId}>Resume (PDF)</label>
-        <input id={fileId} type="file" accept="application/pdf" aria-describedby={`${fileId}-err`}
-          onChange={(e) => pickFile(e.target.files[0] ?? null)} />
-        <p id={`${fileId}-err`} className="error" role="alert">{errors.file ? `! Error: ${errors.file}` : ''}</p>
-      </div>
-      <RoleSearch onPick={(r) => { setRole(r); setErrors((e) => ({ ...e, role: null })) }} />
-      <p className="error" role="alert">{errors.role ? `! Error: ${errors.role}` : ''}</p>
-      <div>
-        <label htmlFor={dateId}>Interview date (optional)</label>
-        <input id={dateId} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-      </div>
-      <button type="button" onClick={onContinue} disabled={reading}>Continue</button>
-      <p aria-live="polite" style={{ minHeight: '1.5em' }}>{reading ? 'Reading your resume...' : ''}</p>
-      <p className="error" role="alert">{errors.parse ? `! Error: ${errors.parse}` : ''}</p>
+        <div className="page-head">
+          <span className="eyebrow">New resume</span>
+          <h1>Upload</h1>
+        </div>
+        <Steps current={1} />
+        <section aria-label="Resume details">
+          <div className="field">
+            <label htmlFor={fileId}>Resume (PDF)</label>
+            <input id={fileId} type="file" accept="application/pdf" aria-describedby={`${fileId}-err`}
+              onChange={(e) => pickFile(e.target.files[0] ?? null)} />
+            <Alert id={`${fileId}-err`}>{errors.file}</Alert>
+          </div>
+          <RoleSearch onPick={(r) => { setRole(r); setErrors((e) => ({ ...e, role: null })) }} />
+          <Alert>{errors.role}</Alert>
+          <div className="field">
+            <label htmlFor={dateId}>Interview date (optional)</label>
+            <input id={dateId} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div className="actions">
+            <button type="button" className="primary" onClick={onContinue} disabled={reading}>Continue<ArrowRight size={18} aria-hidden="true" /></button>
+          </div>
+          <p className="loading" aria-live="polite" style={{ minHeight: '1.5em' }}>{reading && <><Spinner />Reading your resume...</>}</p>
+          <Alert>{errors.parse}</Alert>
+        </section>
       </div>
     </>
   )

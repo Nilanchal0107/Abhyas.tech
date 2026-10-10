@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Resume to Report Data Flow",
+    "output": "dataflow.html",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1070,
+      500
+    ]
+  },
+  "stages": [
+    {
+      "label": "Input"
+    },
+    {
+      "label": "Parse"
+    },
+    {
+      "label": "Store"
+    },
+    {
+      "label": "Practice"
+    },
+    {
+      "label": "Output"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "pdf",
+      "type": "frontend",
+      "label": "Resume PDF",
+      "sublabel": "max 1 MB",
+      "stage": 0,
+      "row": 0,
+      "tag": "browser"
+    },
+    {
+      "id": "parser",
+      "type": "frontend",
+      "label": "Browser Parser",
+      "sublabel": "PDF.js, tidy",
+      "stage": 1,
+      "row": 0,
+      "tag": "first"
+    },
+    {
+      "id": "fallback",
+      "type": "security",
+      "label": "Parse Fallback",
+      "sublabel": "PDFBox + Groq",
+      "stage": 1,
+      "row": 2,
+      "tag": "scrubbed"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "MySQL",
+      "sublabel": "resume, questions",
+      "stage": 2,
+      "row": 1,
+      "tag": "per user"
+    },
+    {
+      "id": "bank",
+      "type": "database",
+      "label": "Practice Bank",
+      "sublabel": "starter questions",
+      "stage": 3,
+      "row": 2,
+      "tag": "seed"
+    },
+    {
+      "id": "session",
+      "type": "backend",
+      "label": "Session Builder",
+      "sublabel": "19 slots",
+      "stage": 3,
+      "row": 1,
+      "tag": "mastery"
+    },
+    {
+      "id": "grader",
+      "type": "messagebus",
+      "label": "Grading Worker",
+      "sublabel": "Java marks + AI",
+      "stage": 3,
+      "row": 0,
+      "tag": "async"
+    },
+    {
+      "id": "report",
+      "type": "backend",
+      "label": "Report",
+      "sublabel": "feedback, polled",
+      "stage": 4,
+      "row": 0,
+      "tag": "Gemma"
+    },
+    {
+      "id": "export",
+      "type": "cloud",
+      "label": "Export JSON",
+      "sublabel": "no phone or email",
+      "stage": 4,
+      "row": 1,
+      "tag": "download"
+    }
+  ],
+  "flows": [
+    {
+      "id": "f1",
+      "from": "pdf",
+      "to": "parser",
+      "label": "parse"
+    },
+    {
+      "id": "f2",
+      "from": "parser",
+      "to": "db",
+      "label": "reviewed JSON",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f3",
+      "from": "fallback",
+      "to": "db",
+      "label": "if incomplete",
+      "variant": "security"
+    },
+    {
+      "id": "f4",
+      "from": "db",
+      "to": "session",
+      "label": "questions",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f5",
+      "from": "bank",
+      "to": "session",
+      "label": "fills gaps",
+      "variant": "dashed",
+      "route": "straight"
+    },
+    {
+      "id": "f6",
+      "from": "session",
+      "to": "grader",
+      "label": "submit",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f7",
+      "from": "grader",
+      "to": "report",
+      "label": "scores"
+    },
+    {
+      "id": "f8",
+      "from": "report",
+      "to": "export",
+      "label": "completed",
+      "variant": "dashed",
+      "labelDy": 40
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Browser first",
+      "items": [
+        "The PDF is parsed in the browser",
+        "The server sees it only on fallback and discards it"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Privacy",
+      "items": [
+        "Phone and email scrubbed before any AI call",
+        "No PDF or audio is stored"
+      ]
+    }
+  ]
+}

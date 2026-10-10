@@ -43,8 +43,11 @@ public class ProblemHandler {
     ResponseEntity<ProblemDetail> other(Exception e, HttpServletRequest req) {
         // not a separate @ExceptionHandler(ErrorResponse): Spring ranks handlers by class depth, so this one would win
         if (e instanceof ErrorResponse er) return spring(er);
-        // class name only: an exception message can carry request content
-        log.error("Unhandled {} on {} {}", e.getClass().getName(), req.getMethod(), req.getRequestURI());
+        // class name and SQL error number only: an exception message can carry request content
+        Throwable c = e;
+        while (c != null && !(c instanceof java.sql.SQLException)) c = c.getCause();
+        String sql = c instanceof java.sql.SQLException se ? " sqlState=" + se.getSQLState() + " errno=" + se.getErrorCode() : "";
+        log.error("Unhandled {} on {} {}{}", e.getClass().getName(), req.getMethod(), req.getRequestURI(), sql);
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, "server-error", "Something went wrong. Please try again.");
     }
 

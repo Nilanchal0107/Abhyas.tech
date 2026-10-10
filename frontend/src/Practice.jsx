@@ -1,12 +1,32 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from './api/client.js'
 import VoiceAnswer from './VoiceAnswer.jsx'
+import Interview from './Interview.jsx'
+import { voiceBody } from './lib/sessions.js'
+import { Alert, Chip, Loading } from './ui.jsx'
+import { ArrowLeft, ArrowRight, Check, Compass, SignOut } from '@phosphor-icons/react'
 
 const PARTS = { multiple_correct: 'Multiple correct', fill_blank: 'Fill in the blank', brief: 'Brief answer', voice: 'Voice answer' }
 const BLANK = '________'
 const filled = (v) => v.some((x) => x.trim() !== '')
 const voiceFilled = (v) => v && (v.mode === 'voice' || v.text.trim() !== '')
 const words = (t) => (t.trim() ? t.trim().split(/\s+/).length : 0)
+
+// "________" in a fill-in-the-blank question becomes a drawn line, read out as "[blank 1]".
+const BlankText = ({ text }) => text.split(BLANK).flatMap((part, i) => (i === 0 ? [part] : [
+  <span key={i} className="blank"><span className="visually-hidden">[blank {i}]</span></span>, part]))
+
+// Question number, kind, and marks at the top of a question card.
+function QTop({ n, type, marks, behavioral }) {
+  return (
+    <span className="qtop">
+      <span className="qnum">Question {n}</span>
+      <Chip>{PARTS[type]}</Chip>
+      {behavioral != null && <Chip kind="neutral">{behavioral ? 'Behavioral' : 'Technical'}</Chip>}
+      <span className="mark">{marks} marks</span>
+    </span>
+  )
+}
 
 // W8 frame and 8a to 8e: one question at a time. An answer is saved when the user moves on, so closing the tab keeps progress.
 // The browser never receives the correct options while the session is in progress.
@@ -31,8 +51,9 @@ export default function Practice({ id, onExit, onSubmitted }) {
     }).catch((e) => setError(e.message))
   }, [id])
 
-  if (error && !session) return <><p role="alert">! Error: {error}</p><button type="button" onClick={onExit}>Back</button></>
-  if (!session) return <p>Loading…</p>
+  if (error && !session) return <><Alert>{error}</Alert><button type="button" onClick={onExit}><ArrowLeft size={18} aria-hidden="true" />Back</button></>
+  if (!session) return <Loading />
+  if (session.mode === 'interview') return <Interview session={session} onExit={onExit} onSubmitted={onSubmitted} />
 
   const total = session.attempts.length
   const a = session.attempts[index]
@@ -58,10 +79,6 @@ export default function Practice({ id, onExit, onSubmitted }) {
     cur[i] = v
     return { ...p, [a.position]: cur }
   })
-
-  const voiceBody = (v) => !v ? null
-    : v.mode === 'voice' ? { text: null, transcript: v.transcript, voiceStats: v.stats, answeredVia: 'voice' }
-    : v.text.trim() ? { text: v.text, answeredVia: 'typed' } : null
 
   // Saves the current answer (or clears it), then runs `then`. Skipping counts as zero.
   async function save(then) {
@@ -101,71 +118,82 @@ export default function Practice({ id, onExit, onSubmitted }) {
 
   return (
     <>
-      <p>Part {parts.indexOf(q.type) + 1} of {parts.length}: {PARTS[q.type]} · Question {index + 1} of {total}</p>
+      <div className="session-head">
+        <p className="part">Part {parts.indexOf(q.type) + 1} of {parts.length}: {PARTS[q.type]} <span>· Question {index + 1} of {total}</span></p>
+        <button type="button" className="small" onClick={() => leaveRef.current?.showModal()}><SignOut size={18} aria-hidden="true" />Leave session</button>
+      </div>
       <div className="row">
         <div role="progressbar" aria-label="Questions answered" aria-valuemin={0} aria-valuemax={total} aria-valuenow={answered}
           aria-valuetext={`${answered} of ${total} answered`} className="progress">
           <div style={{ width: `${(answered / total) * 100}%` }} />
         </div>
-        <span>{answered} of {total} answered</span>
-        <button type="button" onClick={() => leaveRef.current?.showModal()}>Leave session</button>
+        <span className="muted num">{answered} of {total} answered</span>
       </div>
 
       {isVoice ? (
-        <div key={a.position}>
-          <p>Question {index + 1} · {PARTS[q.type]} · {q.isBehavioral ? 'Behavioral' : 'Technical'} · {v?.mode === 'typed' ? 5 : a.maxMarks} marks</p>
-          <p>{q.text}</p>
+        <div className="qcard" key={a.position}>
+          <QTop n={index + 1} type={q.type} behavioral={q.isBehavioral} marks={v?.mode === 'typed' ? 5 : a.maxMarks} />
+          {q.isGapSkill && <p className="hint"><Compass size={18} aria-hidden="true" />Likely to be asked for this role</p>}
+          <p className="qtext-lg">{q.text}</p>
           <VoiceAnswer sessionId={id} position={a.position} value={v} onChange={(x) => setVoice((o) => ({ ...o, [a.position]: x }))} />
         </div>
       ) : brief ? (
-        <div key={a.position}>
-          <p>Question {index + 1} · {PARTS[q.type]} · {q.isBehavioral ? 'Behavioral' : 'Technical'} · {a.maxMarks} marks</p>
-          {q.isBehavioral && <p>Tip: Situation, Task, Action, Result.</p>}
-          <label htmlFor="brief-answer">{q.text}</label>
-          <textarea id="brief-answer" rows={6} maxLength={5000} value={selected[0]} onChange={(e) => type(0, e.target.value)} />
-          <p aria-live="polite">{words(selected[0])} {words(selected[0]) === 1 ? 'word' : 'words'}</p>
+        <div className="qcard" key={a.position}>
+          <QTop n={index + 1} type={q.type} behavioral={q.isBehavioral} marks={a.maxMarks} />
+          {q.isGapSkill && <p className="hint"><Compass size={18} aria-hidden="true" />Likely to be asked for this role</p>}
+          {q.isBehavioral && <p className="hint">Tip: <span className="hl">Situation, Task, Action, Result.</span></p>}
+          <label htmlFor="brief-answer" className="qtext-lg">{q.text}</label>
+          <textarea id="brief-answer" rows={7} maxLength={5000} value={selected[0]} onChange={(e) => type(0, e.target.value)} />
+          <p className="wordcount" aria-live="polite">{words(selected[0])} {words(selected[0]) === 1 ? 'word' : 'words'}</p>
         </div>
       ) : blank ? (
-        <fieldset key={a.position}>
-          <legend>Question {index + 1} · {PARTS[q.type]} · {a.maxMarks} marks</legend>
-          <p>{q.text.split(BLANK).reduce((t, part, i) => (i === 0 ? part : `${t}[blank ${i}]${part}`), '')}</p>
-          {selected.map((v, i) => (
-            <div key={i}>
-              <label>{q.blankCount > 1 ? `Blank ${i + 1}` : 'Your answer'}{' '}
-                <input type="text" value={v} maxLength={200} onChange={(e) => type(i, e.target.value)} />
-              </label>
-            </div>
-          ))}
-        </fieldset>
+        <div className="qcard" key={a.position}>
+          <fieldset>
+            <legend><QTop n={index + 1} type={q.type} marks={a.maxMarks} /></legend>
+            {q.isGapSkill && <p className="hint"><Compass size={18} aria-hidden="true" />Likely to be asked for this role</p>}
+            <p className="qtext-lg"><BlankText text={q.text} /></p>
+            {selected.map((v, i) => (
+              <div key={i} className="blank-field">
+                <label htmlFor={`blank-${i}`}>{q.blankCount > 1 ? `Blank ${i + 1}` : 'Your answer'}</label>
+                <input id={`blank-${i}`} type="text" value={v} maxLength={200} onChange={(e) => type(i, e.target.value)} />
+              </div>
+            ))}
+          </fieldset>
+        </div>
       ) : (
-        <fieldset key={a.position}>
-          <legend>Question {index + 1} · {PARTS[q.type]} · {a.maxMarks} marks</legend>
-          <p>Select every correct answer.</p>
-          <p>{q.text}</p>
-          {q.options.map((o) => (
-            <div key={o.key}>
-              <label>
-                <input type="checkbox" checked={selected.includes(o.key)} onChange={() => toggle(o.key)} /> {o.key}. {o.text}
+        <div className="qcard" key={a.position}>
+          <fieldset>
+            <legend><QTop n={index + 1} type={q.type} marks={a.maxMarks} /></legend>
+            {q.isGapSkill && <p className="hint"><Compass size={18} aria-hidden="true" />Likely to be asked for this role</p>}
+            <p className="hint">Select every correct answer.</p>
+            <p className="qtext-lg">{q.text}</p>
+            {q.options.map((o) => (
+              <label key={o.key} className="choice">
+                <input type="checkbox" checked={selected.includes(o.key)} onChange={() => toggle(o.key)} />
+                <span><span className="key">{o.key}.</span> {o.text}</span>
               </label>
-            </div>
-          ))}
-        </fieldset>
+            ))}
+          </fieldset>
+        </div>
       )}
 
-      <p className="error" role="alert">{error ? `! Error: ${error}` : ''}</p>
+      <Alert>{error}</Alert>
       <div className="actions">
-        <button type="button" disabled={busy || index === 0} onClick={() => save(() => setIndex(index - 1))}>Back</button>
+        <button type="button" disabled={busy || index === 0} onClick={() => save(() => setIndex(index - 1))}><ArrowLeft size={18} aria-hidden="true" />Back</button>
+        <span className="spacer" />
         {last
-          ? <button type="button" className="primary" disabled={busy} onClick={() => save(submit)}>Submit practice session</button>
-          : <button type="button" className="primary" disabled={busy} onClick={() => save(() => setIndex(index + 1))}>Next</button>}
+          ? <button type="button" className="primary" disabled={busy} onClick={() => save(submit)}><Check size={18} weight="bold" aria-hidden="true" />Submit practice session</button>
+          : <button type="button" className="primary" disabled={busy} onClick={() => save(() => setIndex(index + 1))}>Next<ArrowRight size={18} aria-hidden="true" /></button>}
       </div>
 
       {/* a native modal dialog traps focus and gives it back to the Leave button when it closes */}
       <dialog ref={leaveRef} aria-labelledby="leave-title">
         <h2 id="leave-title">Leave this session?</h2>
         <p>Your session will be marked as abandoned. You can start a new one any time.</p>
-        <button type="button" className="danger" onClick={leave}>Leave session</button>{' '}
-        <button type="button" autoFocus onClick={() => leaveRef.current.close()}>Keep practicing</button>
+        <div className="actions">
+          <button type="button" className="danger" onClick={leave}>Leave session</button>
+          <button type="button" autoFocus onClick={() => leaveRef.current.close()}>Keep practicing</button>
+        </div>
       </dialog>
     </>
   )

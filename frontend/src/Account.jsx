@@ -1,17 +1,21 @@
 import { useId, useState } from 'react'
 import { api } from './api/client.js'
+import { Trash, XCircle } from '@phosphor-icons/react'
 
 // W12a: account details and the danger zone. W12b: delete confirmation (own page).
 export default function Account({ user, onDelete }) {
   return (
     <>
-      <h1>Account</h1>
-      <p className="muted">User ID: {user.loginId}</p>
+      <div className="page-head">
+        <span className="eyebrow">You</span>
+        <h1>Account</h1>
+        <p>User ID: {user.loginId}</p>
+      </div>
       <h2>Danger zone</h2>
-      <section className="danger">
+      <section className="danger-zone">
         <h3>Delete my account</h3>
         <p>This permanently deletes all your data.</p>
-        <button type="button" className="danger" onClick={onDelete}>Delete my account ...</button>
+        <button type="button" className="danger" onClick={onDelete}><Trash size={18} aria-hidden="true" />Delete my account ...</button>
       </section>
     </>
   )
@@ -39,7 +43,10 @@ export function ConfirmDelete({ onCancel, onDeleted }) {
 
   return (
     <>
-      <h1>Delete your account</h1>
+      <div className="page-head">
+        <span className="eyebrow">Danger zone</span>
+        <h1>Delete your account</h1>
+      </div>
       <p>This will permanently delete:</p>
       <ul>
         <li>your resumes and resume points</li>
@@ -54,14 +61,16 @@ export function ConfirmDelete({ onCancel, onDeleted }) {
           <input id={`${id}-pw`} type="password" autoComplete="current-password" value={password}
             onChange={(e) => setPassword(e.target.value)}
             aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-err` : undefined} />
-          {error && <p id={`${id}-err`} role="alert" className="error">✗ {error}</p>}
+          {error && <p id={`${id}-err`} role="alert" className="error"><XCircle size={18} weight="fill" aria-hidden="true" />{error}</p>}
         </div>
         <div className="field">
           <label htmlFor={`${id}-word`}>Type DELETE</label>
           <input id={`${id}-word`} value={word} onChange={(e) => setWord(e.target.value)} autoComplete="off" spellCheck={false} />
         </div>
-        <button type="submit" className="danger" disabled={busy || !password || word !== 'DELETE'}>Delete my account</button>{' '}
-        <button type="button" onClick={onCancel}>Cancel</button>
+        <div className="actions">
+          <button type="submit" className="danger" disabled={busy || !password || word !== 'DELETE'}>Delete my account</button>
+          <button type="button" onClick={onCancel}>Cancel</button>
+        </div>
       </form>
     </>
   )

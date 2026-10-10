@@ -163,15 +163,13 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 - Every project bullet, experience bullet and skill becomes one claim.
 
 ### FR-8 Answer key
-- AI drafts true facts for each claim from the resume.
+- For bank questions the key comes with the reviewed bank row. For the user's own projects, **one AI call per resume** writes about 8 open questions about its projects and experience, each with 3 to 6 true key facts stored on the question (ticket 08). It replaces the per-point key-facts drafting.
 - The user **cannot edit** the key.
 - The key is shown **read-only in the feedback** after the user answers.
 - The grader checks answers against it.
-- **Deferred drafting** *(my decisions, v17)*: if AI is unavailable when the resume is saved (FR-6), the resume points are created with no key facts yet (status `pending`).
-  - Java retries the drafting when the user opens the Resume list or starts a practice session, and whenever AI is available again. One resume point at a time, so the free limits are respected.
-  - Questions for a resume point are generated only after its key facts exist. Until then that resume point is covered by practice bank questions for the same skill (FR-20).
-  - The user is told nothing (silent fallback). The only visible effect is that those resume points appear in questions a little later.
-  - A resume point whose drafting keeps failing stays `pending` and is skipped, not retried in a tight loop.
+- **Deferred drafting:** the call runs in the background after the save (FR-6). If AI is unavailable the resume is still saved with no project questions. Java retries when the user opens the Resume list or starts a session, at most once per resume every 10 minutes.
+  - Until they exist, the slots are filled from the practice bank and the generic templates (FR-20). The user is told nothing.
+  - Only projects, experience and skills are sent to the AI, never the profile.
 
 ### FR-9 Question generation
 - All technical questions must be related to topics on the user's resume.
@@ -194,14 +192,15 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 
 ### FR-13 Repetition and weak-spot memory
 - Described in Section 10.
+- For a **bank question**, mastery and the one-month rest follow the **user** across all their resumes (`bank_performance`). A **project question** stays per resume.
 
 ### FR-14 Storage
 - Store **every question and every answer with its response** (answer, transcript, score, feedback).
-- Store the **date and time each question was last asked**, always updated to the latest.
+- Store the **date and time each question was last asked**, always updated to the latest. For a bank question this is kept per user, not per resume (FR-13).
 
 ### FR-15 Voice delivery stats
 - For each voice answer, show speaking pace, filler-word count, word count and duration.
-- **Java counts them** from the Whisper transcript and its timestamps.
+- **Java counts them** from the Whisper transcript and its timestamps. A Web Speech answer has no timestamps: Java counts the words and uses the recording length the browser measured.
 - **Gemma adds a short comment** on the numbers as part of its feedback. *(my reading of "Gemma for feedback")*
 - They are shown next to the feedback and do **not** change the marks. *(my decision)*
 - The numbers are sent to Gemma in the same call that writes the feedback for that answer. *(my decision)*
@@ -245,7 +244,7 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 - Table `bank_question`: type (multiple-correct, fill-blank, brief, voice), difficulty, linked **skill** (from the roles database), text with placeholders, options and correct options (multiple-correct), accepted answers (fill-blank), key facts and keywords (brief/voice).
 - Behavioral questions are linked to a theme (teamwork, conflict, failure, leadership, deadline pressure), not to a skill.
 - **Seed:** a starter bank prepared by Claude in `bank_starter.csv`, **for the software development category only** (about 2 questions per skill, multiple-correct and fill-in-the-blank only). It is not created now; it is built later, when you ask. Other categories start empty and rely on generic placeholder templates and the growth below. The seed is general knowledge and needs review.
-- **Updatable by the AI (confirmed):** whenever an AI (Groq or Gemma) generates questions for a logged-in user, the backend also writes them into `bank_question`, so the bank grows while AI is available.
+- **Bank is reviewed, not AI-fed (changed, ticket 10):** the bank holds only reviewed rows (`source = 'seed'`). AI-written questions are no longer saved into it.
   - *My decisions:* Java validates each question first (4 options, at least one correct, accepted answers present, skill tag set) and skips duplicates (same skill, type and normalised text).
   - Only technical, skill-based questions (multiple-correct, fill-in-the-blank, and brief/voice technical) are saved. Anything built from the user's own resume text (project names, companies, bullets, behavioral questions) is **not** saved as is; at most it is saved as a template with placeholders. The bank is shared by all users, so it must not hold one user's personal details.
   - Each row stores `source` (seed or AI), the provider name and the creation date, so bad rows can be found and removed.
@@ -261,7 +260,7 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 - Brief and voice: Java ticks the checklist items by **keyword match** of the answer against the stored key facts and keywords, and by simple pattern checks (for example "I" versus "we", and Situation/Action/Result cue words for behavioral). The quoted-proof rule still applies, so the matching sentence is shown for each tick.
 - Feedback is a **template** (ticks and crosses, key facts, "what to fix" from the missed items). No Gemma text and no session report text, only the numbers.
 - Voice answers still need transcription. *(Confirmed v15:)*
-  - **Whisper unavailable when the session starts:** the voice part is left out. The session has 16 questions and **50 marks**, the report shows the total out of 50 with a percentage, and History marks the session "voice part skipped" so it is not compared with full sessions.
+  - **Whisper unavailable:** the voice part stays (a session always has 19 questions and 80 marks, ticket 19). The user speaks the answer again through the browser's **Web Speech API** (`SpeechRecognition`, Chrome and Edge); its transcript is sent like a Whisper transcript and graded as a voice answer (10 marks, mastery 8). Chrome sends that audio to the browser vendor's servers; the app stores no audio. The browser gives no word timing, so the stats use the recording length measured in the browser and Java counts the words. No Web Speech or no microphone: the typed answer below.
   - **Microphone denied (or Whisper fails during a voice question):** the user types the answer instead. It is graded like a brief answer (5 marks), with no delivery stats, and the question loses 5 of its 10 marks. Mastery uses the brief mark (4 of 5). The question stays a voice question and is offered again in a later session.
 
 **Marking and tracking**
@@ -274,6 +273,15 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 
 ---
 
+### FR-21 Interview mode *(owner decisions, 5 October 2026, ticket 13)*
+- Home lets the user choose the mode before starting: **Quiz** (the 19-question session above) or **Interview**. The one-unfinished-session rule covers both.
+- An interview has **6 open questions**: 4 technical (the user's project questions first, then the bank or templates) and 2 behavioral from the bank. Each is **spoken or typed**, worth 10 marks (5 when typed, as for a voice answer in the quiz), so 60 marks at most. The user moves forward only.
+- **Timer:** 3 minutes per answer, shown on screen. When it runs out the answer is sent as it stands (a recording in progress finishes first). The limit is enforced in the browser, as is the 3-minute recording limit.
+- **One follow-up per answered question.** Groq writes it from the question, the key facts and what the user said, and must not assume details the resume or the answer does not state. The follow-up is written once and kept, so a reload shows the same one. If Groq is unavailable a generic follow-up is used. A skipped question has no follow-up and scores zero.
+- The follow-up answer is graded **together with** the main answer (one checklist, one mark). Marks, Gemma feedback per answer and the coaching report reuse the quiz grading and the report screen, which also shows the follow-up and the reply.
+- **Mastery:** the questions count toward mastery, exactly like quiz questions (FR-13, same rules, including no mastery from keyword grading).
+- History shows the mode of each session. The export gets `metadata.mode` and each answer's `followUp`.
+
 ## 9. Session structure and grading
 
 ### Session structure (total 80 marks)
@@ -282,11 +290,11 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 |---|---|---|---|
 | Multiple-correct questions (4 options each, all technical) | 5 | 2 | 10 |
 | Fill-in-the-blank questions (all technical, 1 or 2 blanks) | 5 | 2 | 10 |
-| Brief answers (4 technical + 2 behavioral) | 6 | 5 | 30 |
+| Brief answers (3 technical + 2 behavioral from the bank, 1 about the user's projects) | 6 | 5 | 30 |
 | Voice answers (1 technical + 2 behavioral) | 3 | 10 | 30 |
 | **Total** | **19** | | **80** |
 
-If voice transcription is unavailable at the start, the voice part is left out: 16 questions, 50 marks (see FR-20).
+The voice part always stays: with Whisper down the browser's Web Speech API gives the transcript (see FR-20).
 
 ### How each part is graded *(my decision, change anything you like)*
 
@@ -517,11 +525,11 @@ None. All questions are answered. Items marked "my decision" or "my reading" in 
 - Added AI fallback (FR-20): local question bank personalised from resume and role with placeholders, basic keyword grading, template feedback. No external question API.
 - Fallback brief/voice grades do not count toward mastery (my decision).
 - Starter bank limited to software development only, built later on request.
-- Bank is updatable: AI-generated questions for a logged-in user are validated and saved into it, without personal resume details.
+- Bank is a reviewed set; the AI no longer adds to it (ticket 10).
 
 **v14 to v15** (from the UI/UX discussion)
 - Fallback is silent: no notice or label in the app. `graded_by` is stored and exported (FR-20, FR-19).
-- Voice fallback: Whisper down at start leaves out the voice part (16 questions, 50 marks, "voice part skipped" in History). Mic denied means a typed answer graded like a brief answer (5 marks), mastery 4 of 5.
+- Voice fallback *(replaced in ticket 19: Web Speech instead of dropping the voice part)*: Mic denied means a typed answer graded like a brief answer (5 marks), mastery 4 of 5.
 - The user picks the resume at the start of each practice session. No "active resume".
 - Details of screens, states and terms live in `UI-UX.md`.
 
@@ -617,7 +625,7 @@ None. All questions are answered. Items marked "my decision" or "my reading" in 
 - **Keyword-graded label and regrade built** (skill-bank ticket 12): `Attempt.gradedWithoutAi`, `POST /sessions/{id}/attempts/{position}/regrade` (202, `regrade-unavailable`, `ai-unavailable`), and a "Graded without AI" note with a "Regrade with AI" button in the report.
 - **"Add a missing role" removed** with its AI skill draft (`POST /roles`, `POST /roles/draft-skills`, the W5 panel). Roles added earlier stay in the database, private to their user.
 - The reviewed bank starts with the **Full Stack Developer** skills. Drafted in `seed-draft/` (ticket 06), not loaded until reviewed. Extended by the owner to **every skill of the 11 roles** (74 skills): per skill 10 multiple-correct, 10 fill-in-the-blank (3 easy, 4 medium, 3 hard) and 5 technical briefs with 3 key facts each; Communication and Critical Thinking get 5 scenario briefs only. 1,810 skill questions plus 20 behavioral, all drafted. In a session, 2 of the 4 technical brief slots will come from these bank briefs and 2 from AI questions about the user's projects. It replaces the ticket 29 draft for the old 7 roles. No schema change was needed (ticket 05): the existing `difficulty` column holds the level, and `source = 'seed'` marks a reviewed row.
-- Proposed, not decided: a progress view across sessions (weakest skills, "study next").
+- Progress view across sessions (weakest skills, "study next"): approved 5 October 2026, built as ticket 14 (see below).
 
 **Question mix and bank order (5 October 2026, owner decisions)** — `.scratch/skill-bank-redesign/spec.md` D3, D11, D12
 - AI writes only **1 brief and 2 voice questions** per session, about the user's projects. The other 16 of the 19 questions come from the bank: 5 multiple-correct, 5 fill-in-the-blank, 3 technical brief, 2 behavioral brief and 1 behavioral voice. The session stays 19 questions and 80 marks. This replaces the "2 AI briefs + 1 technical voice" line above; sections 8 and 9 are rewritten when the build (tickets 07 to 10) lands.
@@ -626,4 +634,42 @@ None. All questions are answered. Items marked "my decision" or "my reading" in 
 - **Mastery of bank questions follows the user** across resumes; project questions stay per resume (reverses "a new resume starts fresh" for bank questions only; ticket 18).
 - **A session always has 19 questions.** When Whisper is down, voice answers use the browser's **Web Speech API** instead of dropping the voice part (replaces the 16-question, 50-mark rule in FR-20; ticket 19). Chrome sends that audio to its vendor's servers; the app still stores no audio.
 - **Interview mode** (ticket 13) and the **progress view** (ticket 14) are approved. Interview mode's details are still to settle.
+- **Objective and behavioral parts from the bank built** (ticket 07): multiple-correct, fill-in-the-blank and behavioral slots now come from reviewed bank rows (`source = 'seed'`) with no AI call; about 80% from skills on the resume and 20% from the role's gap skills (D4), the latter labelled "Likely to be asked for this role" (`Question.isGapSkill`, api-contracts 2.3, worked out from the bank row's skill, no new column). A skill with no reviewed rows falls back to the generic templates. Technical brief and voice questions still use AI until ticket 08; sections 8 and 9 are rewritten with ticket 17.
+- **Skill aliases and bullet matching built** (ticket 04): the role skills check (FR-16) finds a skill by name or alias (`skill_alias`, `V4`) in the Skills line and in bullets, and shows the bullet as the evidence instead of repeating the skill name. The bank migration drafts shift to `V5` and `V6` when they move to `db/migration/`.
+- **Per-user bank performance built** (ticket 18): new table `bank_performance` (`V5`), keyed by user and bank question. Session start, grading and the practice bank read and write it; a bank question mastered on one resume rests one month on every resume of that user. Project questions are unchanged. Export JSON needed no change (it reads attempts). The bank migration drafts shift to `V6` and `V7` (they were `V5` and `V6`).
 - The requirement sections above are rewritten as each part is built, so they still describe the current app.
+
+**Project questions built (ticket 08, 5 October 2026)**
+- `ProjectQuestionService` replaces `KeyFactService`: one Groq call per resume after the save writes about 8 open questions about its projects and experience, each with 3 to 6 key facts in `question.key_facts` (3 stored as `brief`, 5 as `voice`; `source = 'ai'`, no point, no theme). A reply is kept only for questions with text and at least 3 key facts; nothing is stored when none pass. Retried on the Resume list and at session start, once per resume every 10 minutes (kept in memory, so a restart retries at once).
+- Session start no longer calls AI. Brief and voice slots take stored project questions first, then bank rows, then templates. The exact 1 brief and 2 voice split is ticket 17, so until then up to 3 project questions can fill the technical brief slots.
+- Per-point key-facts drafting and the `app.key-facts.gap-millis` setting are removed. `resume_point.key_facts_*` and `key_fact` are no longer written; ticket 10 dropped them (below).
+- Not run: the MySQL tests (no Docker). `KeyFactDbTest` was deleted with its class and has no DB replacement yet.
+
+**Old generation removed (ticket 10, 5 October 2026)**
+- Deleted `SessionService.generate` with its validators, `PracticeBank.learn` (AI rows into the shared bank) with its personal-text check, the `QuestionService` stub and `KeyFacts`. Grading now reads only the question's own `key_facts`.
+- New migration `V6__drop_key_fact.sql` drops `key_fact` and `resume_point.key_facts_*`. The bank drafts become `V7` and `V8` when moved. Export JSON is unchanged (it reads attempts).
+- Not run: the MySQL tests and `V6` itself (no Docker). Unit tests pass.
+
+**Session mix built (ticket 17, 5 October 2026)**
+- A session is 5 multiple-correct and 5 fill-in-the-blank (bank), a brief part of 3 technical bank + 2 behavioral + 1 project question, and a voice part of 1 behavioral + 2 project questions: 19 questions, 80 marks. Project questions are the stored AI ones (`source = 'ai'`, no theme) and rest one month once mastered like any other. If a resume has too few of them, the bank's technical questions top the part up so it keeps its size. Voice unavailable no longer shrinks it (ticket 19). Docs updated: section 9 table, `trd.md` 7.2 and Step 3 check.
+
+**Always 19 questions built (ticket 19, 5 October 2026)**
+- Session start fills every slot: unmastered or weak first, then new or rested bank questions of the resume's skills, the role's gap skills, **any other skill in the bank**, the generic templates, and last, resting questions of the right kind that are not yet in the session. Nothing repeats in a session. No AI call is needed: with AI down the project slots come from stored project questions or the technical bank (the 1 brief and 2 voice project slots are topped up from technical questions when none exist).
+- Whisper down: `voice_skipped` is always `false` for new sessions (the column and "voice part skipped" stay for old sessions). `VoiceAnswer.jsx` tries Whisper first; when transcription fails it asks the user to speak again through Web Speech and keeps doing so for the rest of the session. `PUT attempts` accepts `voiceStats` with only `durationSeconds` and Java fills the rest.
+- "Other skills of the same role" (fill step 4) is built as any bank skill, as the role's own skills are already step 3. Say so if you meant something narrower.
+- Not run: the MySQL tests (no Docker); the new `SessionDbTest` test and the browser check are still to do.
+
+**Interview mode built (ticket 13, 5 October 2026, owner decisions)**
+- New FR-21. 6 spoken or typed questions (4 technical, 2 behavioral), one AI follow-up each, 3 minutes per answer, 10 marks per question (5 typed), counts toward mastery. Settles the open points of the "Interview mode" entry above.
+- `practice_session.mode` and `attempt.follow_up_text` / `follow_up_answer` (`V7`). `POST /sessions` takes `mode`; `POST` and `PUT /sessions/{id}/attempts/{position}/follow-up` are new (api-contracts 6). Grading adds the follow-up answer to the evidence; the follow-up question is not evidence.
+- The 3-minute timer is enforced by the browser only; the server accepts an answer at any time while the session is open.
+- Not run: the MySQL tests (no Docker), so the `V7` migration and the new SQL have only been exercised by the manual check.
+
+**Progress view built (ticket 14, 5 October 2026)**
+- `GET /resumes/{id}/progress` (api-contracts 5) and a **Progress** page linked from the Resumes list: skills of bank questions weakest first with marks per completed session, and a "Study next" list (3 lowest skills under 100% plus up to 3 role gap skills). Scoped to the signed-in user; no AI, no schema change. Project questions have no skill and are not counted.
+
+**UI redesign "Red pen on paper" (10 October 2026, owner decisions)**
+- New visual identity: warm paper background, ink-black text and primary buttons, one red-pen accent for marks and highlights, Fraunces (serif) headings with Geist body, flat 8 px corners and hard offset shadows. No gradients anywhere (including the landing page hero, which had one in the docs). All glyph icons (tick, cross, dot, arrows) are now Phosphor SVG icons.
+- **Dark mode is now in scope** and follows the system setting (`prefers-color-scheme`); there is no manual toggle. This reverses the v1 "no dark mode" decision. The landing page now uses the same tokens as the app (it was documented as dark).
+- Layout polish inside the existing wireframes: step indicator on Upload, Review and Role skills check, choice cards for modes and answers, circled marks on scores, status chips in History and the report. No route, API call or copy changed. New dependency: `@fontsource-variable/fraunces`.
+- Not run: no browser check yet (the Chrome extension was not connected), so the new screens have only been compiled (`vite build`), not looked at.

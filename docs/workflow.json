@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": { "title": "Practice Session Workflow", "output": "workflow.html", "quality_profile": "showcase" },
+  "lanes": [{ "id": "user", "label": "User" }, { "id": "backend", "label": "Backend" }, { "id": "ai", "label": "Fallback", "variant": "exception" }],
+  "phases": [
+    { "id": "p1", "label": "Start", "fromCol": 0, "toCol": 1 },
+    { "id": "p2", "label": "Answer", "fromCol": 2, "toCol": 3 },
+    { "id": "p3", "label": "Grade", "fromCol": 4, "toCol": 5 }
+  ],
+  "mainPath": ["start", "build", "answer", "submit", "grade", "report"],
+  "nodes": [
+    { "id": "start", "lane": "user", "col": 0, "type": "frontend", "label": "Start session", "sublabel": "pick resume", "width": 132 },
+    { "id": "build", "lane": "backend", "col": 1, "type": "backend", "label": "Build 19 slots", "sublabel": "unmastered first", "width": 132 },
+    { "id": "answer", "lane": "user", "col": 2, "type": "frontend", "label": "Answer", "sublabel": "type, pick, speak", "width": 132 },
+    { "id": "submit", "lane": "backend", "col": 3, "type": "backend", "label": "Submit", "sublabel": "returns at once", "width": 132 },
+    { "id": "grade", "lane": "backend", "col": 4, "type": "messagebus", "label": "Grade", "sublabel": "Java then AI", "width": 132 },
+    { "id": "fallback", "lane": "ai", "col": 4, "type": "security", "label": "Fallback", "sublabel": "keywords, templates", "width": 132 },
+    { "id": "report", "lane": "user", "col": 5, "type": "frontend", "label": "Report", "sublabel": "polls until ready", "width": 132 }
+  ],
+  "edges": [
+    { "id": "e1", "from": "start", "to": "build", "variant": "emphasis" },
+    { "id": "e2", "from": "build", "to": "answer", "label": "first question" },
+    { "id": "e3", "from": "answer", "to": "submit" },
+    { "id": "e4", "from": "submit", "to": "grade", "variant": "emphasis" },
+    { "id": "e5", "from": "grade", "to": "report", "variant": "emphasis" },
+    { "id": "e6", "from": "grade", "to": "fallback", "label": "AI down", "variant": "security", "role": "error" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Slots", "items": ["Always 19 slots; gaps filled from bank and templates"] },
+    { "dot": "rose", "title": "Fallback", "items": ["AI errors never block the report"] }
+  ]
+}

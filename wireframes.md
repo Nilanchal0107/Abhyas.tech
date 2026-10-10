@@ -339,7 +339,25 @@ Purpose: answer 19 questions in four parts. No top bar. Narrower column (about 7
 - Flow: Record, then automatic transcription ("Transcribing..."), then the transcript with Re-record and Submit (UI-UX 7.3).
 - A visible recording indicator (red dot plus the word "Recording" and a timer) is announced to screen readers.
 - Typed fallback: graded like a brief answer (5 marks), no delivery stats, and the question loses 5 of its 10 marks (FR-20).
-- If Whisper is unavailable at the start of the session the whole voice part is left out (16 questions, 50 marks, see 8f).
+- If Whisper is unavailable the voice part stays: after a failed transcription the user speaks again through the browser's speech recognition, or types (see UI-UX 7.3). Sessions made before ticket 19 can still be "voice part skipped" (8f).
+
+### 8i. Interview question (FR-21)
+
+```
+  Interview · Question 2 of 6 · Technical          [ Leave interview ]
+  [=====----------]  1 of 6 done
+  Time left: 02:41
+
+  Why did you choose Kafka for the order events?
+
+  Follow-up: What happens to an order event if a consumer is down?   (second step only)
+
+  [ ● Start recording ]  or  [ Type your answer instead ]
+
+  [ Next: follow-up ]        (second step: [ Next question ] / [ Finish interview ])
+```
+
+- Forward only, no Back. Empty main answer: the button reads "Skip question".
 
 ### 8f. Leave session and start-up variants
 

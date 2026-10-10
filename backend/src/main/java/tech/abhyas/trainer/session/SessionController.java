@@ -16,19 +16,19 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import tech.abhyas.trainer.auth.AuthInterceptor;
 import tech.abhyas.trainer.common.ApiException;
-import tech.abhyas.trainer.resume.KeyFactService;
+import tech.abhyas.trainer.resume.ProjectQuestionService;
 import tools.jackson.databind.JsonNode;
 
 @RestController
 @RequestMapping("/api/sessions")
 public class SessionController {
     private final SessionService sessions;
-    private final KeyFactService keyFacts;
+    private final ProjectQuestionService projectQuestions;
     private final ExportService exports;
 
-    public SessionController(SessionService sessions, KeyFactService keyFacts, ExportService exports) { this.sessions = sessions; this.keyFacts = keyFacts; this.exports = exports; }
+    public SessionController(SessionService sessions, ProjectQuestionService projectQuestions, ExportService exports) { this.sessions = sessions; this.projectQuestions = projectQuestions; this.exports = exports; }
 
-    record Start(Long resumeId) {}
+    record Start(Long resumeId, String mode) {}
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -37,8 +37,8 @@ public class SessionController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "validation", "Some fields need attention.",
                     Map.of("errors", java.util.List.of(Map.of("field", "resumeId", "message", "Choose a resume to practice with."))));
         }
-        keyFacts.retryInBackground(userId); // pending key facts are retried when a session starts (FR-8)
-        return Map.of("session", sessions.start(userId, b.resumeId()));
+        projectQuestions.retryInBackground(userId); // resumes still without project questions are retried when a session starts (FR-8)
+        return Map.of("session", sessions.start(userId, b.resumeId(), b.mode() == null ? "quiz" : b.mode()));
     }
 
     @GetMapping
@@ -56,6 +56,17 @@ public class SessionController {
         return Map.of("attempt", sessions.saveAnswer(userId, id, position, body));
     }
 
+    /** Interview mode: the AI follow-up to an answered question (written once, then kept), and the answer to it. */
+    @PostMapping("/{id}/attempts/{position}/follow-up")
+    Map<String, Object> followUp(@RequestAttribute(AuthInterceptor.USER_ID) long userId, @PathVariable long id, @PathVariable int position) {
+        return Map.of("attempt", sessions.followUp(userId, id, position));
+    }
+
+    @PutMapping("/{id}/attempts/{position}/follow-up")
+    Map<String, Object> followUpAnswer(@RequestAttribute(AuthInterceptor.USER_ID) long userId, @PathVariable long id, @PathVariable int position, @RequestBody JsonNode body) {
+        return Map.of("attempt", sessions.saveFollowUpAnswer(userId, id, position, body));
+    }
+
     @PostMapping("/{id}/attempts/{position}/transcribe")
     Map<String, Object> transcribe(@RequestAttribute(AuthInterceptor.USER_ID) long userId, @PathVariable long id, @PathVariable int position,
                                    @RequestParam("audio") MultipartFile audio) throws java.io.IOException {
@@ -67,6 +78,13 @@ public class SessionController {
     ResponseEntity<Map<String, Object>> submit(@RequestAttribute(AuthInterceptor.USER_ID) long userId, @PathVariable long id) {
         SessionService.Submitted r = sessions.submit(userId, id);
         return ResponseEntity.status(r.started() ? HttpStatus.ACCEPTED : HttpStatus.OK).body(Map.of("session", r.session()));
+    }
+
+    /** 202: the answer is back with the grading worker; poll the session as after submit (api-contracts 6). */
+    @PostMapping("/{id}/attempts/{position}/regrade")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    Map<String, Object> regrade(@RequestAttribute(AuthInterceptor.USER_ID) long userId, @PathVariable long id, @PathVariable int position) {
+        return Map.of("session", sessions.regrade(userId, id, position));
     }
 
     @PostMapping("/{id}/abandon")
