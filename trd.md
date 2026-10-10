@@ -55,7 +55,7 @@ This document says **how** the app is built. It does not repeat the requirements
 | Styling | Plain CSS with the tokens in `UI-UX.md` Section 4 | no UI library, no Tailwind |
 | Backend tests | JUnit 5, Testcontainers (MySQL 8) | |
 | Frontend tests | Vitest | |
-| AI providers | Groq (chat and Whisper), Google AI Studio (Gemma) | check each provider's current model IDs and limits when coding (PRD Section 11) |
+| AI providers | Groq (chat and Whisper) | check each provider's current model IDs and limits when coding (PRD Section 11) |
 
 ## 3. Architecture
 
@@ -65,7 +65,7 @@ This document says **how** the app is built. It does not repeat the requirements
  | Screens W0 to W12             | --------------> | Controllers (per feature)        |
  | OpenResume parser (PDF.js)    |   cookie auth   | Services                         |
  | MediaRecorder (voice)         | <-------------- | Repositories (JPA)               |
- | TanStack Query (cache, poll)  |                 | AiClient + AiGate  ----> Groq chat, Groq Whisper, Gemma
+ | TanStack Query (cache, poll)  |                 | AiClient + AiGate  ----> Groq chat, Groq Whisper
  +-------------------------------+                 | Async executor (grading)         |
         Vite dev server :5173                      +----------------+-----------------+
         proxies /api to :8080                                       |
@@ -87,7 +87,7 @@ This document says **how** the app is built. It does not repeat the requirements
   backend/
     pom.xml
     src/main/java/.../
-      auth/  role/  resume/  question/  session/  grading/  story/  export/  ai/  common/
+      auth/  role/  resume/  question/  session/  grading/  export/  ai/  common/
     src/main/resources/
       application.yml
       db/migration/        V1__schema.sql, V2__starter_roles.sql
@@ -113,7 +113,7 @@ This document says **how** the app is built. It does not repeat the requirements
    GRANT ALL PRIVILEGES ON resume_trainer.* TO 'trainer'@'localhost';
    ```
    If the `mysql` command is not on your PATH, use MySQL Shell (`\connect root@localhost`, then `\sql`) to run these statements.
-3. Set environment variables (names in `.env.example`): `DB_URL` (with `serverTimezone=UTC`), `DB_USER`, `DB_PASSWORD`, `JWT_SECRET` (at least 32 random bytes), `GROQ_API_KEY`, `GOOGLE_AI_KEY`. Alternatively put them in the gitignored `backend/src/main/resources/application-local.yml`.
+3. Set environment variables (names in `.env.example`): `DB_URL` (with `serverTimezone=UTC`), `DB_USER`, `DB_PASSWORD`, `JWT_SECRET` (at least 32 random bytes), `GROQ_API_KEY`. Alternatively put them in the gitignored `backend/src/main/resources/application-local.yml`.
 4. Backend: `cd backend`, then `mvn spring-boot:run`. Flyway creates the tables on first start.
 5. Frontend: `cd frontend`, `npm install`, `npm run dev`. Open `http://localhost:5173`.
 6. The connection time zone must be UTC (the schema uses `UTC_TIMESTAMP(3)`): `serverTimezone=UTC` in the URL and `spring.jpa.properties.hibernate.jdbc.time_zone=UTC`.
@@ -129,7 +129,6 @@ This document says **how** the app is built. It does not repeat the requirements
 | `question` | question and bank access, question generation, session slot selection | FR-9, 13, 14, 20 |
 | `session` | session lifecycle, attempts, answering, voice transcription endpoint, report data | FR-10 to 15 |
 | `grading` | marking rules, fill-in-the-blank matching, checklist handling, mastery updates | Section 9, 10 |
-| `story` | story CRUD, tags, links | FR-17 |
 | `export` | build the export JSON, remove phone and email | FR-19 |
 | `ai` | `AiClient`, `AiGate`, prompts, provider adapters, JSON validation, PII scrubber | FR-5, FR-20 |
 | `common` | Problem Details handler, security config, current-user helper, time and hash helpers | |
@@ -137,7 +136,6 @@ This document says **how** the app is built. It does not repeat the requirements
 ### 6.2 Persistence rules
 - Entities mirror `database-schema.md` exactly. `ddl-auto=validate`, so the app will not start if an entity and the migrations disagree.
 - `role.owner_key` and `practice_session.open_user_id` are generated columns: mapped `insertable = false, updatable = false`.
-- `story.updated_at` is set by the service on every edit.
 - Every repository method that reads user data takes the user ID (directly or through `resume.user_id`). A helper `requireOwnedResume(userId, id)` and `requireOwnedSession(userId, id)` throws "not found" for someone else's data. Controllers never load a resume or session by ID alone.
 
 ### 6.3 Security configuration
@@ -163,9 +161,7 @@ This document says **how** the app is built. It does not repeat the requirements
 | `DB_URL`, `DB_USER`, `DB_PASSWORD` | MySQL connection |
 | `JWT_SECRET` | signs the session token |
 | `GROQ_API_KEY` | Groq chat and Whisper |
-| `GOOGLE_AI_KEY` | Gemma on Google AI Studio |
 | `app.ai.timeout-seconds` | default 20 *(Q6)*. Whisper uses 40 *(my decision, audio upload is slower)* |
-| `app.ai.gemma-spacing-seconds` | default 7 *(Q20)* |
 | `app.ai.models.*` | model IDs for each use. Check current IDs before coding |
 | `app.upload.max-bytes` | default 1,048,576 (1 MB, Q13) |
 | `app.voice.max-seconds` | default 180 (Q8) |
@@ -177,8 +173,8 @@ This document says **how** the app is built. It does not repeat the requirements
 1. **Browser parse.** The copied OpenResume parser reads the chosen PDF in the browser. The file must be a PDF (header `%PDF`) and at most 1 MB, checked in the browser first and again on the server.
 2. **Tidy, then looks incomplete?** The app first tidies the browser result: skill lines such as "Languages: Java, C" are split into single skills, link URLs are read from the PDF's link annotations, a duplicated degree/date is split, a project title swapped with its technology line is put back, and technology lines are not kept as resume points. The fallback then runs if the result has no name, or has neither experience nor projects, or yields fewer than 3 resume points in total (Q13), **or is low quality**: an education entry without a school, or a project without a name.
 3. **Fallback.** `POST /api/resumes/parse-fallback` sends the PDF. The backend extracts text and hidden links with PDFBox, removes phone and email, and asks Groq (temperature 0) for the same JSON structure, with `null` for anything missing. The file is discarded after the request. If AI is unavailable the Review form keeps the browser parse, with an inline message asking the user to check and fix it (`UI-UX.md` 7.1). It was an empty form until 4 October 2026, which made the app unusable without AI.
-4. **Review form.** The user edits and saves. `POST /api/resumes` sends the parsed JSON, the target role ID and the optional interview date.
-5. **Save.** In one transaction: insert `resume`, then `resume_point` rows (one per project bullet, experience bullet and skill, in order). Skills are matched to `skill` by case-insensitive name; `skill_id` stays empty when there is no match, and **no skill is ever created from a resume** (Q14). The resume is now **read-only** except `interview_date`.
+4. **Review form.** The user edits and saves. `POST /api/resumes` sends the parsed JSON, the target role ID.
+5. **Save.** In one transaction: insert `resume`, then `resume_point` rows (one per project bullet, experience bullet and skill, in order). Skills are matched to `skill` by case-insensitive name; `skill_id` stays empty when there is no match, and **no skill is ever created from a resume** (Q14). The resume is now **read-only**.
 6. **Project questions.** After saving, the backend makes one Groq call that writes about 8 open questions about the resume's projects and experience, each with 3 to 6 key facts stored on the question (`question.key_facts`, `source = 'ai'`, no `resume_point_id`; 3 become `brief` and 5 `voice`). Only projects, experience and skills are sent, not the profile (FR-8, FR-9). A failure stores nothing and the bank and templates fill the slots. Resumes still without them are retried when the user opens the Resume list or starts a session, at most one try per resume every 10 minutes (kept in memory) *(my decision)*.
 7. **Role skills check.** `GET /api/resumes/{id}/role-skills-check` looks for each skill of the target role (its name and its `skill_alias` aliases, as whole words ignoring case, `SkillMatcher`) in every resume point, the Skills line and the project and experience bullets, stores the JSON in `gap_result` and returns it.
 
@@ -196,6 +192,7 @@ This document says **how** the app is built. It does not repeat the requirements
 ### 7.3 Answering (FR-10, FR-15)
 - `PUT /api/sessions/{id}/attempts/{position}` saves one answer when the user presses Next: selected options, blank answers, or text. The session must be `in_progress`.
 - **Voice:** the browser records WebM/Opus up to 180 seconds and stops automatically. `POST .../transcribe` uploads it (multipart, at most 5 MB). The backend sends it to Groq Whisper (the file is held in memory or a temp file and deleted right after), counts words, duration, words per minute and filler words from the transcript and timestamps, and returns the transcript and stats. **Nothing is saved yet.** When the user presses Submit on the transcript, the normal `PUT` saves the transcript and stats.
+- **Live words:** while recording, `SpeechRecognition` (interim results) runs next to `MediaRecorder` and only shows a preview; Whisper's transcript replaces it on stop. Without `SpeechRecognition` nothing live is shown. **Spoken interviewer:** `speechSynthesis` reads interview questions aloud.
 - If Whisper fails or the microphone is denied, the user types the answer. The attempt is saved with `answered_via = 'typed'` and `max_marks = 5` (FR-20).
 - `POST .../abandon` marks the session `abandoned`. `POST .../submit` marks every unanswered slot as unanswered (score 0) and starts grading.
 
@@ -211,21 +208,21 @@ This document says **how** the app is built. It does not repeat the requirements
    If Groq is unavailable or its JSON is invalid after one retry, `KeywordGrader` ticks items by keyword match against the key facts and keywords, with the matching sentence as the quote, and `graded_by = 'fallback'`.
 5. **Mastery update** on each graded attempt (the rule in `database-schema.md` 3.13): multiple-correct and fill-in-the-blank always count, brief and voice count only when `graded_by = 'ai'`. A counting attempt sets `question.last_score` and `mastered` (2 of 2, 2 of 2, 4 of 5, 8 of 10, and 4 of 5 for a typed voice answer).
 6. Set `total_marks` (sum of `score`, with unanswered as 0).
-7. **Gemma writes feedback**, one brief or voice answer at a time, with a fixed 7-second gap between calls. The prompt carries the question, the answer, the checklist result, the key facts and (for voice) the stats numbers. A 429 reply honors `Retry-After` once, then that answer gets `TemplateFeedback`. Each attempt moves `feedback_status` from `pending` to `ready` (or `none` for template text that needs no AI).
-8. **Session report:** one Gemma call for the report text. `report_status` becomes `ready` (or `none` for a numbers-only report).
+7. **Feedback comes with the checklist.** The same Groq reply that ticks a brief or voice answer carries `text`, `whatToFix` and (for voice) `deliveryComment`; the prompt also holds the stats numbers. The attempt goes from `pending` to `ready`. An answer with no usable text, or one graded by keywords, gets `TemplateFeedback` and `none`.
+8. **Session report:** one Groq call for the report text. `report_status` becomes `ready` (or `none` for a numbers-only report).
 
 The report page polls `GET /api/sessions/{id}` every 2 to 3 seconds while `report_status` or any `feedback_status` is `pending`, so rows fill in gradually (`wireframes.md` W9). **Recovery:** on startup, any completed session with a `pending` status is resumed from where it stopped.
 
 ### 7.5 AI gate and fallback (FR-20, Q6, Q11)
 - `AiClient` is the only code that calls a provider. For every call it: removes phone numbers and emails from outgoing text, sets temperature 0, asks for JSON only, applies the timeout, parses and validates the reply (Q7), and retries once on a 5xx, a timeout or invalid JSON.
-- `AiGate` keeps in-memory state per provider (`groq-chat`, `groq-whisper`, `gemma`). When a provider returns HTTP 429 or a daily-limit error it is marked unavailable: for the reply's `Retry-After` seconds for a per-minute limit (**15 minutes** when there is no `Retry-After`), **until the next UTC midnight** for a daily limit. While unavailable the gate answers "unavailable" at once, with no call and no wait. State resets on restart.
+- `AiGate` keeps in-memory state per provider (`groq-chat`, `groq-whisper`). When a provider returns HTTP 429 or a daily-limit error it is marked unavailable: for the reply's `Retry-After` seconds for a per-minute limit (**15 minutes** when there is no `Retry-After`), **until the next UTC midnight** for a daily limit. While unavailable the gate answers "unavailable" at once, with no call and no wait. State resets on restart.
 - The three services pick an implementation per call:
 
 | Interface | AI implementation | Fallback implementation |
 |---|---|---|
 | `QuestionService` (project questions with key facts) | Groq | `PracticeBank` (bank, then generic templates). No fallback for the project questions themselves: they are missing until a retry works |
 | `GraderService` (checklists, blank re-check) | Groq | `KeywordGrader` (blank re-check has none: blanks stay wrong) |
-| `FeedbackService` (feedback, report) | Gemma | `TemplateFeedback` (ticks, key facts, "what to fix" from missed items, numbers only) |
+| Feedback and report text | Groq | `TemplateFeedback` (ticks, key facts, "what to fix" from missed items, numbers only) |
 
 - The switch has no banner. `attempt.graded_by` records `ai` or `fallback`; a `fallback` answer is labelled in the report and can be regraded (`POST /sessions/{id}/attempts/{position}/regrade` resets it to pending and requeues the grading worker). A hard failure with no fallback (voice with no Whisper) shows the inline error (Problem Details 503).
 
@@ -246,10 +243,9 @@ All under `/api`, JSON, cookie auth except signup and login. Errors are Problem 
 | `DELETE /me` | delete account | body: password |
 | `GET /roles?q=` | search roles | names and aliases, starter plus own roles |
 | `POST /resumes/parse-fallback` | parse a PDF with PDFBox and Groq | multipart, 1 MB, returns parsed JSON |
-| `POST /resumes` | save reviewed resume | parsed JSON, role ID, optional interview date |
+| `POST /resumes` | save reviewed resume | parsed JSON, role ID |
 | `GET /resumes` | list with mastered counts | retries project questions for resumes that have none |
 | `GET /resumes/{id}` | one resume (read-only) | |
-| `PATCH /resumes/{id}` | change interview date | the only editable field |
 | `DELETE /resumes/{id}` | delete resume and its data | cascade |
 | `GET /resumes/{id}/role-skills-check` | role skills check | stores `gap_result` |
 | `POST /sessions` | start a session | body: resume ID and `mode` (`quiz` or `interview`). 409 if one is unfinished |
@@ -261,7 +257,6 @@ All under `/api`, JSON, cookie auth except signup and login. Errors are Problem 
 | `POST /sessions/{id}/submit` | finish and grade | returns at once |
 | `POST /sessions/{id}/abandon` | leave the session | |
 | `GET /sessions/{id}/export` | export JSON | completed only |
-| `GET/POST /stories`, `GET/PUT/DELETE /stories/{id}` | story bank | tags and resume point links in the body |
 
 ## 9. Frontend design
 
@@ -281,7 +276,6 @@ All under `/api`, JSON, cookie auth except signup and login. Errors are Problem 
 - The PDF and the audio are never stored.
 - Hashed passwords, HttpOnly cookie, Strict same-site, login throttle.
 - Logs hold no personal content (6.5).
-- Google AI Studio's free-tier data handling must be checked before sending real resumes (PRD risk).
 
 ## 11. Licensing
 
@@ -363,15 +357,8 @@ Order as in PRD Section 6. After each step **I remind you to run its manual chec
   8. Hand-grade about 20 answers yourself and compare them with the AI marks (PRD Section 15).
 - **Done when:** the report matches your own marking and weak questions return.
 
-### Step 5: Story bank (FR-17)
-- **Build:** stories, tags, links, the Story bank screens (W11), "Save as story" from a behavioral answer.
-- **Automated:** the cascade test for stories and links, the tag filter query.
-- **Manual checks:**
-  1. Save a behavioral answer as a story: the form opens with the answer in the Action box.
-  2. Create, edit and delete a story. Filter by a tag.
-  3. Link a story to resume points, then delete the resume: the links are gone and the story stays.
-  4. A second user cannot see or open your story.
-- **Done when:** stories can be saved from answers and reused.
+### Step 5: Story bank (removed 10 October 2026)
+No longer built. The steps keep their numbers.
 
 ### Step 6: Export JSON (FR-19)
 - **Build:** the export builder, the History actions (W10).
@@ -390,10 +377,10 @@ Order as in PRD Section 6. After each step **I remind you to run its manual chec
 |---|---|
 | `V1__schema.sql` is not yet run against a real MySQL | Step 1 starts by running it on MySQL 8.0.16+ and fixing any error |
 | Spring Boot version and AI model IDs | Pin the current stable Spring Boot and check each provider's current model IDs and free limits at project start (PRD Section 11 says they change often) |
-| Gemma pacing may need tuning | 7 seconds is an estimate. Measure real token use per call |
+| Checklist prompts now also ask for feedback | Each answer uses more Groq tokens. Measure real token use per call |
 | In-memory throttle and AI gate reset on restart | Accepted for a laptop-only app |
 | AGPL | Applies as long as the parser code is in the app (Section 11). Not legal advice |
-| `bank_starter.csv` | Drafted in `backend/src/main/resources/db/seed-draft/` (all 74 skills of the 11 roles plus behavioral, data in `bank_*.py`; review sheet `review.md`), needs your review before `V4__starter_bank.sql` is moved to `db/migration/`. Until then fallback questions come from AI-saved bank rows and the generic templates |
+| `bank_starter.csv` | Drafted in `backend/src/main/resources/db/seed-draft/` (the 30 skills of the 4 roles plus behavioral, data in `bank_*.py`; review sheet `review.md`), needs your review before `V4__starter_bank.sql` is moved to `db/migration/`. Until then fallback questions come from AI-saved bank rows and the generic templates |
 | `roles_starter.csv` | The exact content is in `database-schema.md` Section 12. Needs your review |
 
 ## 15. Change log
@@ -403,3 +390,4 @@ Order as in PRD Section 6. After each step **I remind you to run its manual chec
 **v1.1** (3 October 2026): added `api-contracts.md`. Signup now logs the user in, password limit 72, voice upload limit 5 MB, error codes defined, and a session in progress hides correct answers and key facts.
 
 - 5 October 2026 (ticket 13): interview mode (FR-21). `SessionService.start` takes a mode and uses the `INTERVIEW` part list (one `voice` part: 4 technical, 2 behavioral) in place of the quiz parts; slot filling is unchanged. The follow-up is one Groq call (`SessionService.followUp`), and `GradingService` appends the follow-up answer to the main answer before the checklist and Gemma feedback. The 3-minute timer is in the browser.
+- 10 October 2026 (sde-focus 05 to 11): live words and the spoken interviewer are browser-only. `V12` adds `format` and `track`; the interview part list is `3 project, 1 design, 2 behavioral`; design questions are inserted per resume by `PracticeBank.fillDesign`, and bank fill honors `TRACKS` (see `prd.md` FR-21a and FR-22).

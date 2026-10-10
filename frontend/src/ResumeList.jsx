@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { api, startSession } from './api/client.js'
 import { Alert, Loading, Spinner } from './ui.jsx'
@@ -6,34 +6,19 @@ import { ArrowLeft, Calendar, ChartLineUp, CheckCircle, FileText, FolderOpen, Pl
 
 const day = (iso) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 
-// W3 open: the saved resume read-only, except its interview date (PATCH accepts only that).
-export function Open({ id, pointId, onBack, onChanged }) {
+// W3 open: the saved resume, read-only.
+export function Open({ id, pointId, onBack }) {
   const [resume, setResume] = useState(null)
-  const [date, setDate] = useState('')
-  const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
-  const dateId = useId()
 
   useEffect(() => {
-    api(`/resumes/${id}`).then(({ resume: r }) => { setResume(r); setDate(r.interviewDate ?? '') }).catch((e) => setError(e.message))
+    api(`/resumes/${id}`).then(({ resume: r }) => { setResume(r) }).catch((e) => setError(e.message))
   }, [id])
 
   // coming from the role skills check: bring the chosen resume point into view
   useEffect(() => {
     if (resume && pointId) document.getElementById(`point-${pointId}`)?.scrollIntoView({ block: 'center' })
   }, [resume, pointId])
-
-  async function saveDate() {
-    setMsg(''); setError('')
-    try {
-      const { resume: r } = await api(`/resumes/${id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ interviewDate: date || null }),
-      })
-      setResume((old) => ({ ...old, ...r }))
-      setMsg('Interview date saved.')
-      onChanged()
-    } catch (e) { setError(e.errors?.[0]?.message ?? e.message) }
-  }
 
   if (error && !resume) return <><button type="button" onClick={onBack}><ArrowLeft size={18} aria-hidden="true" />Back to resumes</button><Alert>{error}</Alert></>
   if (!resume) return <Loading />
@@ -45,19 +30,8 @@ export function Open({ id, pointId, onBack, onChanged }) {
       <div className="page-head" style={{ marginTop: 8 }}>
         <span className="eyebrow">Resume</span>
         <h1>{resume.fileName}</h1>
-        <p>Target role: {resume.targetRole.name} · Saved resumes are read-only, except the interview date.</p>
+        <p>Target role: {resume.targetRole.name} · Saved resumes are read-only.</p>
       </div>
-      <section aria-label="Interview date">
-        <div className="field" style={{ marginBottom: 0 }}>
-          <label htmlFor={dateId}>Interview date (optional)</label>
-          <div className="add-row">
-            <input id={dateId} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            <button type="button" onClick={saveDate}>Save date</button>
-          </div>
-        </div>
-        <p aria-live="polite" className="muted" style={{ margin: '8px 0 0' }}>{msg}</p>
-        <Alert>{error}</Alert>
-      </section>
       <h2>{resume.parsed.profile?.name ?? 'Your resume'}</h2>
       <h3 style={{ marginTop: 0 }}>Resume points ({resume.points.length})</h3>
       {resume.points.length === 0 ? <p>Nothing found.</p> : (

@@ -9,7 +9,7 @@ import { Alert, Spinner, Steps } from './ui.jsx'
 import { ArrowRight, Sparkle } from '@phosphor-icons/react'
 import { checkFile, looksIncomplete, lowQuality, notAResume, toParsedResume } from './lib/resume.js'
 
-// W4: file + target role + optional interview date. The PDF is parsed in the browser first.
+// W4: file + target role. The PDF is parsed in the browser first.
 // A parse that looks incomplete is retried on the backend (PDFBox + AI, trd 7.1). The Review form (W6) takes over once there is a result; the upload form stays mounted but hidden so Back keeps the file.
 // Sends the PDF to the backend. If that fails (AI unavailable or any error) the browser parse is kept, never replaced by an empty
 // form: without AI the OpenResume result is all the user has, and the Review form lets them fix it.
@@ -30,14 +30,12 @@ const stamp = (r) => ({ ...r, token: crypto.randomUUID() })
 export default function Upload() {
   const [file, setFile] = useState(null)
   const [role, setRole] = useState(null)
-  const [date, setDate] = useState('')
   const [errors, setErrors] = useState({})
   const [reading, setReading] = useState(false)
   const [result, setResult] = useState(null) // { parsed, incomplete, byAi }
   const [saved, setSaved] = useState(null)
   const [point, setPoint] = useState(null) // a resume point opened from the role skills check
   const fileId = useId()
-  const dateId = useId()
 
   async function pickFile(f) {
     setResult(null)
@@ -80,7 +78,7 @@ export default function Upload() {
   }
 
   // step 3 of the first-time path (W7)
-  if (saved && point) return <Open id={saved.id} pointId={point} onBack={() => setPoint(null)} onChanged={() => {}} />
+  if (saved && point) return <Open id={saved.id} pointId={point} onBack={() => setPoint(null)} />
   if (saved) {
     return <RoleSkills id={saved.id} fileName={saved.fileName} first onBack={() => location.reload()} fixLabel="Back to the Review step"
       onFix={() => setSaved(null)} onPoint={setPoint} />
@@ -97,7 +95,7 @@ export default function Upload() {
           </div>
           {result.error && <p className="notice">This looks incomplete and the extra check failed: {result.error}</p>}
           <Review key={result.token} initial={p} byAi={result.byAi} unavailable={result.unavailable} fileName={file.name}
-            roleId={role.id} interviewDate={date || null} parseSource={result.byAi ? 'ai_fallback' : 'openresume'}
+            roleId={role.id} parseSource={result.byAi ? 'ai_fallback' : 'openresume'}
             onBack={() => setResult(null)} onSaved={setSaved} />
         </>
       )}
@@ -116,10 +114,6 @@ export default function Upload() {
           </div>
           <RoleSearch onPick={(r) => { setRole(r); setErrors((e) => ({ ...e, role: null })) }} />
           <Alert>{errors.role}</Alert>
-          <div className="field">
-            <label htmlFor={dateId}>Interview date (optional)</label>
-            <input id={dateId} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
           <div className="actions">
             <button type="button" className="primary" onClick={onContinue} disabled={reading}>Continue<ArrowRight size={18} aria-hidden="true" /></button>
           </div>

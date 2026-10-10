@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, download } from './api/client.js'
-import { Alert, Chip, Loading, Spinner } from './ui.jsx'
-import { ArrowLeft, CaretDown, CheckCircle, DownloadSimple, Info, Notebook, Warning, XCircle } from '@phosphor-icons/react'
+import { Alert, Chip, Loading, Rich, Spinner } from './ui.jsx'
+import { ArrowLeft, CaretDown, CheckCircle, DownloadSimple, Info, Warning, XCircle } from '@phosphor-icons/react'
 
 const PARTS = { multiple_correct: 'Multiple correct', fill_blank: 'Fill in the blank', brief: 'Brief answers', voice: 'Voice answers' }
 const PART_ONE = { multiple_correct: 'Multiple correct', fill_blank: 'Fill in the blank', brief: 'Brief answer', voice: 'Voice answer' }
@@ -10,7 +10,7 @@ const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
 
 // W9: the session report. Polls every 2.5 seconds until grading is complete, so rows fill in gradually.
 // A keyword-graded answer says so and can be regraded with AI (skill-bank D9); a regrade restarts the polling.
-export default function Report({ id, onBack, onSaveStory }) {
+export default function Report({ id, onBack }) {
   const [session, setSession] = useState(null)
   const [error, setError] = useState('')
   const [open, setOpen] = useState({}) // position -> true/false; unset means "open unless mastered"
@@ -114,7 +114,7 @@ export default function Report({ id, onBack, onSaveStory }) {
                   </button>
                 </h3>
                 <div id={`row-${a.position}`} className="qbody" hidden={!isOpen}>
-                  <Detail a={a} onSaveStory={onSaveStory} canRegrade={session.gradingComplete} regrading={regrading[a.position]} onRegrade={() => regrade(a.position)} />
+                  <Detail a={a} canRegrade={session.gradingComplete} regrading={regrading[a.position]} onRegrade={() => regrade(a.position)} />
                 </div>
               </div>
             )
@@ -131,12 +131,12 @@ export default function Report({ id, onBack, onSaveStory }) {
   )
 }
 
-function Detail({ a, onSaveStory, canRegrade, regrading, onRegrade }) {
+function Detail({ a, canRegrade, regrading, onRegrade }) {
   const q = a.question
   const ans = a.answer
   return (
     <>
-      <p className="qtext">{q.type === 'fill_blank' ? q.text.split(BLANK).reduce((t, part, i) => (i === 0 ? part : `${t}[blank ${i}]${part}`), '') : q.text}</p>
+      <div className="qtext"><Rich text={q.type === 'fill_blank' ? q.text.split(BLANK).reduce((t, part, i) => (i === 0 ? part : `${t}[blank ${i}]${part}`), '') : q.text} /></div>
       {q.type === 'multiple_correct' && <Options a={a} />}
       {q.type === 'fill_blank' && <Blanks a={a} />}
       {(q.type === 'brief' || q.type === 'voice') && <Written a={a} />}
@@ -151,9 +151,6 @@ function Detail({ a, onSaveStory, canRegrade, regrading, onRegrade }) {
         </div>
       )}
       {!ans && <p className="muted">No answer.</p>}
-      {q.isBehavioral && (ans?.transcript ?? ans?.text) && (
-        <div className="actions"><button type="button" className="small" onClick={() => onSaveStory({ action: ans.transcript ?? ans.text, sourceAttemptId: a.id })}><Notebook size={18} aria-hidden="true" />Save as story</button></div>
-      )}
     </>
   )
 }
@@ -167,7 +164,7 @@ function Options({ a }) {
         const mine = picked.includes(o.key)
         return (
           <li key={o.key} className={right ? 'correct' : mine ? 'wrong' : ''}>
-            <span className="key">{o.key}.</span> {o.text}
+            <span className="key">{o.key}.</span> <Rich inline text={o.text} />
             <span className="tag">
               {right && <Chip kind="success" Icon={CheckCircle}>Correct</Chip>}{' '}
               {mine && <Chip kind={right ? 'neutral' : 'error'} Icon={right ? null : XCircle}>Your choice</Chip>}
@@ -202,7 +199,7 @@ function Written({ a }) {
   const stats = ans?.voiceStats
   return (
     <>
-      {ans && <div className="answer-box"><b>{voice && ans.answeredVia === 'voice' ? 'Transcript' : 'Your answer'}</b>“{ans.transcript ?? ans.text}”</div>}
+      {ans && <div className={`answer-box${a.question.format === 'code' ? ' code' : ''}`}><b>{voice && ans.answeredVia === 'voice' ? 'Transcript' : 'Your answer'}</b>“{ans.transcript ?? ans.text}”</div>}
       {a.followUp && <div className="answer-box"><b>Follow-up</b>{a.followUp.text}<br />{a.followUp.answered ? <>Your reply: “{a.followUp.answer}”</> : 'No reply.'}</div>}
       {voice && ans && (stats
         ? <p className="meta"><span>Delivery:</span><span>{stats.wordsPerMinute} words/min</span><span>{stats.fillerCount} filler words</span><span>{stats.wordCount} words</span><span>{stats.durationSeconds} s</span></p>

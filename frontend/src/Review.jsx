@@ -51,7 +51,7 @@ function Bullets({ bullets, onChange }) {
   )
 }
 
-export default function Review({ initial, byAi, unavailable, fileName, roleId, interviewDate, parseSource, onBack, onSaved }) {
+export default function Review({ initial, byAi, unavailable, fileName, roleId, parseSource, onBack, onSaved }) {
   const [p, setP] = useState(initial)
   const [skill, setSkill] = useState('')
   const [saving, setSaving] = useState(false)
@@ -77,7 +77,7 @@ export default function Review({ initial, byAi, unavailable, fileName, roleId, i
     if (found.length) return
     setSaving(true)
     try {
-      const { resume } = await postJson('/resumes', { fileName, targetRoleId: roleId, interviewDate, parseSource, parsed: clean })
+      const { resume } = await postJson('/resumes', { fileName, targetRoleId: roleId, parseSource, parsed: clean })
       onSaved(resume)
     } catch (e) {
       setProblems([e.message, ...e.errors.map((x) => x.message)])

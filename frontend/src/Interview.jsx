@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from './api/client.js'
 import VoiceAnswer from './VoiceAnswer.jsx'
 import { clock, MAX_SECONDS } from './lib/recorder.js'
+import { canSpeak, isMuted, rememberMuted, speak } from './lib/speak.js'
 import { firstOpen, voiceBody } from './lib/sessions.js'
-import { Alert, Chip, Spinner } from './ui.jsx'
-import { ArrowRight, Check, SignOut, Timer } from '@phosphor-icons/react'
+import { Alert, Chip, Rich, Spinner } from './ui.jsx'
+import { ArrowCounterClockwise, ArrowRight, Check, SignOut, SpeakerHigh, SpeakerSlash, Timer } from '@phosphor-icons/react'
 
 const toValue = (a) => (!a ? null : a.answeredVia === 'voice' ? { mode: 'voice', transcript: a.transcript, stats: a.voiceStats } : { mode: 'typed', text: a.text ?? '' })
 const filled = (v) => v && (v.mode === 'voice' || v.text.trim() !== '')
@@ -23,11 +24,17 @@ export default function Interview({ session, onExit, onSubmitted }) {
   const [recording, setRecording] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [muted, setMuted] = useState(isMuted)
+  const [speaking, setSpeaking] = useState(false) // the interviewer is reading aloud: the microphone waits and so does the timer
+  const [replays, setReplays] = useState(0)
+  const speakingRef = useRef(false)
   const leaveRef = useRef(null)
   const next = useRef(null)
 
   const a = attempts[index]
   const last = index === attempts.length - 1
+  const spoken = step === 'main' ? a.question.text : followText
+  speakingRef.current = speaking
 
   // the follow-up is written once on the server, so asking again after a reload returns the same text
   useEffect(() => {
@@ -41,10 +48,17 @@ export default function Interview({ session, onExit, onSubmitted }) {
 
   // one timer per answer; each step change sets `left` back to the full time in the same update, so a finished timer cannot fire twice
   useEffect(() => {
-    const t = setInterval(() => setLeft((s) => Math.max(0, s - 1)), 1000)
+    const t = setInterval(() => { if (!speakingRef.current) setLeft((s) => Math.max(0, s - 1)) }, 1000)
     return () => clearInterval(t)
   }, [index, step])
   useEffect(() => { if (left === 0 && !recording && !busy) next.current?.() }, [left, recording, busy])
+
+  // the interviewer reads each new question and follow-up aloud; leaving, muting or replaying stops the old reading first
+  useEffect(() => {
+    if (!canSpeak || muted || !spoken) { setSpeaking(false); return }
+    setSpeaking(true)
+    return speak(spoken, () => setSpeaking(false))
+  }, [spoken, muted, replays, index, step])
 
   const put = (path, method, body) => api(`/sessions/${id}/attempts/${a.position}${path}`, { method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) })
 
@@ -99,13 +113,26 @@ export default function Interview({ session, onExit, onSubmitted }) {
       </div>
       <p role="timer" aria-label="Time left for this answer" className="timer" style={{ marginTop: 16 }}><Timer size={22} aria-hidden="true" />Time left: <strong>{clock(left)}</strong></p>
 
+      {canSpeak && (
+        <div className="row" style={{ marginTop: 8 }}>
+          <button type="button" className="small" aria-pressed={muted} onClick={() => { rememberMuted(!muted); setMuted(!muted) }}>
+            {muted ? <SpeakerSlash size={18} aria-hidden="true" /> : <SpeakerHigh size={18} aria-hidden="true" />}{muted ? 'Interviewer muted' : 'Interviewer speaks'}
+          </button>
+          <button type="button" className="small" disabled={muted || !spoken} onClick={() => setReplays((n) => n + 1)}><ArrowCounterClockwise size={18} aria-hidden="true" />Hear it again</button>
+          <span className="muted" role="status">{speaking ? 'Your interviewer is speaking…' : ''}</span>
+        </div>
+      )}
+
       <div className="qcard" key={`${a.position}-${step}`}>
-        <p className="qtext-lg">{a.question.text}</p>
+        {a.question.format === 'design' && step === 'main' && (
+          <p className="hint"><Chip kind="warning">Design question</Chip> Cover the requirements, the API, the data model, scale and trade-offs.</p>
+        )}
+        <div className="qtext-lg"><Rich text={a.question.text} /></div>
         {step === 'follow' && (followText
           ? <p className="feedback"><Chip kind="warning">Follow-up</Chip> {followText}</p>
           : <p className="loading" aria-live="polite"><Spinner />Your interviewer is thinking of a follow-up…</p>)}
         {(step === 'main' || followText) && (
-          <VoiceAnswer sessionId={id} position={a.position} value={value} onChange={set} onBusy={setRecording} />
+          <VoiceAnswer sessionId={id} position={a.position} value={value} onChange={set} onBusy={setRecording} disabled={speaking} />
         )}
       </div>
 

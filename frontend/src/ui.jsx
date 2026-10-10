@@ -1,4 +1,6 @@
+import { Fragment } from 'react'
 import { Check, CircleNotch, WarningCircle } from '@phosphor-icons/react'
+import { parts } from './lib/richText.js'
 
 // The brand mark: a ruled line and a red-pen tick on an ink tile.
 export function Logo({ size = 28 }) {
@@ -52,4 +54,14 @@ export function Steps({ current }) {
       ))}
     </ol>
   )
+}
+
+// Question and option text with code in monospace: `inline code` and ``` fenced blocks ```. Text without backticks renders as before.
+// `inline` (options, text beside a blank) never makes a block: a fenced block becomes pre-wrapped inline code there.
+export function Rich({ text, inline = false }) {
+  return parts(text ?? '').map((p, i) => {
+    if (p.kind === 'text') return <Fragment key={i}>{p.text}</Fragment>
+    if (p.kind === 'code' || inline) return <code key={i} className={p.kind === 'block' ? 'code-wrap' : undefined}>{p.text}</code>
+    return <pre key={i} tabIndex={0} aria-label="Code"><code>{p.text}</code></pre>
+  })
 }

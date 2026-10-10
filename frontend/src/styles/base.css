@@ -318,6 +318,8 @@ table tbody th { font-weight: 600; }
 .timer strong { font-family: var(--font-display); font-size: 1.5rem; }
 .voice-box { border: 1.5px dashed var(--line-strong); border-radius: var(--radius); padding: var(--space-3); background: var(--paper); }
 .voice-box.recording { border-style: solid; border-color: var(--pen); background: var(--pen-soft); }
+.live-words { margin: var(--space-2) 0 var(--space-3); }
+.live-words .interim { opacity: .55; }
 .rec-line { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-2); font-weight: 650; }
 .rec-time { font-variant-numeric: tabular-nums; font-family: var(--font-display); font-size: 1.5rem; }
 .or { color: var(--ink-2); }
@@ -388,3 +390,12 @@ dialog .actions { margin-top: var(--space-3); }
   .mark, .chip, .alert, .notice { border: 2px solid CanvasText; }
   .progress > div, .meter > i { background: Highlight; forced-color-adjust: none; }
 }
+
+/* Code in questions, options and code answers (sde-focus 08) */
+code, pre { font-family: var(--font-mono); font-size: 0.9em; }
+code { background: var(--paper-2); border-radius: var(--radius-sm); padding: 0.1em 0.35em; }
+pre { background: var(--paper-2); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-3); margin: var(--space-2) 0; overflow-x: auto; line-height: 1.5; tab-size: 2; font-weight: 400; text-wrap: nowrap; }
+pre code { background: none; padding: 0; font-size: 1em; }
+.qtext-lg pre, .qtext pre { font-family: var(--font-mono); }
+code.code-wrap { white-space: pre-wrap; display: inline-block; }
+textarea.code-input, .answer-box.code { font-family: var(--font-mono); font-size: 0.9em; white-space: pre-wrap; tab-size: 2; }

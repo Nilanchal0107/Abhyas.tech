@@ -22,15 +22,13 @@ app:
     secret: ${JWT_SECRET:} # at least 32 bytes; the app refuses to start without it
   cookie:
     secure: false # true only if the app is ever served over HTTPS
-  ai: # keys: set groq-key and google-key in the gitignored application-local.yml, or the GROQ_API_KEY and GOOGLE_AI_KEY environment variables (trd 6.6)
+  ai: # keys: set groq-key in the gitignored application-local.yml, or the GROQ_API_KEY environment variable (trd 6.6)
     groq-key: ${GROQ_API_KEY:}
-    google-key: ${GOOGLE_AI_KEY:}
     timeout-seconds: 20
     whisper-timeout-seconds: 40
-    models: # chat and whisper checked against GET /openai/v1/models on 2026-10-03; gemma is still unverified
+    models: # chat and whisper checked against GET /openai/v1/models on 2026-10-03
       groq-chat: openai/gpt-oss-120b
       groq-whisper: whisper-large-v3-turbo
-      gemma: gemma-3-27b-it
 server:
   port: 8080
   address: 127.0.0.1 # localhost only (README)

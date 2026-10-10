@@ -13,7 +13,7 @@
 | 1 | Keys are `BIGINT AUTO_INCREMENT`. Times are UTC `DATETIME(3)`, converted in the UI. | Q1 |
 | 2 | Table names are singular `snake_case`. Character set `utf8mb4`. Every table has `created_at`. | Q1, my suggestion, not rejected |
 | 3 | The schema is created by **Flyway** SQL migrations. This file mirrors them. | Q2 |
-| 4 | A saved resume **never changes** (read-only after save). A changed resume is uploaded as a new resume with fresh tracking. Only `interview_date` can be edited. | Q3, Q8 |
+| 4 | A saved resume **never changes** (read-only after save). A changed resume is uploaded as a new resume with fresh tracking. Nothing on it can be edited (the interview date column was dropped by `V10`). | Q3, Q8 |
 | 5 | The **target role is fixed per resume**. Tracking per user + role + resume is therefore tracking per resume. | Q8 |
 | 6 | The original **PDF is not stored**, only the file name and the parsed result. | Q4 |
 | 7 | **Tables** for anything queried, joined or deleted separately. **JSON columns** for blobs that are only read whole (parsed resume, question options, accepted answers, checklist, voice stats, gap result). | Q5 |
@@ -22,7 +22,7 @@
 | 10 | Mastery, last score and last asked date are **columns on `question`**, updated when an answer is graded. `attempt` keeps the history. | Q9 |
 | 11 | One `attempt` row per question slot of a session. No separate join table. | Q10 |
 | 12 | Key facts live on the question (`question.key_facts`, `bank_question.key_facts`). The per-point `key_fact` table and the `resume_point.key_facts_*` columns were dropped by `V6` (ticket 10). | Q11 |
-| 13 | Stories have `story_tag` and `story_resume_point` tables. Tags are free text. | Q12 |
+| 13 | *(Removed 10 October 2026: the story tables were dropped by `V9`.)* | Q12 |
 | 14 | The gap result is stored as one JSON snapshot per resume. The export is built on request and not stored. | Q13 |
 | 15 | `bank_question.text_hash` is unique, so the database rejects duplicates. | Q14 |
 | 16 | Login is `app_user` with a BCrypt hash. Login state is a signed token (JWT), so there is no auth table. | Q15 |
@@ -32,13 +32,11 @@
 ```
 app_user ──< resume ──< resume_point
    │           │             │
-   │           │             └──< story_resume_point >── story >── story_tag
    │           ├── gap_result (1:1)
    │           ├──< question ──< attempt >── practice_session
    │           └── target_role ── role ──< role_alias
    │                              role ──< role_skill >── skill
    ├──< practice_session ──< attempt
-   ├──< story
    └──< role (owner, user-added roles only)
 
 bank_question >── skill          (shared, no user link)
@@ -116,7 +114,6 @@ Primary key `(role_id, skill_id)`. Index on `skill_id`.
 | target_role_id | BIGINT NOT NULL FK `role` ON DELETE CASCADE | fixed after save. Cascade is safe: only a user's own role can be deleted, and only together with that user |
 | parsed_json | JSON NOT NULL | the final reviewed resume (see 4.1) |
 | parse_source | ENUM('openresume','ai_fallback') NOT NULL | |
-| interview_date | DATE NULL | optional, only stored for now. The only editable column |
 | last_used_at | DATETIME(3) NULL | set when a session starts, so Home can default to the most recently used resume |
 | created_at | DATETIME(3) | |
 
@@ -158,8 +155,10 @@ Recomputed on demand (Role skills check) and stored.
 | accepted_answers | JSON NULL | fill-blank only |
 | key_facts | JSON NULL | brief and voice |
 | keywords | JSON NULL | brief and voice, used by keyword grading |
+| format | ENUM('standard','design','code') NOT NULL DEFAULT 'standard' | `V12`. `design` is an interview-only design question; `code` is a brief answered in a code box |
+| track | ENUM('backend','frontend') NULL | `V12`. A role flavour; NULL suits every role |
 | source | ENUM('seed','ai') NOT NULL | |
-| provider | VARCHAR(30) NULL | for example `groq`, `gemma` |
+| provider | VARCHAR(30) NULL | for example `groq` |
 | text_hash | CHAR(64) NOT NULL | SHA-256 of skill/theme + type + normalized text |
 | created_at | DATETIME(3) | |
 
@@ -182,6 +181,7 @@ A question belongs to one resume, so tracking is per user + role + resume (decis
 | accepted_answers | JSON NULL | fill-blank, one list per blank, see 4.2 |
 | key_facts | JSON NULL | the answer key of a technical brief or voice question (bank rows and project questions). NULL for the other types and for behavioral ones |
 | keywords | JSON NULL | for keyword grading |
+| format | ENUM('standard','design','code') NOT NULL DEFAULT 'standard' | `V12`, copied from the bank row |
 | source | ENUM('ai','bank') NOT NULL | |
 | provider | VARCHAR(30) NULL | |
 | text_hash | CHAR(64) NOT NULL | hash of the text, so the same text is not stored twice for a resume |
@@ -220,7 +220,7 @@ Primary key `(user_id, bank_question_id)`. The row is created when the question 
 | voice_skipped | BOOLEAN NOT NULL DEFAULT FALSE | the voice part was left out (16 questions, 50 marks). Always false for sessions made since ticket 19; kept for old ones |
 | max_marks | DECIMAL(5,1) NOT NULL | 80 or 50 |
 | total_marks | DECIMAL(5,1) NULL | set when completed |
-| report_text | TEXT NULL | Gemma's session report, stored as JSON text `{"headline":"...","summary":"..."}` |
+| report_text | TEXT NULL | the session report, stored as JSON text `{"headline":"...","summary":"..."}` |
 | report_status | ENUM('pending','ready','none') NOT NULL DEFAULT 'pending' | `none` when no AI text exists (fallback) |
 | started_at | DATETIME(3) NOT NULL | |
 | completed_at | DATETIME(3) NULL | |
@@ -250,7 +250,7 @@ One row per question slot, created when the session starts and filled in when th
 | checklist | JSON NULL | see 4.3, with quoted proof |
 | blank_results | JSON NULL | per-blank result for fill-blank, including the Groq re-check |
 | graded_by | ENUM('java','ai','fallback') NULL | `java` for multiple-correct and fill-blank, `ai` for Groq checklists, `fallback` for keyword grading. Exported (FR-19). In the app only as `gradedWithoutAi` (report label and regrade) |
-| feedback_text | TEXT NULL | Gemma's feedback, or the template text in fallback, stored as JSON text `{"text":"...","whatToFix":"...","deliveryComment":null}` |
+| feedback_text | TEXT NULL | Groq's feedback, or the template text in fallback, stored as JSON text `{"text":"...","whatToFix":"...","deliveryComment":null}` |
 | feedback_status | ENUM('pending','ready','none') NOT NULL DEFAULT 'pending' | supports feedback that fills in gradually in the report |
 | answered_at | DATETIME(3) NULL | |
 | created_at | DATETIME(3) | |
@@ -262,26 +262,8 @@ Unique `(session_id, position)`. Index `question_id`.
 - Mastered when `score >= mastery mark`: multiple-correct 2 of 2, fill-blank 2 of 2, brief 4 of 5, voice 8 of 10, and a typed voice answer 4 of 5. For brief and voice that is 80% of `max_marks`, for the objective types 100%.
 - A counting attempt sets `question.last_score` and `question.mastered`. Every asked attempt updates `last_asked_at` and `times_asked`.
 
-### 3.14 `story` (FR-17)
-| Column | Type | Notes |
-|---|---|---|
-| id | BIGINT PK AI | |
-| user_id | BIGINT NOT NULL FK `app_user` ON DELETE CASCADE | |
-| title | VARCHAR(200) NOT NULL | |
-| situation | TEXT NULL | |
-| task | TEXT NULL | |
-| action | TEXT NULL | pre-filled from the answer by "Save as story" |
-| result | TEXT NULL | |
-| lesson | TEXT NULL | lesson learned |
-| source_attempt_id | BIGINT NULL FK `attempt` ON DELETE SET NULL | the answer it was saved from, if any *(my decision)* |
-| created_at | DATETIME(3) | |
-| updated_at | DATETIME(3) | |
-
-Only the title is required (matches the story form). Index `(user_id, created_at)`.
-
-### 3.15 `story_tag` and `story_resume_point` (FR-17)
-- `story_tag(story_id FK story ON DELETE CASCADE, tag VARCHAR(40))`, primary key `(story_id, tag)`, index on `tag`. Tags are free text per story, with no shared tag table.
-- `story_resume_point(story_id FK story ON DELETE CASCADE, resume_point_id FK resume_point ON DELETE CASCADE)`, primary key `(story_id, resume_point_id)`.
+### 3.14 and 3.15 `story`, `story_tag`, `story_resume_point` (removed)
+The story bank was removed on 10 October 2026. `V9__drop_story.sql` drops the three tables.
 
 ## 4. JSON column shapes
 
@@ -307,7 +289,7 @@ Every `passed: true` has a non-empty `quote` (evidence rule, Section 9). 5 items
 ```json
 {"wordsPerMinute":142,"fillerCount":5,"wordCount":96,"durationSeconds":40}
 ```
-Counted by Java. Gemma's comment on these numbers is part of `feedback_text`. Not stored for typed voice answers.
+Counted by Java. The AI's comment on these numbers is part of `feedback_text`. Not stored for typed voice answers.
 
 ### 4.5 `gap_result.result`
 ```json
@@ -319,9 +301,9 @@ Counted by Java. Gemma's comment on these numbers is part of `feedback_text`. No
 
 | Deleted | What happens |
 |---|---|
-| `app_user` (FR-18) | Cascades to: user-added `role` (and its aliases and skills links), `resume` (and `resume_point`, `gap_result`, `question`), `practice_session` (and `attempt`), `story` (and tags and links), `bank_performance`. Nothing else is needed. |
+| `app_user` (FR-18) | Cascades to: user-added `role` (and its aliases and skills links), `resume` (and `resume_point`, `gap_result`, `question`), `practice_session` (and `attempt`), `bank_performance`. Nothing else is needed. |
 | `resume` | Cascades to its resume points, gap result, questions, sessions and, through them, attempts. |
-| `practice_session` | Cascades to its attempts. A story's `source_attempt_id` becomes NULL. |
+| `practice_session` | Cascades to its attempts. |
 | Shared tables | `skill`, starter `role` rows, `role_alias`, `role_skill`, `skill_alias` and `bank_question` have no user link and are never touched. A bank question's `bank_question_id` on a user's question becomes NULL only if the bank row is removed. |
 
 ## 6. Main queries and the indexes behind them
@@ -335,7 +317,6 @@ Counted by Java. Gemma's comment on these numbers is part of `feedback_text`. No
 | Continue session (Home) | the user's `in_progress` session | unique `practice_session(open_user_id)` |
 | History | sessions of a user, newest first | `practice_session(user_id, started_at)` |
 | Retry project questions (FR-8) | resumes of a user with no AI `question` row without `resume_point_id` and `theme` | `question(resume_id, ...)` |
-| Story tag filter | stories of a user with a tag | `story_tag(tag)`, `story(user_id, created_at)` |
 | Pick practice bank questions (FR-20) | by type and skill, or type and theme | `bank_question(type, skill_id)`, `bank_question(type, theme)` |
 
 Every query on user data filters by the signed-in user, directly or through `resume.user_id` (`question` has no `user_id` column of its own). The backend must never accept a `resume_id` or `session_id` without checking that it belongs to the user (data isolation, Section 12).
@@ -360,6 +341,8 @@ Every query on user data filters by the signed-in user, directly or through `res
 | `V7__starter_bank.sql` (drafted as `V4__starter_bank.sql`, renumber when moved; the wave 2 draft becomes `V8`) | the reviewed practice bank, generated by `gen_bank.py` from the `bank_*.py` data files: all 74 skills of the 11 roles (per skill 10 multiple-correct, 10 fill-in-the-blank, 5 technical briefs with `key_facts` and `keywords`; Communication and Critical Thinking briefs only), 1,810 questions, plus 20 behavioral questions by theme. Drafted in `backend/src/main/resources/db/seed-draft/` (review sheet `review.md`), not loaded until reviewed and moved to `db/migration/`. `source = 'seed'` marks a reviewed row (FR-20, skill-bank D3, D5) |
 
 ## 9. V1 SQL
+
+*This is the V1 file as first run. The story tables below were dropped later by `V9__drop_story.sql` (10 October 2026).*
 
 ```sql
 -- Run as V1__schema.sql. Server and JDBC connection time zone must be UTC.
@@ -605,7 +588,6 @@ CREATE TABLE story_resume_point (
 
 - `V1` was first run on MySQL 8.0.42 on 3 October 2026 (ticket 01). Generated columns whose base column has a foreign key must be `VIRTUAL`: MySQL refuses `STORED` there (error 1215). Before that, run `V1__schema.sql` on MySQL 8.0.16+ first and fix any syntax or generated-column error.
 - Set the connection time zone to UTC (for example `serverTimezone=UTC` and Hibernate `jdbc.time_zone=UTC`), or the `UTC_TIMESTAMP(3)` defaults and application times will disagree.
-- `story.updated_at` is set by the application on every edit (MySQL's `ON UPDATE` only accepts `CURRENT_TIMESTAMP`, which would follow the session time zone instead of UTC).
 - Starter data: the roles, aliases and skills in Section 12 go in `V2`. The file `roles_starter.csv` itself is not created yet; Section 12 holds its exact content.
 
 ## 11. Open items
@@ -632,18 +614,10 @@ category,role,aliases,skills
 "Software Development","Backend Developer","Backend Engineer|Server-Side Developer|API Developer","Java|Spring Boot|REST APIs|SQL|MySQL|Microservices|Redis|Message Queues|Authentication|Unit Testing|Docker|Git"
 "Software Development","Frontend Developer","Frontend Engineer|UI Developer|Web Developer","JavaScript|TypeScript|React|HTML|CSS|Responsive Design|Web Accessibility|REST APIs|State Management|Unit Testing|Git|Web Performance"
 "Software Development","Full Stack Developer","Full Stack Engineer|Full-Stack Developer|MERN Developer","JavaScript|React|Node.js|REST APIs|SQL|MongoDB|HTML|CSS|Git|Docker|Authentication|Unit Testing"
-"Data and AI","Data Analyst","Business Data Analyst|Reporting Analyst|Analytics Analyst","SQL|Excel|Data Visualization|Statistics|Python|Data Cleaning|Dashboards|Power BI|Tableau|Critical Thinking|Communication"
-"Data and AI","Data Scientist","DS|Applied Scientist|Research Data Scientist","Python|Statistics|Machine Learning|SQL|Data Cleaning|Feature Engineering|Model Evaluation|Data Visualization|Pandas|Scikit-learn|Communication"
-"Data and AI","Data Engineer","DE|ETL Developer|Big Data Engineer|Data Pipeline Engineer","SQL|Python|ETL|Data Pipelines|Apache Spark|Kafka|Data Warehousing|Airflow|Cloud Storage|Data Modeling|Git"
-"Data and AI","Machine Learning Engineer","ML Engineer|MLE|Applied ML Engineer","Python|Machine Learning|Deep Learning|PyTorch|Model Deployment|Feature Engineering|Model Evaluation|Docker|MLOps|SQL|Git"
-"Data and AI","AI Engineer","LLM Engineer|Generative AI Engineer|GenAI Developer|AI Developer","Python|LLM APIs|Prompt Engineering|Retrieval-Augmented Generation|Vector Databases|Model Evaluation|REST APIs|Docker|Machine Learning|Git|Cost Management"
-"Cloud and DevOps","DevOps Engineer","DevOps|DevOps Developer|CI/CD Engineer","CI/CD|Docker|Kubernetes|Linux|Git|Infrastructure as Code|Terraform|AWS|Monitoring|Shell Scripting|Jenkins|Networking Basics"
-"Cloud and DevOps","Cloud Engineer","Cloud Developer|AWS Engineer|Azure Engineer|Cloud Infrastructure Engineer","AWS|Azure|Linux|Networking Basics|Infrastructure as Code|Terraform|Cloud Security|Docker|Monitoring|Cost Management|Shell Scripting"
 ```
 
 **Counts and checks**
-- 11 roles in 3 categories: Software Development (4), Data and AI (5), Cloud and DevOps (2).
-- 37 aliases, 74 distinct skills and 125 role-skill links. The `skill` table keeps all 228 skills from V2, so skills of removed roles still match on a resume. Checked by script: role names are unique, aliases are unique across all roles (so an alias search finds one role), no alias equals another role's name, and no role lists a skill twice.
+- 4 roles in 1 category, Software Development (since 10 October 2026, `V11`; it was 11 roles in 3 categories). The `skill` table keeps all 228 skills from V2, so skills of removed roles still match on a resume, but the practice bank keeps rows only for skills a remaining role lists. Checked by script: role names are unique, aliases are unique across all roles (so an alias search finds one role), no alias equals another role's name, and no role lists a skill twice.
 - Category names use "and" instead of "&", to keep the CSV and search simple.
 
 - 5 October 2026 (ticket 13, `V7__interview_mode.sql`): `practice_session.mode`, `attempt.follow_up_text`, `attempt.follow_up_answer`. The V1 block above is unchanged; V7 is a separate migration.

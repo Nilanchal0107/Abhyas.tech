@@ -24,7 +24,7 @@ Shared by every screen except the Practice session.
 
 ```
 +--------------------------------------------------------------------------+
-|  Abhyas.tech   Practice  Resumes  Stories  History  Account  [Log out] |
+|  Abhyas.tech   Practice  Resumes  History  Account  [Log out] |
 +--------------------------------------------------------------------------+
 |                                                                          |
 |            +--------------------------------------------+                |
@@ -156,9 +156,6 @@ Purpose: step 1 of 3. Choose the file and the target role.
    ▾ Software Development Engineer (SDE)
      Backend Developer
      Full Stack Developer
-
-  Interview date (optional)
-  [ dd / mm / yyyy ]
 
   [ Continue ]
 ```
@@ -380,7 +377,7 @@ Purpose: show results. Summary first, then all questions grouped by part.
 ```
   Practice session report · 3 Oct · Backend Developer · Paras_Resume.pdf
 
-  Nice start. Three resume points still need work.         (Gemma's headline)
+  Nice start. Three resume points still need work.         (the report headline)
 
   +-----------+  +-------------------+  +----------------------------+
   | Total     |  | Mastered          |  | Weakest resume points      |
@@ -397,7 +394,7 @@ Purpose: show results. Summary first, then all questions grouped by part.
   | Voice answers                  | 24     | 30    |
   +--------------------------------+--------+-------+
 
-  Session summary (Gemma): ...a short paragraph...
+  Session summary: ...a short paragraph...
 
   Part 3: Brief answers
   ▾ Q11 · Brief answer · 3/5 · ! Needs work
@@ -410,7 +407,6 @@ Purpose: show results. Summary first, then all questions grouped by part.
        ...
       Key facts (read-only): • ... • ...
       Feedback: ... What to fix: ...
-      [ Save as story ]                        (behavioral only)
   ▸ Q12 · Brief answer · 5/5 · ✓ Mastered
   ...
   Part 4: Voice answers
@@ -427,7 +423,7 @@ Purpose: show results. Summary first, then all questions grouped by part.
 - Multiple-correct and fill-in-the-blank rows show marks and the correct options or accepted answers only.
 - When the voice part was skipped the summary says "Total 44 / 50 (88%)" and the table has no voice row. A typed voice answer shows "typed, no delivery stats".
 - "Export JSON" appears only for completed sessions (W10 has the same action).
-- Loading right after Submit: "Marking your answers..." then "Writing your feedback...". Gemma feedback arrives one call at a time (FR-12), so rows may fill in gradually; each row shows "Feedback is being written..." until its text arrives.
+- Loading right after Submit: "Marking your answers..." then "Writing your feedback...". Feedback is saved as each answer is marked (FR-12), so rows may fill in gradually; each row shows "Feedback is being written..." until its text arrives.
 - Narrow rule: the three stat tiles stack.
 
 ---
@@ -456,52 +452,9 @@ Purpose: list past sessions and export one.
 
 ---
 
-## W11. Story bank (FR-17)
+## W11. Story bank (removed 10 October 2026)
 
-Purpose: save and reuse STAR stories.
-
-### W11a. List
-
-```
-  Story bank                                      [ New story ]
-
-  Filter by tag:  ( All ) ( teamwork ) ( conflict ) ( failure ) ( leadership )
-
-  +----------------------------------------------------------+
-  | Fixing the payment outage                                |
-  | teamwork · deadline pressure                             |
-  | Our payment service went down during a sale and I ...    |
-  | [ Edit ] [ Delete ]                                      |
-  +----------------------------------------------------------+
-  +----------------------------------------------------------+
-  | ...                                                      |
-```
-
-- Tag chips are real buttons with `aria-pressed`.
-- Empty: "No stories yet. Save one from a behavioral answer, or write one now." with a New story button.
-- Delete asks for confirmation inline.
-
-### W11b. Story form (own page)
-
-```
-  New story                     (Edit story uses the same form)
-
-  Title      [_____________________________________________]
-  Situation  [                                              ]
-  Task       [                                              ]
-  Action     [                                              ]
-  Result     [                                              ]
-  Lesson learned  [                                         ]
-  Tags       [teamwork] [x]  [ Add a tag ____ ]
-  Linked resume points (optional)
-    [ ] Designed REST APIs for ...
-    [ ] Reduced API response time by ...
-
-  [ Save story ]   [ Cancel ]
-```
-
-- "Save as story" on a behavioral answer in W9 opens this page pre-filled, with the answer text in the Action box for the user to split up.
-- The title is required, the other boxes are optional. Validation errors appear under the field.
+The story bank was removed. The number stays so other references hold.
 
 ---
 
@@ -531,7 +484,7 @@ Purpose: account details and deleting the account.
   This will permanently delete:
    • your resumes and resume points
    • key facts, questions, answers, transcripts and scores
-   • your stories and role skills check results
+   • your role skills check results
    • roles you added
   The shared starter roles are not affected.
 

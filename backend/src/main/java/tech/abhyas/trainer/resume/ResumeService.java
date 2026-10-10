@@ -1,7 +1,5 @@
 package tech.abhyas.trainer.resume;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,16 +27,12 @@ public class ResumeService {
     public ResumeService(NamedParameterJdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     @Transactional
-    public Map<String, Object> save(long userId, String fileName, Long roleId, String interviewDate, String parseSource, JsonNode parsed) {
+    public Map<String, Object> save(long userId, String fileName, Long roleId, String parseSource, JsonNode parsed) {
         List<Map<String, String>> errors = new ArrayList<>();
         fileName = fileName == null ? "" : fileName.strip();
         if (fileName.isEmpty() || fileName.length() > 255) errors.add(err("fileName", "Use 1 to 255 characters."));
         if (roleId == null) errors.add(err("targetRoleId", "Choose a target role to continue."));
         if (!Set.of("openresume", "ai_fallback").contains(parseSource)) errors.add(err("parseSource", "Use openresume or ai_fallback."));
-        LocalDate date = null;
-        if (interviewDate != null) {
-            try { date = LocalDate.parse(interviewDate); } catch (DateTimeParseException e) { errors.add(err("interviewDate", "Use a date like 2026-11-20.")); }
-        }
         if (parsed == null || !parsed.isObject()) errors.add(err("parsed", "The resume is missing."));
         if (!errors.isEmpty()) throw invalid(errors);
 
@@ -57,10 +51,10 @@ public class ResumeService {
 
         GeneratedKeyHolder keys = new GeneratedKeyHolder();
         jdbc.update("""
-                INSERT INTO resume (user_id, file_name, target_role_id, parsed_json, parse_source, interview_date)
-                VALUES (:me, :file, :role, :json, :src, :date)""",
+                INSERT INTO resume (user_id, file_name, target_role_id, parsed_json, parse_source)
+                VALUES (:me, :file, :role, :json, :src)""",
                 new MapSqlParameterSource("me", userId).addValue("file", fileName).addValue("role", roleId)
-                        .addValue("json", JSON.writeValueAsString(resume)).addValue("src", parseSource).addValue("date", date), keys);
+                        .addValue("json", JSON.writeValueAsString(resume)).addValue("src", parseSource), keys);
         long id = keys.getKey().longValue();
         int position = 1;
         for (Point p : points) {
@@ -91,19 +85,6 @@ public class ResumeService {
                     return p;
                 }));
         return out;
-    }
-
-    /** The interview date is the only editable field of a saved resume. */
-    public Map<String, Object> setInterviewDate(long userId, long id, Map<String, Object> body) {
-        one(userId, id);
-        if (body == null || !body.containsKey("interviewDate") || body.size() != 1) throw invalid(List.of(err("interviewDate", "Only the interview date can be changed.")));
-        LocalDate date = null;
-        try {
-            if (body.get("interviewDate") != null) date = LocalDate.parse(String.valueOf(body.get("interviewDate")));
-        } catch (DateTimeParseException e) { throw invalid(List.of(err("interviewDate", "Use a date like 2026-11-20."))); }
-        jdbc.update("UPDATE resume SET interview_date = :d WHERE id = :r AND user_id = :me",
-                new MapSqlParameterSource("d", date).addValue("r", id).addValue("me", userId));
-        return one(userId, id);
     }
 
     /** Points, key facts, gap result, questions, sessions and attempts go with it by ON DELETE CASCADE. */
@@ -175,7 +156,7 @@ public class ResumeService {
     /** ResumeSummary rows (api-contracts 2.2) of one user, optionally one resume. */
     private List<Map<String, Object>> summaries(long userId, Long id) {
         return jdbc.query("""
-                SELECT r.id, r.file_name, r.target_role_id, ro.name AS role_name, r.interview_date, r.parse_source,
+                SELECT r.id, r.file_name, r.target_role_id, ro.name AS role_name, r.parse_source,
                        (SELECT COUNT(*) FROM resume_point p WHERE p.resume_id = r.id) AS point_count,
                        (SELECT COUNT(*) FROM question q WHERE q.resume_id = r.id) AS question_count,
                        (SELECT COUNT(*) FROM question q WHERE q.resume_id = r.id AND q.mastered) AS mastered_count,
@@ -189,7 +170,6 @@ public class ResumeService {
                     out.put("id", rs.getLong("id"));
                     out.put("fileName", rs.getString("file_name"));
                     out.put("targetRole", Map.of("id", rs.getLong("target_role_id"), "name", rs.getString("role_name")));
-                    out.put("interviewDate", rs.getString("interview_date"));
                     out.put("parseSource", rs.getString("parse_source"));
                     out.put("pointCount", rs.getInt("point_count"));
                     out.put("questionCount", rs.getInt("question_count"));

@@ -28,6 +28,10 @@ class PracticeBank {
     private static final Map<String, String> THEME_TEXT = Map.of("teamwork", "worked through a teamwork challenge", "conflict", "had a conflict with a teammate",
             "failure", "faced a failure or setback", "leadership", "took the lead", "deadline_pressure", "worked under deadline pressure");
 
+    /** Which role flavours a target role gets (ticket 10). Software Engineer gets the backend flavour; a role not listed (an old user-added one) gets both. */
+    static final Map<String, List<String>> TRACKS = Map.of("Backend Developer", List.of("backend"), "Software Engineer", List.of("backend"),
+            "Frontend Developer", List.of("frontend"), "Full Stack Developer", List.of("backend", "frontend"));
+
     private final NamedParameterJdbcTemplate jdbc;
     private final Random random = new Random();
 
@@ -39,12 +43,12 @@ class PracticeBank {
     }
 
     /** What placeholders and templates are filled from. */
-    record Ctx(long resumeId, List<Pt> points, List<String> projects, List<String> companies, Map<Long, String> skills, Set<Long> wanted) {}
+    record Ctx(long resumeId, List<Pt> points, List<String> projects, List<String> companies, Map<Long, String> skills, Set<Long> wanted, List<String> tracks) {}
 
     // ---- context ----
 
     Ctx context(long resumeId) {
-        Map<String, Object> resume = jdbc.queryForMap("SELECT parsed_json, target_role_id FROM resume WHERE id = :r", Map.of("r", resumeId));
+        Map<String, Object> resume = jdbc.queryForMap("SELECT r.parsed_json, r.target_role_id, ro.name AS role_name FROM resume r JOIN role ro ON ro.id = r.target_role_id WHERE r.id = :r", Map.of("r", resumeId));
         JsonNode parsed = JSON.readTree(String.valueOf(resume.get("parsed_json")));
         List<String> projects = names(parsed.path("projects"), "name"), companies = names(parsed.path("experience"), "company");
 
@@ -67,7 +71,7 @@ class PracticeBank {
         Set<Long> wanted = new LinkedHashSet<>(); // skills on the resume first, then the target role's skills (the gap)
         points.stream().filter(p -> p.skillId() != null).forEach(p -> wanted.add(p.skillId()));
         wanted.addAll(jdbc.queryForList("SELECT skill_id FROM role_skill WHERE role_id = :ro", Map.of("ro", ((Number) resume.get("target_role_id")).longValue()), Long.class));
-        return new Ctx(resumeId, points, projects, companies, skills, wanted);
+        return new Ctx(resumeId, points, projects, companies, skills, wanted, TRACKS.getOrDefault(String.valueOf(resume.get("role_name")), List.of("backend", "frontend")));
     }
 
     private static List<String> names(JsonNode list, String field) {
@@ -118,14 +122,14 @@ class PracticeBank {
     /** {@code anySkill}: skills outside the resume and the role's list, a last step before the generic templates. */
     private int fromBank(Ctx c, String type, int need, boolean behavioral, boolean anySkill) {
         if (!behavioral && !anySkill && c.wanted().isEmpty()) return 0;
-        String sql = "SELECT b.id, b.skill_id, b.theme, b.text_template, b.options, b.correct_options, b.accepted_answers, b.key_facts, b.keywords FROM bank_question b WHERE b.source = 'seed' AND b.type = :type AND "
+        String sql = "SELECT b.id, b.skill_id, b.theme, b.format, b.text_template, b.options, b.correct_options, b.accepted_answers, b.key_facts, b.keywords FROM bank_question b WHERE b.source = 'seed' AND b.format <> 'design' AND (b.track IS NULL OR b.track IN (:tracks)) AND b.type = :type AND "
                 + (behavioral ? "b.theme IS NOT NULL" : anySkill ? "b.skill_id IS NOT NULL" : "b.skill_id IN (:skills)")
                 + " AND NOT EXISTS (SELECT 1 FROM question q WHERE q.resume_id = :r AND q.bank_question_id = b.id)"
                 // a question this user mastered on any resume rests for a month before it can come back (ticket 18)
                 + " AND NOT EXISTS (SELECT 1 FROM bank_performance bp JOIN resume r ON r.user_id = bp.user_id WHERE r.id = :r AND bp.bank_question_id = b.id"
                 + " AND bp.mastered AND bp.last_asked_at > UTC_TIMESTAMP(3) - INTERVAL 1 MONTH)";
         List<Map<String, Object>> rows = jdbc.queryForList(sql,
-                new MapSqlParameterSource("type", type).addValue("r", c.resumeId()).addValue("skills", behavioral ? List.of(0L) : c.wanted()));
+                new MapSqlParameterSource("type", type).addValue("r", c.resumeId()).addValue("skills", behavioral ? List.of(0L) : c.wanted()).addValue("tracks", c.tracks()));
         Collections.shuffle(rows, random);
         rows = mix(rows, need, behavioral ? 0 : 1, r -> onResume(c, r));
         int made = 0;
@@ -142,9 +146,28 @@ class PracticeBank {
                     anchor != null && anchor.bullet() ? anchor.text() : randomBullet(c), theme == null ? null : THEME_TEXT.get(theme));
             if (text == null) continue;
             if (insert(c.resumeId(), anchor == null ? null : anchor.id(), ((Number) row.get("id")).longValue(), type, theme, text,
-                    (String) row.get("options"), (String) row.get("correct_options"), (String) row.get("accepted_answers"), (String) row.get("key_facts"), (String) row.get("keywords"))) made++;
+                    (String) row.get("options"), (String) row.get("correct_options"), (String) row.get("accepted_answers"), (String) row.get("key_facts"), (String) row.get("keywords"), (String) row.get("format"))) made++;
         }
         return made;
+    }
+
+    /**
+     * Interview design questions (ticket 09): adds up to {@code need} reviewed design questions of the resume's role flavours that the resume does not have yet,
+     * leaving out ones this user mastered within the last month. Does nothing when the bank has none.
+     */
+    void fillDesign(long resumeId, int need) {
+        Ctx c = context(resumeId);
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT b.id, b.text_template, b.key_facts, b.keywords FROM bank_question b
+                WHERE b.source = 'seed' AND b.format = 'design' AND b.type = 'voice' AND b.track IN (:tracks)
+                  AND NOT EXISTS (SELECT 1 FROM question q WHERE q.resume_id = :r AND q.bank_question_id = b.id)
+                  AND NOT EXISTS (SELECT 1 FROM bank_performance bp JOIN resume r ON r.user_id = bp.user_id WHERE r.id = :r AND bp.bank_question_id = b.id
+                                  AND bp.mastered AND bp.last_asked_at > UTC_TIMESTAMP(3) - INTERVAL 1 MONTH)""",
+                new MapSqlParameterSource("r", resumeId).addValue("tracks", c.tracks()));
+        Collections.shuffle(rows, random);
+        for (Map<String, Object> row : rows.subList(0, Math.min(need, rows.size())))
+            insert(resumeId, null, ((Number) row.get("id")).longValue(), "voice", null, (String) row.get("text_template"), null, null, null,
+                    (String) row.get("key_facts"), (String) row.get("keywords"), "design");
     }
 
     /**
@@ -199,7 +222,7 @@ class PracticeBank {
             for (String[] x : combos) if (!ordered.contains(x)) ordered.add(x);
             for (String[] x : ordered) {
                 if (made >= need) break;
-                if (insert(c.resumeId(), null, null, type, x[0], "Tell me about a time you " + THEME_TEXT.get(x[0]) + x[1] + ".", null, null, null, null, null)) made++;
+                if (insert(c.resumeId(), null, null, type, x[0], "Tell me about a time you " + THEME_TEXT.get(x[0]) + x[1] + ".", null, null, null, null, null, null)) made++;
             }
             return;
         }
@@ -214,7 +237,7 @@ class PracticeBank {
                         String blanked = Pattern.compile("(?<![\\p{L}\\p{N}])" + Pattern.quote(skill) + "(?![\\p{L}\\p{N}])", Pattern.CASE_INSENSITIVE)
                                 .matcher(p.text()).replaceFirst(Matcher.quoteReplacement(SessionService.BLANK));
                         if (insert(c.resumeId(), p.id(), null, type, null, "Your resume says: \"" + blanked + "\" Which word completes it?", null, null,
-                                JSON.writeValueAsString(List.of(List.of(skill))), null, null)) made++;
+                                JSON.writeValueAsString(List.of(List.of(skill))), null, null, null)) made++;
                         break;
                     }
                 }
@@ -233,19 +256,19 @@ class PracticeBank {
                         text = type.equals("voice") ? "Walk me through this point from your resume: \"" + p.text() + "\" What did you do, and why?"
                                 : (where.isEmpty() ? "You" : where + "you") + " wrote: \"" + p.text() + "\" What was your part in this, and why did you take that approach?";
                     }
-                    if (insert(c.resumeId(), p.id(), null, type, null, text, null, null, null, null, null)) made++;
+                    if (insert(c.resumeId(), p.id(), null, type, null, text, null, null, null, null, null, null)) made++;
                 }
             }
         }
     }
 
     /** Inserts one question for the resume. The unique (resume_id, text_hash) index drops a repeat. */
-    private boolean insert(long resumeId, Long pointId, Long bankId, String type, String theme, String text, String options, String correct, String accepted, String keyFacts, String keywords) {
+    private boolean insert(long resumeId, Long pointId, Long bankId, String type, String theme, String text, String options, String correct, String accepted, String keyFacts, String keywords, String format) {
         return jdbc.update("""
-                INSERT IGNORE INTO question (resume_id, resume_point_id, bank_question_id, type, theme, text, options, correct_options, accepted_answers, key_facts, keywords, source, text_hash)
-                VALUES (:r, :p, :b, :type, :theme, :text, :opts, :correct, :accepted, :facts, :kw, 'bank', :hash)""",
+                INSERT IGNORE INTO question (resume_id, resume_point_id, bank_question_id, type, theme, text, options, correct_options, accepted_answers, key_facts, keywords, format, source, text_hash)
+                VALUES (:r, :p, :b, :type, :theme, :text, :opts, :correct, :accepted, :facts, :kw, :format, 'bank', :hash)""",
                 new MapSqlParameterSource("r", resumeId).addValue("p", pointId).addValue("b", bankId).addValue("type", type).addValue("theme", theme)
                         .addValue("text", text).addValue("opts", options).addValue("correct", correct).addValue("accepted", accepted)
-                        .addValue("facts", keyFacts).addValue("kw", keywords).addValue("hash", SessionService.hash(text))) == 1;
+                        .addValue("facts", keyFacts).addValue("kw", keywords).addValue("format", format == null ? "standard" : format).addValue("hash", SessionService.hash(text))) == 1;
     }
 }

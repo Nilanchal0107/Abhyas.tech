@@ -42,7 +42,7 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 
 ### Goals
 1. Upload a resume PDF and turn it into structured data.
-2. Ask the user for their **target role** and (optionally) **interview date** when they upload the resume.
+2. Ask the user for their **target role** when they upload the resume.
 3. Generate technical and behavioral questions from the resume.
 4. Accept answers by clicking (multiple correct), typing (fill-in-the-blank and brief answers), and voice.
 5. Grade every answer and show feedback.
@@ -81,15 +81,14 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 | Resume input | PDF upload, parsed with the **xitanggg/open-resume** parser |
 | If parsing misses parts | React review form **plus** a Groq fallback (PDFBox text to JSON) |
 | Where it runs | Owner's laptop only (localhost) |
-| Extra features in v1 | Role gap check, weak-spot memory, story bank |
+| Extra features in v1 | Role gap check, weak-spot memory |
 | Answer key | AI drafts it from the resume. **Editing is not enabled** (this replaces the earlier "I edit it" decision). It is shown **read-only in the feedback** after the user answers |
-| Interview date | Optional, only stored for now |
 | Login | Unique userId + password, no OAuth |
 | Users | Multiple users |
-| AI providers | **Groq gives the marks. Gemma on Google AI Studio writes the feedback and the report.** The two AIs do not both mark |
+| AI providers | **Groq gives the marks and writes the feedback and the report** (Gemma was removed on 10 October 2026) |
 | Stack | React, JavaScript, Spring Boot, MySQL |
 | Voice stats | Show pace and filler-word stats. **Java counts them, and the AI adds a short comment on the numbers** |
-| Roles | A database of **all tech roles with their skills**, filled at the start from a starter list prepared by Claude. Users search it to pick their target role. **The list is fixed at 11 roles; users cannot add roles** (since 4 October 2026; earlier a missing role could be added with AI-drafted skills, private to its user) |
+| Roles | A database of **all tech roles with their skills**, filled at the start from a starter list prepared by Claude. Users search it to pick their target role. **The list is fixed at 4 software development roles (since 10 October 2026; it was 11, and 42 before that); users cannot add roles** (since 4 October 2026; earlier a missing role could be added with AI-drafted skills, private to its user) |
 | Account deletion | Users can delete their own account and all their data |
 | AI cost | The person running the app on localhost pays for any AI use beyond the free tiers |
 | Export JSON | One practice session the user chooses, downloaded as JSON, with phone number and email removed |
@@ -101,11 +100,10 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 ## 6. Build order
 
 1. **Login**
-2. **Resume parser** (roles database, upload with role and interview date, OpenResume parse, fallback, review form, **gap check**)
+2. **Resume parser** (roles database, upload with role, OpenResume parse, fallback, review form, **gap check**)
 3. **Questions** (generation, session, answering)
 4. **Feedback** (grading, feedback, weak-spot repetition)
-5. **Story bank**
-6. **Export JSON** *(my decision: it needs the data from all earlier steps)*
+5. **Export JSON** *(my decision: it needs the data from all earlier steps)*
 
 ---
 
@@ -114,7 +112,6 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 1. **Sign up / log in** with userId and password.
 2. **Upload resume PDF.** While uploading, the app asks for:
    - **Target role** (search the roles database and select one)
-   - **Interview date** (optional)
 3. **Parse.** The OpenResume parser runs in the browser. If the result looks incomplete or low quality, the fallback runs.
 4. **Review form.** The user corrects anything wrong and saves.
 5. **Claims and answer key.** Each resume bullet and skill becomes a claim. AI drafts the answer key for each claim. The key is not editable.
@@ -135,12 +132,12 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 
 ### FR-2 Resume upload
 - Upload a PDF (PDF only, checked by file header, **1 MB maximum**).
-- At upload, ask for **target role** (from the roles database) and **interview date** (optional, only stored for now).
+- At upload, ask for **target role** (from the roles database). The interview date was removed on 10 October 2026.
 
 ### FR-3 Roles database
 - A database of **all tech roles, each with its skills**.
 - It is used to ask the user which role they are aiming for. The user searches it and selects a role.
-- It starts filled from a **starter list prepared by Claude** (`roles_starter.csv`, 11 roles in 3 categories since 4 October 2026; it was 42 in 9). *(file format is my decision)*
+- It starts filled from a **starter list prepared by Claude** (`roles_starter.csv`, 4 roles in 1 category since 10 October 2026; it was 11 in 3, and 42 in 9). *(file format is my decision)*
 - Each role also has **aliases** (for example "SDE" for Software Engineer) so search finds it under common names.
 - The list is **fixed**: users cannot add roles (removed 4 October 2026, with the AI skill draft). Roles a user added before then stay private to that user and still show in their search.
 
@@ -199,23 +196,22 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 - Store the **date and time each question was last asked**, always updated to the latest. For a bank question this is kept per user, not per resume (FR-13).
 
 ### FR-15 Voice delivery stats
+- **Live words (since 10 October 2026):** while a voice answer is being recorded, the browser's speech recognition shows the words as they are spoken, with a live pace and filler count. It is a preview only: when the recording stops, Whisper's transcript replaces it and is what is graded and counted. Browsers without speech recognition show nothing live.
 - For each voice answer, show speaking pace, filler-word count, word count and duration.
 - **Java counts them** from the Whisper transcript and its timestamps. A Web Speech answer has no timestamps: Java counts the words and uses the recording length the browser measured.
-- **Gemma adds a short comment** on the numbers as part of its feedback. *(my reading of "Gemma for feedback")*
+- **Groq adds a short comment** on the numbers as part of its feedback.
 - They are shown next to the feedback and do **not** change the marks. *(my decision)*
-- The numbers are sent to Gemma in the same call that writes the feedback for that answer. *(my decision)*
+- The numbers are sent to Groq in the same call that marks the answer and writes its feedback. *(my decision)*
 
 ### FR-16 Role gap check
 - Compare the skills on the user's resume with the skills of the selected role in the roles database.
 - Show which role skills have evidence on the resume and which do not.
 
-### FR-17 Story bank *(fields are my decision)*
-- Save STAR stories with: title, Situation, Task, Action, Result, lesson learned, tags (for example teamwork, conflict, failure, leadership, deadline pressure), and optional links to resume claims.
-- A button on a behavioral answer lets the user save it as a story.
-- Stories can be reused while practicing behavioral questions.
+### FR-17 Story bank *(removed 10 October 2026)*
+- The story bank was removed: nothing in the practice flow read it. FR-17 stays as a number so the others keep theirs.
 
 ### FR-18 Account deletion
-- A user can **delete their own account and all their data**: resumes, claims, answer keys, questions, answers, transcripts, scores, stories, gap results, and any roles they added.
+- A user can **delete their own account and all their data**: resumes, claims, answer keys, questions, answers, transcripts, scores, gap results, and any roles they added.
 - The shared starter roles are not affected.
 - The app asks for the password again before deleting. *(my decision, a basic safety step)*
 
@@ -228,9 +224,9 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
   2. **Gap check:** the result.
   3. **Questions and answers** of that session. Each item has its type, question text, options (multiple-correct), the user's answer (the transcript for voice answers), and the correct options or accepted answers.
   4. **Grades:** marks per question, the session total, the checklist ticks and crosses with quoted proof, mastered or not, and `graded_by` (AI or fallback).
-  5. **Feedback:** Gemma's per-answer feedback, the session report, and the voice stats with their comment.
-  6. **Story bank:** the user's saved STAR stories.
-- *Confirmed:* the story bank part holds all of the user's stories, only completed sessions can be exported, and the correct answers are included.
+  5. **Feedback:** Groq's per-answer feedback, the session report, and the voice stats with their comment.
+  (The sixth section, the story bank, was removed 10 October 2026.)
+- *Confirmed:* only completed sessions can be exported, and the correct answers are included.
 - *My decisions:*
   - The file is UTF-8 JSON with readable key names.
   - A short `description` at the top explains each section so other AI tools understand it.
@@ -258,7 +254,7 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 **Basic grading without AI**
 - Multiple-correct and fill-in-the-blank: unchanged (Java). Blanks marked wrong skip the Groq re-check and stay wrong.
 - Brief and voice: Java ticks the checklist items by **keyword match** of the answer against the stored key facts and keywords, and by simple pattern checks (for example "I" versus "we", and Situation/Action/Result cue words for behavioral). The quoted-proof rule still applies, so the matching sentence is shown for each tick.
-- Feedback is a **template** (ticks and crosses, key facts, "what to fix" from the missed items). No Gemma text and no session report text, only the numbers.
+- Feedback is a **template** (ticks and crosses, key facts, "what to fix" from the missed items). No AI text and no session report text, only the numbers.
 - Voice answers still need transcription. *(Confirmed v15:)*
   - **Whisper unavailable:** the voice part stays (a session always has 19 questions and 80 marks, ticket 19). The user speaks the answer again through the browser's **Web Speech API** (`SpeechRecognition`, Chrome and Edge); its transcript is sent like a Whisper transcript and graded as a voice answer (10 marks, mastery 8). Chrome sends that audio to the browser vendor's servers; the app stores no audio. The browser gives no word timing, so the stats use the recording length measured in the browser and Java counts the words. No Web Speech or no microphone: the typed answer below.
   - **Microphone denied (or Whisper fails during a voice question):** the user types the answer instead. It is graded like a brief answer (5 marks), with no delivery stats, and the question loses 5 of its 10 marks. Mastery uses the brief mark (4 of 5). The question stays a voice question and is offered again in a later session.
@@ -275,12 +271,23 @@ Treat every resume line as a **claim to defend**. Ask about each claim, grade th
 
 ### FR-21 Interview mode *(owner decisions, 5 October 2026, ticket 13)*
 - Home lets the user choose the mode before starting: **Quiz** (the 19-question session above) or **Interview**. The one-unfinished-session rule covers both.
-- An interview has **6 open questions**: 4 technical (the user's project questions first, then the bank or templates) and 2 behavioral from the bank. Each is **spoken or typed**, worth 10 marks (5 when typed, as for a voice answer in the quiz), so 60 marks at most. The user moves forward only.
+- An interview has **6 open questions**: 4 technical (3 about the user's projects, then **1 design question**, see below) and 2 behavioral from the bank. Each is **spoken or typed**, worth 10 marks (5 when typed, as for a voice answer in the quiz), so 60 marks at most. The user moves forward only.
 - **Timer:** 3 minutes per answer, shown on screen. When it runs out the answer is sent as it stands (a recording in progress finishes first). The limit is enforced in the browser, as is the 3-minute recording limit.
 - **One follow-up per answered question.** Groq writes it from the question, the key facts and what the user said, and must not assume details the resume or the answer does not state. The follow-up is written once and kept, so a reload shows the same one. If Groq is unavailable a generic follow-up is used. A skipped question has no follow-up and scores zero.
-- The follow-up answer is graded **together with** the main answer (one checklist, one mark). Marks, Gemma feedback per answer and the coaching report reuse the quiz grading and the report screen, which also shows the follow-up and the reply.
+- The follow-up answer is graded **together with** the main answer (one checklist, one mark). Marks, feedback per answer and the coaching report reuse the quiz grading and the report screen, which also shows the follow-up and the reply.
 - **Mastery:** the questions count toward mastery, exactly like quiz questions (FR-13, same rules, including no mastery from keyword grading).
 - History shows the mode of each session. The export gets `metadata.mode` and each answer's `followUp`.
+
+### FR-21a Design question in interview mode *(owner decision, 10 October 2026)*
+- One of the 4 technical interview questions is a **design question** (system design or low-level design for Backend, Software Engineer and Full Stack; front end design for Frontend and Full Stack), spoken or typed, 10 marks (5 typed).
+- It is graded on a **5-item checklist**: requirements and assumptions, API or main operations, data model, scale, trade-offs, each worth 2 marks (1 typed), with quoted proof. The key facts of the question are reference points for the grader and are shown read-only in the report.
+- Without AI, keyword cues tick the same 5 items, and that mark does not count toward mastery (FR-20). Mastery is 8 of 10 like any voice answer.
+- The interviewer also **reads each question and follow-up aloud** (browser speech synthesis, mute and replay, remembered mute). Recording waits until the reading ends, and the answer timer is paused while it speaks.
+
+### FR-22 Role flavours *(owner decision, 10 October 2026)*
+- A question can carry a **track** (`backend` or `frontend`). Backend gets write-a-SQL-query and design-an-endpoint questions, Frontend gets JavaScript quirks, CSS layout and React hook pitfalls, Full Stack gets both, Software Engineer gets the backend flavour. Questions with no track suit every role.
+- SQL and endpoint questions are **brief answers typed in a code box** (`format = code`), graded by a Groq checklist of 5 key facts about what the answer does. **Nothing is executed**, so a correct query written differently can still earn the ticks, and the quoted proof rule applies.
+- Code in questions, options and answers shows in monospace (`` `inline` `` and fenced blocks).
 
 ## 9. Session structure and grading
 
@@ -325,14 +332,14 @@ The voice part always stays: with Whisper down the browser's Web Speech API give
 ### Who does what (confirmed)
 - **Groq gives the marks** for brief and voice answers, using the yes/no checklist and quoted proof. It also re-checks fill-in-the-blank answers that Java marked wrong.
 - **Java** marks the multiple-correct questions, does the first check of fill-in-the-blank answers, adds up the totals, and counts the voice stats.
-- **Gemma writes the feedback and the session report.** It does **not** change any marks.
-- *My decision:* Gemma receives the question, the user's answer, Groq's checklist result and the answer key facts, so its feedback matches the marks.
-- Gemma's free limit is 16k input tokens per minute, so its calls are sent one at a time, not all at once.
+- **Groq writes the feedback and the session report**, in the same call as the checklist for each answer and one call for the report. The feedback does **not** change any marks (the ticks and the evidence rule do).
+- *My decision:* the feedback is written in the same reply as the ticks, so it matches the marks.
+- Groq's calls are sent one at a time by a single grading worker.
 
 ### Feedback format *(my decision)*
 - **Multiple-correct and fill-in-the-blank:** marks and the correct options or accepted answers. *(my decision)*
-- **Brief and voice answers:** marks (from Groq), the checklist with a tick or cross and the quoted proof for each tick, the answer key facts (read-only), and Gemma's short written feedback with a "what to fix" line.
-- **Per session:** total out of 80, marks per part, how many questions are mastered, and the weakest claims, with a short report written by Gemma.
+- **Brief and voice answers:** marks (from Groq), the checklist with a tick or cross and the quoted proof for each tick, the answer key facts (read-only), and Groq's short written feedback with a "what to fix" line.
+- **Per session:** total out of 80, marks per part, how many questions are mastered, and the weakest claims, with a short report written by Groq.
 
 ---
 
@@ -370,7 +377,6 @@ The voice part always stays: with Whisper down the browser's Web Speech API give
 | Resume parsing (fallback) | Apache PDFBox in Spring Boot, then Groq |
 | Main AI | Groq |
 | Voice to text | Groq Whisper |
-| Second-opinion AI | Gemma on Google AI Studio |
 | Grader design | A swappable `GraderService` interface so AI providers can be changed by configuration |
 | Roles starter data | `roles_starter.csv`, prepared by Claude from general knowledge (not a live job-market dataset). The exact content is in `database-schema.md` Section 12 |
 | License | AGPL-3.0 (because the OpenResume parser is copied in) |
@@ -385,16 +391,15 @@ These change often. Check each provider's limits page before relying on them.
 | Groq Llama 3.3 70B | 1,000 requests/day, 100K tokens/day |
 | Groq Llama 3.1 8B | 14,400 requests/day, 500K tokens/day |
 | Groq Whisper | 20 requests/min, 2,000 requests/day, 8 hours of audio/day, 25 MB per file |
-| Google AI Studio, Gemma 4 | 30 requests/min, 14.4k requests/day, 16k input tokens/min |
 
 **Important with multiple users:** Groq limits apply per organization, not per key or per user. All users share one free budget. If the free limits are not enough, the person running the app on localhost pays for the extra AI use.
 
-**Rough estimate (to be measured, not a promise):** one session needs about 9 Groq gradings (plus one re-check call when fill-in-the-blank answers were marked wrong) and 9 to 10 Gemma feedback calls (one per brief or voice answer, plus a session report), plus question and answer-key generation. That is roughly a few full sessions per day on the free 70B budget, shared by all users.
+**Rough estimate (to be measured, not a promise):** one session needs about 9 Groq gradings (plus one re-check call when fill-in-the-blank answers were marked wrong) and one report call (the feedback comes in the grading replies), plus question and answer-key generation. That is roughly a few full sessions per day on the free 70B budget, shared by all users.
 
 ### Draft entities
-Tables and columns are defined in `database-schema.md`: `app_user`, `skill`, `role` (starter roles are shared, added roles belong to one user), `role_alias`, `role_skill`, `resume`, `resume_point` (the claim), `key_fact` (the answer key), `gap_result`, `bank_question` (fallback bank, FR-20), `question` (per resume, with last-asked date and mastered flag), `practice_session`, `attempt` (answer, transcript, score, feedback, date), `story`, `story_tag`, `story_resume_point`.
+Tables and columns are defined in `database-schema.md`: `app_user`, `skill`, `role` (starter roles are shared, added roles belong to one user), `role_alias`, `role_skill`, `resume`, `resume_point` (the claim), `key_fact` (the answer key), `gap_result`, `bank_question` (fallback bank, FR-20), `question` (per resume, with last-asked date and mastered flag), `practice_session`, `attempt` (answer, transcript, score, feedback, date).
 
-Data decisions *(from the database-schema session, v18)*: a saved resume is read-only and its target role is fixed (a changed resume is a new upload with fresh tracking), only `interview_date` can be edited; the original PDF is not stored; a user has at most one unfinished practice session; account deletion is a cascading hard delete.
+Data decisions *(from the database-schema session, v18)*: a saved resume is read-only and its target role is fixed (a changed resume is a new upload with fresh tracking), nothing on it can be edited; the original PDF is not stored; a user has at most one unfinished practice session; account deletion is a cascading hard delete.
 
 ---
 
@@ -423,8 +428,6 @@ Data decisions *(from the database-schema session, v18)*: a saved resume is read
 | OpenResume license (AGPL-3.0) | **Decided:** the parser is copied and the whole project is licensed AGPL-3.0, with OpenResume's notice kept and a README note. Check the terms again before sharing or hosting the app for other people. This is not legal advice. |
 | AI graders can be too generous | The checklist and quoted-proof rules reduce this. With one grader (Groq) there is no cross-check, so the hand-grading proposal in Section 15 matters more. |
 | Free tiers change | A provider may cut limits or disappear. |
-| Gemma free tier has a small per-minute input limit | Writing feedback for nine answers can hit the limit if calls are sent together. Send them one at a time. |
-| Google AI Studio free-tier data handling | Check its terms before sending personal data. |
 | Whisper may remove "um" and "uh" from transcripts | Filler-word counts could be lower than reality. |
 | Starter roles list comes from Claude's general knowledge | Some skills may be outdated or missing and need review. |
 | Users adding roles | Near-duplicate roles can appear in a user's own list if the alias search misses a match. |
@@ -673,3 +676,31 @@ None. All questions are answered. Items marked "my decision" or "my reading" in 
 - **Dark mode is now in scope** and follows the system setting (`prefers-color-scheme`); there is no manual toggle. This reverses the v1 "no dark mode" decision. The landing page now uses the same tokens as the app (it was documented as dark).
 - Layout polish inside the existing wireframes: step indicator on Upload, Review and Role skills check, choice cards for modes and answers, circled marks on scores, status chips in History and the report. No route, API call or copy changed. New dependency: `@fontsource-variable/fraunces`.
 - Not run: no browser check yet (the Chrome extension was not connected), so the new screens have only been compiled (`vite build`), not looked at.
+
+**SDE focus: story bank removed (ticket sde-focus/01, 10 October 2026, owner decision)**
+- The scope is SDE, Full Stack, Backend and Frontend roles. The story bank was removed because nothing in the practice flow read it. Gone: the Stories screens and menu item, "Save as story" in the report, the `/stories` endpoints, the story section of the export JSON (now five sections), and the three story tables (`V9__drop_story.sql`, which deletes the data). Build order loses its Story bank step. FR-17 stays as an empty number.
+- `Attempt.id` is no longer sent (it existed only for `sourceAttemptId`).
+- Not run: the MySQL tests and `V9` itself (no Docker, and the backend `src/test` folder is deleted in the working tree). Compile and frontend build only.
+
+**SDE focus: interview date removed (ticket sde-focus/02, 10 October 2026, owner decision)**
+- Upload, Review and the Resume list no longer have an interview date; `PATCH /resumes/{id}` is gone, so a saved resume has no editable field. `V10__drop_interview_date.sql` drops the column. FR-2 and the user flow are updated. Not run: `V10` (no MySQL here).
+
+**SDE focus: only the 4 software development roles (ticket sde-focus/03, 10 October 2026, owner decision)**
+- Data and AI (5 roles) and Cloud and DevOps (2 roles) are out of scope. `V11__narrow_to_software_roles.sql` deletes them, the resumes that target them (with their questions and sessions), and the practice bank rows of every skill that no remaining role lists (30 skills stay in the bank, 750 skill rows plus 20 behavioral in the draft count; Communication, Critical Thinking and Python are no longer listed by any role). The `skill` table is unchanged, so skills still match on a resume.
+- The unreviewed Data, Data Engineering and DevOps drafts (`bank_data.py`, `bank_dataeng.py`, `bank_devops.py`, `review_wave2.md`, the wave 2 SQL) were deleted from `seed-draft/`; they are in git history. `gen_bank.py` now covers 4 roles. `V8` is unchanged: its AI and ML rows are removed by `V11`. Not run: `V11` (no MySQL here).
+- Open for the owner: Python is not listed by any of the 4 roles, so it has no bank rows. Say if Backend or Software Engineer should list it.
+
+**SDE focus: Gemma removed (ticket sde-focus/04, 10 October 2026, owner decision)**
+- Groq now writes each answer's feedback in the same reply as its checklist (`text`, `whatToFix`, `deliveryComment` for a recorded answer), and one Groq call writes the session report. The Gemma provider, `GOOGLE_AI_KEY`, the model setting, the 7-second gap and the `FeedbackService` stub are gone. A reply with a good checklist but no usable text still counts for the marks, and that answer gets the template text (`feedback_status = 'none'`). Keyword-graded answers get template text as before.
+- Marks are unchanged by the feedback text: the ticks and the evidence rule still decide them. The checklist prompt is longer, so each answer uses more Groq tokens; measure it (Section 15 still open).
+- The old `GOOGLE_AI_KEY` is no longer read. If it is a real key, revoke it in Google AI Studio and remove it from `application-local.yml`.
+- Not run: no live Groq call and no MySQL here, so the new prompt and the feedback write have only been compiled.
+
+**SDE focus: live words, spoken interviewer, design questions, role flavours (tickets sde-focus/05 to 11, 10 October 2026, owner decisions)**
+- **Live words (05, 06):** `VoiceAnswer` runs the browser's speech recognition (interim results) next to the recorder and shows the words, pace and filler count in an `aria-live` box (only finished sentences are announced). Whisper's transcript replaces it on stop and stays the graded source. The same helper (`lib/liveWords.js`) now also gives the Web Speech transcript when Whisper is down, and keeps listening through pauses (Chrome ends recognition after silence). A throwaway page, `frontend/public/spike-live-captions.html`, checks that Chrome and Edge run both on one microphone. **The owner's result is still open**; the code never lets a live-words problem touch the recording.
+- **Spoken interviewer (07):** `lib/speak.js` reads the question and follow-up; mute (remembered in the browser), replay, mic and timer wait while it speaks.
+- **Code in monospace (08):** `lib/richText.js` and `Rich` render backtick code and fenced blocks on Practice, Interview and Report.
+- **Design questions (09):** `V12` adds `bank_question.format` and `question.format` (`standard`, `design`, `code`) and `bank_question.track`. The interview is now 3 project questions, 1 design question, 2 behavioral. `Grading.itemKeys` has a 5-item design checklist and `Grading.score` scales marks per item (max / items). Keyword cues cover the 5 areas.
+- **Role flavours (10, 11):** `PracticeBank.TRACKS` maps a role to its tracks; bank fill skips rows of other tracks and never uses design rows for ordinary slots. Software Engineer gets the backend flavour (change one line to alter that).
+- **Drafts to review:** `seed-draft/V13__flavoured_bank.sql` and `review_flavours.md` hold 52 unreviewed questions (16 design, 13 SQL and endpoint, 23 frontend). They are **not loaded**: review, then move the file to `db/migration/`. Until then an interview has 5 questions plus a technical top-up, and Backend and Frontend sessions have no flavoured questions.
+- Checked here: compile, `vite build`, `node --test` on the new helpers, and a throwaway Java check of the design scoring and interview slots. Not run: `V12`, `V13`, any browser or microphone, any live Groq call.

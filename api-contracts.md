@@ -69,7 +69,6 @@ Login, signup and account deletion never use `401` for a form problem that the p
 | Brief answer or typed voice answer | up to 5,000 characters |
 | Fill-in-the-blank answer | up to 200 characters per blank |
 | Voice audio | `audio/webm`, up to 3 minutes (180 s) and 5 MB |
-| Story | title 1 to 200, each STAR box and lesson up to 5,000, up to 10 tags of 1 to 40 characters, up to 20 linked resume points |
 | Search query `q` | 1 to 100 characters |
 
 ## 2. Shared types
@@ -99,18 +98,19 @@ All string fields can be `null`. Arrays can be empty. Resume points are created 
 ### 2.2 `ResumeSummary`
 ```json
 { "id": 7, "fileName": "Paras_Resume.pdf", "targetRole": { "id": 12, "name": "Backend Developer" },
-  "interviewDate": "2026-11-20", "parseSource": "openresume", "pointCount": 38,
+  "parseSource": "openresume", "pointCount": 38,
   "questionCount": 31, "masteredCount": 14,
   "createdAt": "2026-10-03T10:15:30.123Z", "lastUsedAt": null }
 ```
 
 ### 2.3 `Question` (as shown to the user)
 ```json
-{ "id": 301, "type": "multiple_correct", "theme": null, "isBehavioral": false, "isGapSkill": false,
+{ "id": 301, "type": "multiple_correct", "format": "standard", "theme": null, "isBehavioral": false, "isGapSkill": false,
   "text": "In Order Service you used Spring Data JPA. Which statements about lazy loading are true?",
   "options": [{ "key": "A", "text": "..." }, { "key": "B", "text": "..." }, { "key": "C", "text": "..." }, { "key": "D", "text": "..." }],
   "blankCount": null }
 ```
+- `format` is `standard`, `design` (an interview design question, always `type: voice`) or `code` (a brief answered in a code box). Text may hold `` `inline code` `` and fenced code blocks.
 - `options` is set only for `multiple_correct` (4 options). `blankCount` (1 or 2) only for `fill_blank`. For a fill-in-the-blank question the `text` contains `________` once per blank.
 - `theme` is one of `teamwork`, `conflict`, `failure`, `leadership`, `deadline_pressure`, and is `null` for technical questions. `isBehavioral` is `theme != null`.
 - `isGapSkill` is `true` for a bank question whose skill is on the target role's list but not on the resume. The practice screen labels it "Likely to be asked for this role" (skill-bank D4). Always `false` for behavioral, AI and template questions.
@@ -128,7 +128,7 @@ All string fields can be `null`. Arrays can be empty. Resume points are created 
 During an `in_progress` session only the fields the user may see are present:
 
 ```json
-{ "id": 812, "position": 3, "maxMarks": 2, "question": { "...": "Question" }, "answer": { "...": "Answer" } }
+{ "position": 3, "maxMarks": 2, "question": { "...": "Question" }, "answer": { "...": "Answer" } }
 ```
 
 Once the session is `completed`, each attempt also has (all `null` while grading is still running):
@@ -147,7 +147,7 @@ Once the session is `completed`, each attempt also has (all `null` while grading
 }
 ```
 - `correctOptions` only for multiple-correct. `acceptedAnswers` (one list per blank) and `blankResults` (`[{ "correct": true }]`) only for fill-in-the-blank. `checklist` and `keyFacts` only for brief and voice (`keyFacts` is `[]` for a behavioral question, which has no answer key).
-- `feedback.status` is `pending`, `ready` or `none`. `none` means the text is a template written by Java (or empty for an objective answer), not by Gemma; the UI shows it the same way. `deliveryComment` is set only for voice answers.
+- `feedback.status` is `pending`, `ready` or `none`. `none` means the text is a template written by Java (or empty for an objective answer), not by the AI; the UI shows it the same way. `deliveryComment` is set only for voice answers.
 - `gradedWithoutAi` is `true` when keyword matching gave the mark (`graded_by = 'fallback'`); the report then offers a regrade (6, skill-bank D9, 4 October 2026). The raw `gradedBy` value appears only in the export.
 - `maxMarks` is 2, 5 or 10. A voice question answered by typing has `maxMarks: 5`.
 - The checklist `item` keys by question:
@@ -231,7 +231,7 @@ Errors: `not-a-pdf`, `file-too-large` (over 1 MB), `ai-unavailable` (the UI keep
 
 ### `POST /resumes` (W6 Save and continue)
 ```json
-{ "fileName": "Paras_Resume.pdf", "targetRoleId": 12, "interviewDate": "2026-11-20",
+{ "fileName": "Paras_Resume.pdf", "targetRoleId": 12,
   "parseSource": "openresume", "parsed": { "...": "ParsedResume" } }
 ```
 Creates the resume, then its resume points in one transaction, then starts the one AI call that writes its project questions with key facts (retried later if it fails). The resume is read-only afterwards.
@@ -249,9 +249,6 @@ Response `200`:
     "points": [{ "id": 55, "kind": "project_bullet", "text": "Designed REST APIs for ...", "position": 12, "skillId": 8 }] } }
 ```
 Read-only. `kind` is `project_bullet`, `experience_bullet` or `skill`. The key-fact status is not exposed. Errors: `not-found`.
-
-### `PATCH /resumes/{id}`
-Request `{ "interviewDate": "2026-12-01" }` or `{ "interviewDate": null }`. The only editable field. Response `200`: `{ "resume": { "...": "ResumeSummary" } }`. Errors: `validation`, `not-found`.
 
 ### `DELETE /resumes/{id}` (W3)
 Response `204`. Deletes the resume with its points, role skills result, questions, sessions and attempts. Errors: `not-found`, `session-open` (an unfinished session uses this resume, `sessionId` is returned).
@@ -287,7 +284,7 @@ Query `status` is `in_progress`, `completed` or `abandoned` (optional), `limit` 
 ### `GET /sessions/{id}` (W8 resume, W9 report, polling)
 Response `200`: `{ "session": SessionDetail }`. While `in_progress` it never contains correct answers, key facts, checklists or marks (Q5). Errors: `not-found`.
 
-**Polling (W9):** after submit, call this endpoint every 2.5 seconds while `session.gradingComplete` is `false`, then stop. A completed attempt whose `score` is `null` is still being graded; its `feedback.status` stays `pending` until Gemma's text arrives. If the app restarts during grading, the backend finishes it on startup and the same polling works.
+**Polling (W9):** after submit, call this endpoint every 2.5 seconds while `session.gradingComplete` is `false`, then stop. A completed attempt whose `score` is `null` is still being graded; its `feedback.status` stays `pending` until its text is saved. If the app restarts during grading, the backend finishes it on startup and the same polling works.
 
 ### `PUT /sessions/{id}/attempts/{position}` (W8, on Next)
 Request `{ "answer": Answer-like }`. Fields by question type:
@@ -332,42 +329,9 @@ No body. Response `200`: `{ "session": SessionSummary }` with `status: "abandone
 ### `GET /sessions/{id}/export` (W9, W10)
 Response `200`, `Content-Type: application/json; charset=utf-8`, `Content-Disposition: attachment; filename="practice-session-41-2026-10-03.json"`. Body in Section 8. Errors: `not-found`, `session-not-completed`. Export is allowed once grading is complete; before that the file would lack grades, so it returns `session-not-completed` too *(my decision)*.
 
-## 7. Stories (FR-17, W11)
+## 7. Stories (removed 10 October 2026)
 
-`Story`:
-```json
-{ "id": 9, "title": "Fixing the payment outage",
-  "situation": "...", "task": "...", "action": "...", "result": "...", "lesson": "...",
-  "tags": ["teamwork", "deadline pressure"],
-  "resumePoints": [{ "id": 55, "text": "Designed REST APIs for ...", "resumeId": 7 }],
-  "sourceAttemptId": 812, "createdAt": "...", "updatedAt": "..." }
-```
-Only `title` is required. The STAR boxes can be `null`.
-
-### `GET /stories?tag=teamwork` (W11a)
-`tag` is optional. Response `200`:
-```json
-{ "stories": [{ "id": 9, "title": "Fixing the payment outage", "tags": ["teamwork"], "preview": "Our payment service went down ...", "createdAt": "...", "updatedAt": "..." }],
-  "tags": ["conflict", "teamwork"] }
-```
-`preview` is the first 140 characters of the first non-empty of `situation`, `action`. `tags` lists all of the user's distinct tags (for the filter chips).
-
-### `GET /stories/{id}` (W11b)
-Response `200`: `{ "story": Story }`. Errors: `not-found`.
-
-### `POST /stories` (W11b, and "Save as story")
-```json
-{ "title": "...", "situation": null, "task": null, "action": "...", "result": null, "lesson": null,
-  "tags": ["teamwork"], "resumePointIds": [55], "sourceAttemptId": 812 }
-```
-Response `201`: `{ "story": Story }`. `resumePointIds` and `sourceAttemptId` must belong to the user, otherwise `not-found`. `sourceAttemptId` is optional and set by "Save as story" from a behavioral answer. The "Save as story" form is pre-filled in the browser (the answer text in `action`); there is no endpoint for the prefill.
-Errors: `validation` (limits in 1.2), `not-found`.
-
-### `PUT /stories/{id}`
-Same body as `POST` (full replace of the fields). `sourceAttemptId` is ignored on update. Response `200`: `{ "story": Story }`. Errors: `validation`, `not-found`.
-
-### `DELETE /stories/{id}`
-Response `204`. Errors: `not-found`.
+The story bank and its endpoints were removed (sde-focus ticket 01).
 
 ## 8. Export JSON (FR-19)
 
@@ -375,7 +339,7 @@ Built on request, never stored. UTF-8. **Phone and email are removed** (the keys
 
 ```json
 {
-  "description": "Practice session export from Abhyas.tech. Sections: resume (the structured resume used), gapCheck (role skills with and without evidence), questionsAndAnswers (every question with the user's answer and the correct answer), grades (marks, checklists with quoted proof, mastered or not, and gradedBy: ai, fallback or java), feedback (per-answer feedback, voice stats and the session report), storyBank (the user's saved STAR stories).",
+  "description": "Practice session export from Abhyas.tech. Sections: resume (the structured resume used), gapCheck (role skills with and without evidence), questionsAndAnswers (every question with the user's answer and the correct answer), grades (marks, checklists with quoted proof, mastered or not, and gradedBy: ai, fallback or java), feedback (per-answer feedback, voice stats and the session report).",
   "metadata": { "exportedAt": "...", "sessionDate": "2026-10-03", "roleName": "Backend Developer", "voicePartSkipped": false },
   "resume": { "profile": { "name": "Asha Rao", "location": "Pune", "links": [], "summary": null }, "education": [], "experience": [], "projects": [], "skills": [] },
   "gapCheck": { "withEvidence": [], "withoutEvidence": [] },
@@ -394,13 +358,11 @@ Built on request, never stored. UTF-8. **Phone and email are removed** (the keys
   "feedback": {
     "perAnswer": [{ "position": 11, "text": "...", "whatToFix": "...", "deliveryComment": null, "voiceStats": null }],
     "sessionReport": { "headline": "...", "summary": "..." }
-  },
-  "storyBank": [ "Story, without ids of other tables" ]
+  }
 }
 ```
-- Sections appear in this order (the PRD order). `storyBank` holds all of the user's stories, not only ones linked to this session.
+- Sections appear in this order (the PRD order).
 - `gradedBy` is `java` (multiple-correct, fill-in-the-blank), `ai` or `fallback`. This is the only place it is exposed.
-- In `storyBank`, each story is `title`, the STAR boxes, `lesson`, `tags`, and the linked resume point texts, without database IDs.
 
 ## 9. Endpoint index (for review)
 
@@ -416,7 +378,6 @@ Built on request, never stored. UTF-8. **Phone and email are removed** (the keys
 | `POST /resumes` | 201 | W6 |
 | `GET /resumes` | 200 | W2, W3 |
 | `GET /resumes/{id}` | 200 | W3 |
-| `PATCH /resumes/{id}` | 200 | W3 |
 | `DELETE /resumes/{id}` | 204 | W3 |
 | `GET /resumes/{id}/role-skills-check` | 200 | W7 |
 | `POST /sessions` | 201 | W2, W3 |
@@ -430,11 +391,6 @@ Built on request, never stored. UTF-8. **Phone and email are removed** (the keys
 | `POST /sessions/{id}/attempts/{position}/regrade` | 202 | W9 |
 | `POST /sessions/{id}/abandon` | 200 | W8, W2 |
 | `GET /sessions/{id}/export` | 200 | W9, W10 |
-| `GET /stories` | 200 | W11a |
-| `GET /stories/{id}` | 200 | W11b |
-| `POST /stories` | 201 | W11b, W9 |
-| `PUT /stories/{id}` | 200 | W11b |
-| `DELETE /stories/{id}` | 204 | W11a |
 
 ## 10. Notes for implementation
 
@@ -448,3 +404,7 @@ Built on request, never stored. UTF-8. **Phone and email are removed** (the keys
 **v1** (3 October 2026): created from the API grilling session (Q1 to Q10).
 
 - 5 October 2026 (ticket 13): `mode` on `POST /sessions`, `SessionSummary` and `SessionDetail`; `Attempt.followUp`; new `POST` and `PUT /sessions/{id}/attempts/{position}/follow-up`. Export `metadata.mode` and each answer's `followUp`.
+- 10 October 2026 (sde-focus ticket 01): Section 7 and all `/stories` endpoints removed, `storyBank` removed from the export, `Attempt.id` removed, story validation limits removed.
+- 10 October 2026 (sde-focus ticket 02): `interviewDate` removed from `ResumeSummary` and `POST /resumes`; `PATCH /resumes/{id}` removed.
+- 10 October 2026 (sde-focus ticket 04): feedback text now comes from Groq, in the grading reply; no contract change.
+- 10 October 2026 (sde-focus tickets 09 to 11): `Question.format`. An interview is 3 project questions, 1 design question and 2 behavioral questions, still 6 `voice` slots.

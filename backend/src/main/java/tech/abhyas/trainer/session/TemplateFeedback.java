@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import tech.abhyas.trainer.session.Grading.Tick;
 
-/** Feedback and report text written by Java alone, used when Gemma is unavailable (trd 7.5). Same shape as the AI text, same tone (UI-UX Section 9). */
+/** Feedback and report text written by Java alone, used when Groq wrote no text (trd 7.5). Same shape as the AI text, same tone (UI-UX Section 9). */
 final class TemplateFeedback {
     private TemplateFeedback() {}
 

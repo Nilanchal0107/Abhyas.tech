@@ -11,14 +11,14 @@ A row loaded with source 'seed' counts as reviewed (skill-bank D3). The earlier 
 import csv, hashlib, json, re, sys
 from pathlib import Path
 from bank_common import BLANK
-import bank_fullstack, bank_software, bank_frontend, bank_data, bank_dataeng, bank_devops
+import bank_fullstack, bank_software, bank_frontend
 
 HERE = Path(__file__).parent
 LEVELS = ["easy", "medium", "hard"]
 THEMES = ["teamwork", "conflict", "failure", "leadership", "deadline_pressure"]
-FILES = [bank_fullstack, bank_software, bank_frontend, bank_data, bank_dataeng, bank_devops]
+FILES = [bank_fullstack, bank_software, bank_frontend]  # the Data, Data Engineering and DevOps files were removed with their roles (10 October 2026)
 # Wave 1 = skills of these roles (ticket 16, D12); wave 2 = every other skill. A skill of both waves is loaded once, in wave 1.
-WAVE1_ROLES = {"Software Engineer", "Backend Developer", "Frontend Developer", "Full Stack Developer", "AI Engineer", "Machine Learning Engineer"}
+WAVE1_ROLES = {"Software Engineer", "Backend Developer", "Frontend Developer", "Full Stack Developer"}
 SOFT = {"Communication", "Critical Thinking"}  # scenario briefs only: they make poor multiple-correct or blank questions
 
 FULL = {"multiple_correct": {"easy": 3, "medium": 4, "hard": 3}, "fill_blank": {"easy": 3, "medium": 4, "hard": 3}, "brief": 5}
@@ -110,8 +110,8 @@ def main():
         w.writerows([[c if c is not None else "" for c in r] for r in rows])
 
     order = {"multiple_correct": 0, "fill_blank": 1, "brief": 2}
-    for wave, (review_name, sql_name, version) in {1: ("review.md", "V8__starter_bank.sql", "V8"), 2: ("review_wave2.md", "V9__starter_bank_wave2.sql", "V9")}.items():
-        md = [f"# Practice bank review, wave {wave}: " + ("skills of the Software Development and AI roles" if wave == 1 else "skills of the Data, Cloud and DevOps roles not in wave 1"), "",
+    for wave, (review_name, sql_name, version) in {1: ("review.md", "V8__starter_bank.sql", "V8")}.items():  # V8 is already in db/migration: never copy this output over it
+        md = [f"# Practice bank review, wave {wave}: " + ("skills of the 4 Software Development roles" if wave == 1 else "skills of the Data, Cloud and DevOps roles not in wave 1"), "",
               "Check every answer. Correct options are **bold**. Fix a question in the `bank_*.py` file named in its heading, run `python gen_bank.py`",
               f"again, then move `{sql_name}` to `db/migration/`.", ""]
         for skill, qs in Q.items():
@@ -149,7 +149,7 @@ def main():
                 lines.append(f"{cols}\nVALUES ({values('NULL')});")
         (HERE / sql_name).write_text("\n".join(lines) + "\n", encoding="utf-8")
     from collections import Counter
-    for wave in (1, 2):
+    for wave in (1,):
         print(f"wave {wave}:", dict(Counter(r[2] for r in rows if r[0] and wave_of(r[0]) == wave)), f"for {sum(1 for k in Q if wave_of(k) == wave)} skills")
     print(f"{len(BEHAVIORAL)} behavioral (wave 1)")
 

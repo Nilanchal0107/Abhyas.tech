@@ -11,7 +11,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -25,9 +24,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Grades a submitted session in the background (trd 7.4). One single-thread worker, so Gemma's calls are sent one at a time.
- * Stage A marks every answer and sets the total; stage B writes feedback and the report, filling rows in gradually. Both stages
- * pick up only what is still open, so a restart finishes the work where it stopped. Logs only ids and error classes (trd 6.5).
+ * Grades a submitted session in the background (trd 7.4). One single-thread worker, so Groq's calls are sent one at a time.
+ * Stage A marks every answer (Groq's checklist reply also carries the feedback text) and sets the total; stage B fills in template
+ * feedback where Groq wrote none and writes the report. Both stages pick up only what is still open, so a restart finishes the work where it stopped. Logs only ids and error classes (trd 6.5).
  */
 @Service
 public class GradingService {
@@ -37,7 +36,6 @@ public class GradingService {
     private final NamedParameterJdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final AiClient ai;
-    private final long gapMillis;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "grading");
         t.setDaemon(true);
@@ -45,11 +43,10 @@ public class GradingService {
     });
     private final Set<Long> queued = java.util.concurrent.ConcurrentHashMap.newKeySet(); // sessions waiting or running, so a double submit queues once
 
-    public GradingService(NamedParameterJdbcTemplate jdbc, TransactionTemplate tx, AiClient ai, @Value("${app.grading.gemma-gap-millis:7000}") long gapMillis) {
+    public GradingService(NamedParameterJdbcTemplate jdbc, TransactionTemplate tx, AiClient ai) {
         this.jdbc = jdbc;
         this.tx = tx;
         this.ai = ai;
-        this.gapMillis = gapMillis;
     }
 
     /** Hands a completed session to the worker. */
@@ -87,11 +84,12 @@ public class GradingService {
 
     // ---- loading ----
 
-    private record Att(long id, int position, double maxMarks, String via, String selected, String blanks, String text, String transcript, String stats, Double score,
+    private record Att(String format, long id, int position, double maxMarks, String via, String selected, String blanks, String text, String transcript, String stats, Double score,
                        String checklist, String feedbackStatus, long questionId, String type, String theme, String questionText, String correct, String accepted,
                        String keyFacts, String keywords, Long pointId, String pointText, String followUp, String followUpAnswer) {
         boolean answered() { return via != null; }
         boolean behavioral() { return theme != null; }
+        boolean design() { return "design".equals(format); }
         boolean voiceRecorded() { return type.equals("voice") && "voice".equals(via); }
         String mainAnswer() { return voiceRecorded() ? transcript : text; }
         /** An interview answer is graded together with its follow-up answer (ticket 13); the follow-up question itself is not part of the evidence. */
@@ -101,9 +99,9 @@ public class GradingService {
     private List<Att> load(long sessionId) {
         return jdbc.query("""
                 SELECT a.id, a.position, a.max_marks, a.answered_via, a.selected_options, a.blank_answers, a.answer_text, a.transcript, a.voice_stats, a.score, a.checklist, a.feedback_status,
-                       q.id AS qid, q.type, q.theme, q.text, q.correct_options, q.accepted_answers, q.key_facts, q.keywords, q.resume_point_id, p.text AS point_text, a.follow_up_text, a.follow_up_answer
+                       q.id AS qid, q.type, q.format, q.theme, q.text, q.correct_options, q.accepted_answers, q.key_facts, q.keywords, q.resume_point_id, p.text AS point_text, a.follow_up_text, a.follow_up_answer
                 FROM attempt a JOIN question q ON q.id = a.question_id LEFT JOIN resume_point p ON p.id = q.resume_point_id
-                WHERE a.session_id = :s ORDER BY a.position""", Map.of("s", sessionId), (rs, i) -> new Att(rs.getLong("id"), rs.getInt("position"), rs.getDouble("max_marks"),
+                WHERE a.session_id = :s ORDER BY a.position""", Map.of("s", sessionId), (rs, i) -> new Att(rs.getString("format"), rs.getLong("id"), rs.getInt("position"), rs.getDouble("max_marks"),
                 rs.getString("answered_via"), rs.getString("selected_options"), rs.getString("blank_answers"), rs.getString("answer_text"), rs.getString("transcript"),
                 rs.getString("voice_stats"), rs.getObject("score") == null ? null : rs.getDouble("score"), rs.getString("checklist"), rs.getString("feedback_status"),
                 rs.getLong("qid"), rs.getString("type"), rs.getString("theme"), rs.getString("text"), rs.getString("correct_options"), rs.getString("accepted_answers"),
@@ -194,17 +192,44 @@ public class GradingService {
 
     /** Groq ticks the checklist and Java enforces the evidence rule; when Groq cannot, keyword matching does, and that mark does not count toward mastery. */
     private void markChecklist(Att a, List<String> facts) {
-        List<String> keys = Grading.itemKeys(a.voiceRecorded(), a.behavioral());
+        List<String> keys = Grading.itemKeys(a.voiceRecorded(), a.behavioral(), a.format());
         String answer = a.answerText() == null ? "" : a.answerText();
         List<Tick> ticks = null;
+        JsonNode reply = null;
         if (ai.available(Provider.GROQ_CHAT)) {
-            Optional<JsonNode> reply = ai.json(Provider.GROQ_CHAT, checklistPrompt(a, keys, facts, answer), r -> Grading.complete(r, keys));
-            if (reply.isPresent()) ticks = Grading.applyEvidence(reply.get(), keys, facts, answer);
+            reply = ai.json(Provider.GROQ_CHAT, checklistPrompt(a, keys, facts, answer), r -> Grading.complete(r, keys)).orElse(null);
+            if (reply != null) ticks = Grading.applyEvidence(reply, keys, facts, answer);
         }
         boolean byAi = ticks != null;
         if (!byAi) ticks = KeywordGrader.grade(answer, keys, facts, strings(a.keywords()), a.pointText() == null ? a.questionText() : a.pointText(), a.questionText());
-        save(a, Grading.score(ticks), JSON.writeValueAsString(ticks.stream().map(GradingService::tickMap).toList()), null, byAi ? "ai" : "fallback", byAi);
+        save(a, Grading.score(ticks, a.maxMarks()), JSON.writeValueAsString(ticks.stream().map(GradingService::tickMap).toList()), null, byAi ? "ai" : "fallback", byAi);
+        if (byAi) {
+            Map<String, Object> text = feedbackFrom(reply, stats(a) != null);
+            if (text != null) jdbc.update("UPDATE attempt SET feedback_text = :t, feedback_status = 'ready' WHERE id = :id AND feedback_status = 'pending'",
+                    Map.of("t", JSON.writeValueAsString(text), "id", a.id())); // a reply without usable text leaves 'pending': stage B writes the template
+        }
     }
+
+    /** The feedback part of Groq's checklist reply: text and whatToFix are required, deliveryComment only for a recorded answer. Null when unusable. */
+    static Map<String, Object> feedbackFrom(JsonNode reply, boolean voice) {
+        String text = clean(reply.path("text")), fix = clean(reply.path("whatToFix"));
+        if (text == null || fix == null) return null;
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("text", text);
+        out.put("whatToFix", fix);
+        out.put("deliveryComment", voice ? clean(reply.path("deliveryComment")) : null);
+        return out;
+    }
+
+    static final int MAX_TEXT = 1500;
+
+    private static String clean(JsonNode n) {
+        if (!n.isString()) return null;
+        String t = n.asString().strip();
+        return t.isEmpty() ? null : t.length() > MAX_TEXT ? t.substring(0, MAX_TEXT) : t;
+    }
+
+    private static Map<String, Object> stats(Att a) { return a.voiceRecorded() && a.stats() != null ? statsMap(a.stats()) : null; }
 
     private static Map<String, Object> tickMap(Tick t) {
         Map<String, Object> m = new LinkedHashMap<>();
@@ -221,9 +246,15 @@ public class GradingService {
                 .append("Question (").append(a.behavioral() ? "behavioral" : "technical").append("): ").append(a.questionText()).append('\n');
         if (a.pointText() != null) sb.append("Resume point the question is about: ").append(a.pointText()).append('\n');
         if (a.followUpAnswer() != null && !a.followUpAnswer().isBlank()) sb.append("The interviewer then asked: ").append(a.followUp()).append("\nThe candidate answer below is the first answer followed by the reply to that follow-up.\n");
+        if (a.design()) sb.append("This is a design question. A strong answer may mention: ").append(String.join(" | ", facts)).append('\n');
         sb.append("Candidate answer: ").append(answer).append("\nChecklist items:\n");
         for (String k : keys) sb.append("- ").append(k).append(": ").append(Grading.label(k, facts)).append('\n');
-        return sb.append("Reply as {\"items\":[{\"item\":\"").append(keys.get(0)).append("\",\"passed\":true,\"quote\":\"...\"}]} and list every item.").toString();
+        Map<String, Object> stats = stats(a);
+        if (stats != null) sb.append("Delivery numbers: ").append(stats).append('\n');
+        sb.append("Also write short, kind, concrete feedback as a coach. The marks come from your ticks; do not mention a different mark and never blame the candidate.\n");
+        return sb.append("Reply as {\"items\":[{\"item\":\"").append(keys.get(0)).append("\",\"passed\":true,\"quote\":\"...\"}],")
+                .append("\"text\":\"two or three sentences about what was good and what was missing\",\"whatToFix\":\"one concrete sentence\"")
+                .append(stats != null ? ",\"deliveryComment\":\"one sentence about pace and filler words\"" : "").append("} and list every item.").toString();
     }
 
     /** Saves a mark. A counting mark also sets the question's last score and mastered flag (database-schema 3.13). */
@@ -247,9 +278,8 @@ public class GradingService {
 
     // ---- stage B: feedback and report ----
 
-    /** Gemma writes one answer at a time, then the report. Anything it cannot write gets template text. */
+    /** Answers Groq wrote no feedback for (keyword-graded, or an unusable reply) get template text, then the report is written. */
     void writeFeedback(long sessionId) {
-        GemmaFeedback gemma = new GemmaFeedback(ai, GradingService::sleep, gapMillis);
         List<Att> all = load(sessionId);
         for (Att a : all) {
             if (!"pending".equals(a.feedbackStatus()) || a.score() == null) continue;
@@ -257,15 +287,9 @@ public class GradingService {
                 jdbc.update("UPDATE attempt SET feedback_status = 'none' WHERE id = :id", Map.of("id", a.id()));
                 continue;
             }
-            List<Tick> ticks = ticks(a.checklist());
-            List<String> facts = facts(a);
-            Map<String, Object> stats = a.voiceRecorded() && a.stats() != null ? statsMap(a.stats()) : null;
-            Optional<Map<String, Object>> text = ticks.isEmpty() ? Optional.empty()
-                    : gemma.feedback(GemmaFeedback.feedbackPrompt(a.questionText(), a.answerText(), ticks, facts, stats), stats != null);
-            boolean ai = text.isPresent();
-            Map<String, Object> out = text.orElseGet(() -> TemplateFeedback.feedback(ticks, facts, stats));
-            jdbc.update("UPDATE attempt SET feedback_text = :t, feedback_status = :st WHERE id = :id AND feedback_status = 'pending'",
-                    Map.of("t", JSON.writeValueAsString(out), "st", ai ? "ready" : "none", "id", a.id()));
+            Map<String, Object> out = TemplateFeedback.feedback(ticks(a.checklist()), facts(a), stats(a));
+            jdbc.update("UPDATE attempt SET feedback_text = :t, feedback_status = 'none' WHERE id = :id AND feedback_status = 'pending'",
+                    Map.of("t", JSON.writeValueAsString(out), "id", a.id()));
         }
 
         String status = jdbc.queryForObject("SELECT report_status FROM practice_session WHERE id = :s", Map.of("s", sessionId), String.class);
@@ -275,10 +299,22 @@ public class GradingService {
         double total = ((Number) row.get("total_marks")).doubleValue(), max = ((Number) row.get("max_marks")).doubleValue();
         Grading.Summary sum = Grading.summarize(Grading.scored(jdbc, sessionId));
         List<String> weakest = sum.weakest().stream().map(Grading.Scored::pointText).toList();
-        Optional<Map<String, Object>> text = gemma.report(GemmaFeedback.reportPrompt(total, max, sum.mastered(), all.size(), sum.byPart(), weakest));
+        Optional<Map<String, Object>> text = ai.available(Provider.GROQ_CHAT)
+                ? ai.json(Provider.GROQ_CHAT, reportPrompt(total, max, sum.mastered(), all.size(), sum.byPart(), weakest),
+                        r -> clean(r.path("headline")) != null && clean(r.path("summary")) != null)
+                        .map(r -> Map.<String, Object>of("headline", clean(r.path("headline")), "summary", clean(r.path("summary"))))
+                : Optional.empty();
         Map<String, Object> out = text.orElseGet(() -> TemplateFeedback.report(total, max, sum.mastered(), all.size(), weakest));
         jdbc.update("UPDATE practice_session SET report_text = :t, report_status = :st WHERE id = :s",
                 Map.of("t", JSON.writeValueAsString(out), "st", text.isPresent() ? "ready" : "none", "s", sessionId));
+    }
+
+    static String reportPrompt(double total, double max, int mastered, int questions, Map<String, double[]> byPart, List<String> weakest) {
+        StringBuilder sb = new StringBuilder("You are a kind, concrete interview coach. Write a short report for a practice session. The numbers are final.\n")
+                .append("Total: ").append(TemplateFeedback.fmt(total)).append(" of ").append(TemplateFeedback.fmt(max)).append(". Mastered: ").append(mastered).append(" of ").append(questions).append(".\n");
+        byPart.forEach((part, m) -> sb.append(part).append(": ").append(TemplateFeedback.fmt(m[0])).append(" of ").append(TemplateFeedback.fmt(m[1])).append('\n'));
+        if (!weakest.isEmpty()) sb.append("Weakest resume points: ").append(String.join(" | ", weakest)).append('\n');
+        return sb.append("Reply as {\"headline\":\"one supportive sentence\",\"summary\":\"two or three neutral sentences\"}.").toString();
     }
 
     private static List<Tick> ticks(String json) {
@@ -294,11 +330,5 @@ public class GradingService {
         Map<String, Object> m = new LinkedHashMap<>();
         for (String k : List.of("wordsPerMinute", "fillerCount", "wordCount", "durationSeconds")) m.put(k, n.path(k).asInt());
         return m;
-    }
-
-    private static void sleep(long millis) {
-        if (millis <= 0) return;
-        try { Thread.sleep(millis); }
-        catch (InterruptedException e) { Thread.currentThread().interrupt(); }
     }
 }

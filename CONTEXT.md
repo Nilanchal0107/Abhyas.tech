@@ -13,7 +13,7 @@ The true facts about a resume point, drafted by AI and used to grade answers. Sh
 _Avoid_: Answer key (internal name in the PRD and code)
 
 **Interview mode**:
-A practice session of 6 spoken or typed questions, each followed by one **follow-up** the AI writes from the answer. The follow-up answer is graded with the main one. The other mode is the **quiz** (the 19-question practice session).
+A practice session of 6 spoken or typed questions (3 about the user's projects, 1 **design question**, 2 behavioral), each followed by one **follow-up** the AI writes from the answer, read aloud by the browser. The follow-up answer is graded with the main one. The other mode is the **quiz** (the 19-question practice session).
 
 **Practice session**:
 One run of 19 questions worth 80 marks, grouped into four parts: multiple-correct, fill-in-the-blank, brief answers and voice answers.
@@ -26,10 +26,6 @@ _Avoid_: Passed, learned
 **Role skills check**:
 A comparison of the skills on the user's resume with the skills of their target role, showing which have evidence and which do not.
 _Avoid_: Gap check (internal name in the PRD and code), skill gap analysis
-
-**Story bank**:
-The user's saved STAR stories, reusable when practising behavioral questions.
-_Avoid_: Story library, answers vault
 
 **Practice bank**:
 The shared database of ready-made questions, tagged by skill, reviewed by the owner and used to build every session.
@@ -50,3 +46,15 @@ _Avoid_: Partial session, reduced session
 **Target role**:
 The role the user is preparing for, chosen from the roles database at resume upload.
 _Avoid_: Job, position
+
+**Design question**:
+An interview question about designing a system, a class model or a front end component, graded on five areas: requirements, API, data model, scale, trade-offs.
+_Avoid_: System design round
+
+**Role flavour**:
+The kind of questions a target role gets beyond the common ones: backend (SQL, endpoints), frontend (JavaScript, CSS, React), or both for Full Stack.
+_Avoid_: Track (internal name in the code)
+
+**Live words**:
+The preview of what the user is saying, shown while recording. The graded transcript is written again when the recording stops.
+_Avoid_: Captions, subtitles

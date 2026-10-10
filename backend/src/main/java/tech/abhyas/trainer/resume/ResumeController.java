@@ -5,7 +5,6 @@ import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -27,12 +26,12 @@ public class ResumeController {
 
     public ResumeController(ResumeParser parser, ResumeService resumes, ProjectQuestionService projectQuestions) { this.parser = parser; this.resumes = resumes; this.projectQuestions = projectQuestions; }
 
-    record NewResume(String fileName, Long targetRoleId, String interviewDate, String parseSource, JsonNode parsed) {}
+    record NewResume(String fileName, Long targetRoleId, String parseSource, JsonNode parsed) {}
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     Map<String, Object> save(@RequestAttribute(AuthInterceptor.USER_ID) long userId, @RequestBody NewResume b) {
-        Map<String, Object> saved = resumes.save(userId, b.fileName(), b.targetRoleId(), b.interviewDate(), b.parseSource(), b.parsed());
+        Map<String, Object> saved = resumes.save(userId, b.fileName(), b.targetRoleId(), b.parseSource(), b.parsed());
         projectQuestions.draftInBackground((Long) saved.get("id")); // after the commit; the user is never told if it fails (FR-8)
         return Map.of("resume", saved);
     }
@@ -51,11 +50,6 @@ public class ResumeController {
     @GetMapping("/{id}/role-skills-check")
     Map<String, Object> roleSkillsCheck(@RequestAttribute(AuthInterceptor.USER_ID) long userId, @PathVariable long id) {
         return resumes.roleSkillsCheck(userId, id);
-    }
-
-    @PatchMapping("/{id}")
-    Map<String, Object> patch(@RequestAttribute(AuthInterceptor.USER_ID) long userId, @PathVariable long id, @RequestBody Map<String, Object> b) {
-        return Map.of("resume", resumes.setInterviewDate(userId, id, b));
     }
 
     @DeleteMapping("/{id}")

@@ -3,7 +3,7 @@ import { api } from './api/client.js'
 import VoiceAnswer from './VoiceAnswer.jsx'
 import Interview from './Interview.jsx'
 import { voiceBody } from './lib/sessions.js'
-import { Alert, Chip, Loading } from './ui.jsx'
+import { Alert, Chip, Loading, Rich } from './ui.jsx'
 import { ArrowLeft, ArrowRight, Check, Compass, SignOut } from '@phosphor-icons/react'
 
 const PARTS = { multiple_correct: 'Multiple correct', fill_blank: 'Fill in the blank', brief: 'Brief answer', voice: 'Voice answer' }
@@ -13,8 +13,8 @@ const voiceFilled = (v) => v && (v.mode === 'voice' || v.text.trim() !== '')
 const words = (t) => (t.trim() ? t.trim().split(/\s+/).length : 0)
 
 // "________" in a fill-in-the-blank question becomes a drawn line, read out as "[blank 1]".
-const BlankText = ({ text }) => text.split(BLANK).flatMap((part, i) => (i === 0 ? [part] : [
-  <span key={i} className="blank"><span className="visually-hidden">[blank {i}]</span></span>, part]))
+const BlankText = ({ text }) => text.split(BLANK).flatMap((part, i) => (i === 0 ? [<Rich key="p0" inline text={part} />] : [
+  <span key={i} className="blank"><span className="visually-hidden">[blank {i}]</span></span>, <Rich key={`p${i}`} inline text={part} />]))
 
 // Question number, kind, and marks at the top of a question card.
 function QTop({ n, type, marks, behavioral }) {
@@ -134,7 +134,7 @@ export default function Practice({ id, onExit, onSubmitted }) {
         <div className="qcard" key={a.position}>
           <QTop n={index + 1} type={q.type} behavioral={q.isBehavioral} marks={v?.mode === 'typed' ? 5 : a.maxMarks} />
           {q.isGapSkill && <p className="hint"><Compass size={18} aria-hidden="true" />Likely to be asked for this role</p>}
-          <p className="qtext-lg">{q.text}</p>
+          <div className="qtext-lg"><Rich text={q.text} /></div>
           <VoiceAnswer sessionId={id} position={a.position} value={v} onChange={(x) => setVoice((o) => ({ ...o, [a.position]: x }))} />
         </div>
       ) : brief ? (
@@ -142,8 +142,9 @@ export default function Practice({ id, onExit, onSubmitted }) {
           <QTop n={index + 1} type={q.type} behavioral={q.isBehavioral} marks={a.maxMarks} />
           {q.isGapSkill && <p className="hint"><Compass size={18} aria-hidden="true" />Likely to be asked for this role</p>}
           {q.isBehavioral && <p className="hint">Tip: <span className="hl">Situation, Task, Action, Result.</span></p>}
-          <label htmlFor="brief-answer" className="qtext-lg">{q.text}</label>
-          <textarea id="brief-answer" rows={7} maxLength={5000} value={selected[0]} onChange={(e) => type(0, e.target.value)} />
+          {q.format === 'code' && <p className="hint">Write your answer as code or short steps. It is marked on what it does, not on exact wording.</p>}
+          <div id="brief-q" className="qtext-lg"><Rich text={q.text} /></div>
+          <textarea id="brief-answer" aria-labelledby="brief-q" className={q.format === 'code' ? 'code-input' : undefined} spellCheck={q.format === 'code' ? false : undefined} rows={q.format === 'code' ? 10 : 7} maxLength={5000} value={selected[0]} onChange={(e) => type(0, e.target.value)} />
           <p className="wordcount" aria-live="polite">{words(selected[0])} {words(selected[0]) === 1 ? 'word' : 'words'}</p>
         </div>
       ) : blank ? (
@@ -151,7 +152,7 @@ export default function Practice({ id, onExit, onSubmitted }) {
           <fieldset>
             <legend><QTop n={index + 1} type={q.type} marks={a.maxMarks} /></legend>
             {q.isGapSkill && <p className="hint"><Compass size={18} aria-hidden="true" />Likely to be asked for this role</p>}
-            <p className="qtext-lg"><BlankText text={q.text} /></p>
+            <div className="qtext-lg"><BlankText text={q.text} /></div>
             {selected.map((v, i) => (
               <div key={i} className="blank-field">
                 <label htmlFor={`blank-${i}`}>{q.blankCount > 1 ? `Blank ${i + 1}` : 'Your answer'}</label>
@@ -170,7 +171,7 @@ export default function Practice({ id, onExit, onSubmitted }) {
             {q.options.map((o) => (
               <label key={o.key} className="choice">
                 <input type="checkbox" checked={selected.includes(o.key)} onChange={() => toggle(o.key)} />
-                <span><span className="key">{o.key}.</span> {o.text}</span>
+                <span><span className="key">{o.key}.</span> <Rich inline text={o.text} /></span>
               </label>
             ))}
           </fieldset>

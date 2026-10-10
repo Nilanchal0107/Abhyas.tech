@@ -33,6 +33,12 @@ final class KeywordGrader {
     private static final Pattern RESULT = Pattern.compile("(?i)(\\b(result(ed|s)?|reduced|increased|improved|decreased|saved|delivered|launched|shipped|achieved|outcome|ended up|finally)\\b|\\d\\s?%)");
     private static final Pattern LESSON = cue("learn(ed|t)|lesson|realized|realised|next time|in future|in the future|would do differently|takeaway|taught me");
     private static final Pattern DIGIT = Pattern.compile("\\d");
+    // design areas (ticket 09): rough cue words only, so a keyword-graded design answer never counts toward mastery
+    private static final Pattern REQUIREMENTS = cue("requirements?|assum(e|es|ing|ptions?)|users?|traffic|per second|qps|functional|non-functional|constraints?|scope|clarify|expected");
+    private static final Pattern API = cue("endpoints?|api|get|post|put|delete|request|response|method|methods|interface|class|classes|function|operations?");
+    private static final Pattern DATA_MODEL = cue("tables?|schema|columns?|entit(y|ies)|database|index(es)?|primary key|foreign key|data model|fields?|relationships?|objects?|store");
+    private static final Pattern SCALE = cue("scal(e|es|ing|able)|cach(e|es|ing)|shard(s|ing)?|partition(s|ing)?|replicas?|replication|load balanc\\w*|queues?|throughput|latency|horizontal(ly)?|bottleneck|concurren\\w*");
+    private static final Pattern TRADEOFFS = cue("trade-?offs?|alternatives?|instead|downsides?|versus|vs|pros and cons|consistency|availability|cost|however|at the cost");
 
     private static Pattern cue(String alternatives) { return Pattern.compile("(?i)\\b(" + alternatives + ")\\b"); }
 
@@ -97,6 +103,11 @@ final class KeywordGrader {
                 case "result" -> quote = sentenceMatching(sentences, RESULT);
                 case "lesson_learned" -> quote = sentenceMatching(sentences, LESSON);
                 case "concrete_detail" -> quote = sentenceMatching(sentences, DIGIT);
+                case "requirements" -> quote = sentenceMatching(sentences, REQUIREMENTS);
+                case "api" -> quote = sentenceMatching(sentences, API);
+                case "data_model" -> quote = sentenceMatching(sentences, DATA_MODEL);
+                case "scale" -> quote = sentenceMatching(sentences, SCALE);
+                case "tradeoffs" -> quote = sentenceMatching(sentences, TRADEOFFS);
                 case "answers_question" -> {
                     Set<String> q = significant(questionText);
                     quote = sentenceWith(sentences, q, q.size() >= 4 ? 2 : 1);

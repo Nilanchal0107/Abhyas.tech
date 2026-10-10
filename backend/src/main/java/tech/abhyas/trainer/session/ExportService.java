@@ -11,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import tech.abhyas.trainer.common.ApiException;
-import tech.abhyas.trainer.story.StoryService;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -22,11 +21,10 @@ public class ExportService {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final SessionService sessions;
-    private final StoryService stories;
     private final Clock clock;
 
-    public ExportService(NamedParameterJdbcTemplate jdbc, SessionService sessions, StoryService stories, Clock clock) {
-        this.jdbc = jdbc; this.sessions = sessions; this.stories = stories; this.clock = clock;
+    public ExportService(NamedParameterJdbcTemplate jdbc, SessionService sessions, Clock clock) {
+        this.jdbc = jdbc; this.sessions = sessions; this.clock = clock;
     }
 
     @SuppressWarnings("unchecked")
@@ -39,7 +37,7 @@ public class ExportService {
         JsonNode resume = JSON.readTree(jdbc.queryForObject("SELECT parsed_json FROM resume WHERE id = :r", Map.of("r", resumeId), String.class));
         Map<Integer, String> gradedBy = new HashMap<>();
         jdbc.query("SELECT position, graded_by FROM attempt WHERE session_id = :s", Map.of("s", id), rs -> { gradedBy.put(rs.getInt("position"), rs.getString("graded_by")); });
-        return Export.build(detail, Instant.now(clock).toString(), resume, gap(resumeId), gradedBy, stories.forExport(userId));
+        return Export.build(detail, Instant.now(clock).toString(), resume, gap(resumeId), gradedBy);
     }
 
     /** The saved role skills check with skill names and resume point texts instead of IDs. */

@@ -29,7 +29,6 @@ const FAQ = [
   ['When does a question stop coming back?', 'When you reach its mastery mark. A mastered question rests for at least one month before it can return.'],
   ['What happens to my resume and recordings?', 'Only you can see them. The original PDF and your voice recordings are never stored, and your phone number and email are never sent to an AI service. If our transcription is down, Chrome turns your speech into text itself and sends that audio to Google; we still store none.'],
   ['Can I use a session in other tools?', 'Yes. Export JSON downloads one completed session with your answers, marks and feedback. Your phone number and email are removed.'],
-  ['What is the story bank?', 'A place to keep your STAR stories (Situation, Task, Action, Result) ready for behavioral questions.'],
   ['Does it cost anything?', 'Creating an account is free. Abhyas.tech is open source under the AGPL 3.0 license.'],
 ]
 

@@ -1,0 +1,62 @@
+<!doctype html>
+<!-- THROWAWAY (sde-focus ticket 05): delete after the owner has reported the result. Open at http://localhost:5173/spike-live-captions.html -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live captions spike</title>
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; }
+  pre { background: #f3f3f3; padding: 12px; white-space: pre-wrap; min-height: 3em; }
+  button { font: inherit; padding: 8px 16px; margin-right: 8px; }
+</style>
+</head>
+<body>
+<h1>Live captions spike</h1>
+<p>Press Start, speak for about 20 seconds, press Stop. Live words should appear while you speak, and a recording should come out at the end.
+Do it in Chrome and in Edge, and tell me what you see.</p>
+<button id="start">Start</button><button id="stop" disabled>Stop</button>
+<h2>Live words</h2><pre id="live"></pre>
+<h2>Result</h2><pre id="result"></pre>
+<script>
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+const live = document.getElementById('live'), result = document.getElementById('result')
+let rec, mr, stream, chunks, t0, lastInterim = 0, interimCount = 0, recErr = []
+
+document.getElementById('start').onclick = async () => {
+  live.textContent = ''; result.textContent = ''; chunks = []; interimCount = 0; recErr = []
+  if (!SR) result.textContent = 'No SpeechRecognition in this browser: live words are not possible here.\n'
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }) } catch (e) { result.textContent += 'Microphone refused: ' + e.name; return }
+  mr = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
+  mr.ondataavailable = (e) => chunks.push(e.data)
+  mr.onstop = () => {
+    stream.getTracks().forEach((t) => t.stop())
+    const blob = new Blob(chunks, { type: 'audio/webm' })
+    result.textContent += `Recorder: ${blob.size} bytes in ${((Date.now() - t0) / 1000).toFixed(1)} s (should be more than a few KB).\n`
+    result.textContent += `Recognition: ${interimCount} interim updates, errors: ${recErr.join(', ') || 'none'}.\n`
+    document.getElementById('start').disabled = false; document.getElementById('stop').disabled = true
+  }
+  t0 = Date.now()
+  mr.start()
+  if (SR) {
+    rec = new SR(); rec.lang = 'en-US'; rec.continuous = true; rec.interimResults = true
+    let finalText = ''
+    rec.onresult = (e) => {
+      let interim = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' '
+        else interim += e.results[i][0].transcript
+      }
+      interimCount++
+      live.textContent = finalText + interim
+    }
+    rec.onerror = (e) => recErr.push(e.error)
+    rec.onend = () => { if (mr.state === 'recording') { try { rec.start() } catch (e) { recErr.push('restart-' + e.name) } } } // Chrome ends recognition after silence
+    try { rec.start() } catch (e) { recErr.push('start-' + e.name) }
+  }
+  document.getElementById('start').disabled = true; document.getElementById('stop').disabled = false
+}
+document.getElementById('stop').onclick = () => { try { rec && rec.stop() } catch (e) {} ; mr.stop() }
+</script>
+</body>
+</html>

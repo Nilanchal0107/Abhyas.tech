@@ -17,38 +17,28 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Real HTTP calls to Groq chat, Groq Whisper and Gemma. Keys come from GROQ_API_KEY and GOOGLE_AI_KEY only. */
+/** Real HTTP calls to Groq chat and Groq Whisper. The key comes from GROQ_API_KEY only. */
 @Component
 class HttpAiTransport implements AiTransport {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(HttpAiTransport.class);
     private static final String GROQ = "https://api.groq.com/openai/v1/";
-    private static final String GOOGLE = "https://generativelanguage.googleapis.com/v1beta/models/";
 
     private final HttpClient http = HttpClient.newHttpClient();
     private final JsonMapper json;
-    private final String groqKey, googleKey, chatModel, whisperModel, gemmaModel;
+    private final String groqKey, chatModel, whisperModel;
 
     HttpAiTransport(JsonMapper json,
                     @Value("${app.ai.groq-key:}") String groqKey,
-                    @Value("${app.ai.google-key:}") String googleKey,
                     @Value("${app.ai.models.groq-chat}") String chatModel,
-                    @Value("${app.ai.models.groq-whisper}") String whisperModel,
-                    @Value("${app.ai.models.gemma}") String gemmaModel) {
+                    @Value("${app.ai.models.groq-whisper}") String whisperModel) {
         this.json = json;
         this.groqKey = groqKey;
-        this.googleKey = googleKey;
         this.chatModel = chatModel;
         this.whisperModel = whisperModel;
-        this.gemmaModel = gemmaModel;
     }
 
     @Override
     public String send(Provider provider, String prompt, Duration timeout) {
-        if (provider == Provider.GEMMA) {
-            JsonNode r = json.readTree(call(googleKey, "x-goog-api-key", URI.create(GOOGLE + gemmaModel + ":generateContent"),
-                    "application/json", gemmaBody(json, prompt), timeout));
-            return r.path("candidates").path(0).path("content").path("parts").path(0).path("text").asString("");
-        }
         JsonNode r = json.readTree(call(groqKey, "Authorization", URI.create(GROQ + "chat/completions"),
                 "application/json", groqBody(json, chatModel, prompt), timeout));
         return r.path("choices").path(0).path("message").path("content").asString("");
@@ -56,7 +46,7 @@ class HttpAiTransport implements AiTransport {
 
     @Override
     public boolean configured(Provider provider) {
-        return !(provider == Provider.GEMMA ? googleKey : groqKey).isBlank();
+        return !groqKey.isBlank();
     }
 
     @Override
@@ -78,11 +68,6 @@ class HttpAiTransport implements AiTransport {
         return json.writeValueAsBytes(Map.of("model", model, "temperature", 0,
                 "response_format", Map.of("type", "json_object"),
                 "messages", List.of(Map.of("role", "user", "content", prompt))));
-    }
-
-    static byte[] gemmaBody(JsonMapper json, String prompt) {
-        return json.writeValueAsBytes(Map.of("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
-                "generationConfig", Map.of("temperature", 0)));
     }
 
     private String call(String key, String keyHeader, URI uri, String contentType, byte[] body, Duration timeout) {

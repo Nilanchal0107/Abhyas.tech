@@ -13,7 +13,7 @@ final class Export {
 
     static final String DESCRIPTION = "Practice session export from Abhyas.tech. Sections: resume (the structured resume used), gapCheck (role skills with and without evidence), "
             + "questionsAndAnswers (every question with the user's answer and the correct answer), grades (marks, checklists with quoted proof, mastered or not, and gradedBy: "
-            + "ai, fallback or java), feedback (per-answer feedback, voice stats and the session report), storyBank (the user's saved STAR stories).";
+            + "ai, fallback or java), feedback (per-answer feedback, voice stats and the session report).";
 
     /** The resume without phone and email. Name, links and the rest stay. */
     static JsonNode cleanResume(JsonNode parsed) {
@@ -28,7 +28,7 @@ final class Export {
      * @param gap      withEvidence and withoutEvidence with skill names and resume point texts (no IDs)
      */
     @SuppressWarnings("unchecked")
-    static Map<String, Object> build(Map<String, Object> detail, String exportedAt, JsonNode resume, Map<String, Object> gap, Map<Integer, String> gradedBy, List<Map<String, Object>> stories) {
+    static Map<String, Object> build(Map<String, Object> detail, String exportedAt, JsonNode resume, Map<String, Object> gap, Map<Integer, String> gradedBy) {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("description", DESCRIPTION);
         String completed = (String) detail.get("completedAt");
@@ -102,7 +102,6 @@ final class Export {
         session.put("summary", report == null ? null : report.get("summary"));
         feedback.put("sessionReport", session);
         out.put("feedback", feedback);
-        out.put("storyBank", stories);
         return out;
     }
 }

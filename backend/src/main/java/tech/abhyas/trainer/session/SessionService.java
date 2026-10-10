@@ -60,8 +60,9 @@ public class SessionService {
     // ---- slot selection (pure) ----
 
     /** A stored question as seen by slot selection. {@code lastScore} and {@code lastAsked} can be null. */
-    record Candidate(long id, boolean mastered, int timesAsked, Double lastScore, LocalDateTime lastAsked, boolean behavioral, boolean project) {
-        Candidate(long id, boolean mastered, int timesAsked, Double lastScore, LocalDateTime lastAsked, boolean behavioral) { this(id, mastered, timesAsked, lastScore, lastAsked, behavioral, false); }
+    record Candidate(long id, boolean mastered, int timesAsked, Double lastScore, LocalDateTime lastAsked, boolean behavioral, boolean project, boolean design) {
+        Candidate(long id, boolean mastered, int timesAsked, Double lastScore, LocalDateTime lastAsked, boolean behavioral, boolean project) { this(id, mastered, timesAsked, lastScore, lastAsked, behavioral, project, false); }
+        Candidate(long id, boolean mastered, int timesAsked, Double lastScore, LocalDateTime lastAsked, boolean behavioral) { this(id, mastered, timesAsked, lastScore, lastAsked, behavioral, false, false); }
     }
 
     /**
@@ -152,8 +153,11 @@ public class SessionService {
     // ---- start ----
 
     /** Slots of one kind inside a part: technical from the bank (no theme), behavioral (themed), or a project question the AI wrote for this resume. */
-    record Quota(boolean behavioral, boolean project, int slots) {
-        Quota(boolean behavioral, int slots) { this(behavioral, false, slots); }
+    record Quota(boolean behavioral, boolean project, boolean design, int slots) {
+        Quota(boolean behavioral, boolean project, int slots) { this(behavioral, project, false, slots); }
+        Quota(boolean behavioral, int slots) { this(behavioral, false, false, slots); }
+        /** An interview design question (ticket 09): system design or low-level design from the bank, picked by the resume's role. */
+        static Quota design(int slots) { return new Quota(false, false, true, slots); }
     }
 
     /** The parts, in session order (trd 7.2, ticket 17). Brief is 3 technical, 2 behavioral and 1 project; voice is 1 behavioral and 2 project. */
@@ -164,15 +168,15 @@ public class SessionService {
             new Part("brief", BRIEF_MARKS, List.of(new Quota(false, 3), new Quota(true, 2), new Quota(false, true, 1))),
             new Part("voice", VOICE_MARKS, List.of(new Quota(true, 1), new Quota(false, true, 2))));
 
-    /** Interview mode (ticket 13): 6 spoken questions, 4 technical (the user's projects first) and 2 behavioral, 10 marks each (5 when typed). */
-    static final List<Part> INTERVIEW = List.of(new Part("voice", VOICE_MARKS, List.of(new Quota(false, true, 4), new Quota(true, 2))));
+    /** Interview mode (ticket 13): 6 spoken questions, 4 technical (3 about the user's projects, then 1 design question) and 2 behavioral, 10 marks each (5 when typed). */
+    static final List<Part> INTERVIEW = List.of(new Part("voice", VOICE_MARKS, List.of(new Quota(false, true, 3), Quota.design(1), new Quota(true, 2))));
 
     static final List<String> THEMES = List.of("teamwork", "conflict", "failure", "leadership", "deadline_pressure");
 
     /** Picks each quota of a part on its own (technical and behavioral questions never fill each other's slots). */
     static List<List<Long>> pickQuotas(List<Candidate> all, List<Quota> quotas, LocalDateTime now, Random random) {
         List<List<Long>> out = new ArrayList<>();
-        for (Quota q : quotas) out.add(pick(all.stream().filter(c -> c.behavioral() == q.behavioral() && c.project() == q.project()).toList(), q.slots(), now, random));
+        for (Quota q : quotas) out.add(pick(all.stream().filter(c -> c.behavioral() == q.behavioral() && c.project() == q.project() && c.design() == q.design()).toList(), q.slots(), now, random));
         return out;
     }
 
@@ -191,6 +195,7 @@ public class SessionService {
         List<Integer> marks = new ArrayList<>();
         // always 19 questions, 80 marks (ticket 19): with Whisper down the browser's Web Speech API gives the transcript of a voice answer
         for (Part part : mode.equals("interview") ? INTERVIEW : PARTS) {
+            for (Quota q : part.quotas()) if (q.design()) bank.fillDesign(resumeId, q.slots() * 2); // a little variety to pick from; nothing when the bank has none
             List<List<Long>> chosen = pickQuotas(candidates(userId, resumeId, part.type()), part.quotas(), now, random);
             boolean short_ = missing(part, chosen, false) + missing(part, chosen, true) > 0;
             if (short_) {
@@ -246,7 +251,8 @@ public class SessionService {
             int lack = quotas.get(i).slots() - chosen.get(i).size();
             if (lack <= 0) continue;
             boolean behavioral = quotas.get(i).behavioral();
-            List<Long> spare = new ArrayList<>(all.stream().filter(c -> c.behavioral() == behavioral && !used.contains(c.id())).map(Candidate::id).toList());
+            boolean design = quotas.get(i).design();
+            List<Long> spare = new ArrayList<>(all.stream().filter(c -> c.behavioral() == behavioral && c.design() == design && !used.contains(c.id())).map(Candidate::id).toList());
             Collections.shuffle(spare, random);
             for (Long id : spare.subList(0, Math.min(lack, spare.size()))) { chosen.get(i).add(id); used.add(id); }
         }
@@ -256,10 +262,10 @@ public class SessionService {
     private void topUpProject(Part part, List<List<Long>> chosen, List<Candidate> all, LocalDateTime now) {
         for (int i = 0; i < chosen.size(); i++) {
             int lack = part.quotas().get(i).slots() - chosen.get(i).size();
-            if (!part.quotas().get(i).project() || lack <= 0) continue;
+            if (!(part.quotas().get(i).project() || part.quotas().get(i).design()) || lack <= 0) continue;
             Set<Long> used = new LinkedHashSet<>();
             chosen.forEach(used::addAll);
-            chosen.get(i).addAll(pick(all.stream().filter(c -> !c.behavioral() && !c.project() && !used.contains(c.id())).toList(), lack, now, random));
+            chosen.get(i).addAll(pick(all.stream().filter(c -> !c.behavioral() && !c.project() && !c.design() && !used.contains(c.id())).toList(), lack, now, random));
         }
     }
 
@@ -276,12 +282,12 @@ public class SessionService {
                 SELECT q.id, IF(q.bank_question_id IS NULL, q.mastered, COALESCE(bp.mastered, FALSE)) AS mastered,
                        IF(q.bank_question_id IS NULL, q.times_asked, COALESCE(bp.times_asked, 0)) AS times_asked,
                        IF(q.bank_question_id IS NULL, q.last_score, bp.last_score) AS last_score,
-                       IF(q.bank_question_id IS NULL, q.last_asked_at, bp.last_asked_at) AS last_asked_at, q.theme IS NOT NULL AS behavioral, (q.source = 'ai' AND q.theme IS NULL) AS project
+                       IF(q.bank_question_id IS NULL, q.last_asked_at, bp.last_asked_at) AS last_asked_at, q.theme IS NOT NULL AS behavioral, (q.source = 'ai' AND q.theme IS NULL) AS project, q.format = 'design' AS design
                 FROM question q LEFT JOIN bank_performance bp ON bp.user_id = :me AND bp.bank_question_id = q.bank_question_id
                 WHERE q.resume_id = :r AND q.type = :t""",
                 Map.of("me", userId, "r", resumeId, "t", type), (rs, i) -> new Candidate(rs.getLong("id"), rs.getBoolean("mastered"), rs.getInt("times_asked"),
                         rs.getObject("last_score") == null ? null : rs.getDouble("last_score"),
-                        rs.getTimestamp("last_asked_at") == null ? null : rs.getTimestamp("last_asked_at").toLocalDateTime(), rs.getBoolean("behavioral"), rs.getBoolean("project")));
+                        rs.getTimestamp("last_asked_at") == null ? null : rs.getTimestamp("last_asked_at").toLocalDateTime(), rs.getBoolean("behavioral"), rs.getBoolean("project"), rs.getBoolean("design")));
     }
 
     public static String hash(String text) {
@@ -347,9 +353,9 @@ public class SessionService {
      */
     private List<Map<String, Object>> attempts(long sessionId, Integer position, boolean graded) {
         List<Map<String, Object>> out = jdbc.query("""
-                SELECT a.id AS aid, a.position, a.max_marks, a.answered_via, a.selected_options, a.blank_answers, a.answer_text, a.transcript, a.voice_stats, a.follow_up_text, a.follow_up_answer,
+                SELECT a.position, a.max_marks, a.answered_via, a.selected_options, a.blank_answers, a.answer_text, a.transcript, a.voice_stats, a.follow_up_text, a.follow_up_answer,
                        a.score, a.checklist, a.blank_results, a.feedback_text, a.feedback_status, a.graded_by,
-                       q.id AS qid, q.type, q.theme, q.text, q.options, q.correct_options, q.accepted_answers, q.key_facts,
+                       q.id AS qid, q.type, q.format, q.theme, q.text, q.options, q.correct_options, q.accepted_answers, q.key_facts,
                        JSON_LENGTH(q.accepted_answers) AS blank_count,
                        (b.skill_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM resume_point p WHERE p.resume_id = q.resume_id AND p.skill_id = b.skill_id)) AS gap_skill
                 FROM attempt a JOIN question q ON q.id = a.question_id LEFT JOIN bank_question b ON b.id = q.bank_question_id WHERE a.session_id = :s AND (:p IS NULL OR a.position = :p) ORDER BY a.position""",
@@ -357,6 +363,7 @@ public class SessionService {
             Map<String, Object> question = new LinkedHashMap<>();
             question.put("id", rs.getLong("qid"));
             question.put("type", rs.getString("type"));
+            question.put("format", rs.getString("format"));
             question.put("theme", rs.getString("theme"));
             question.put("isBehavioral", rs.getString("theme") != null);
             question.put("isGapSkill", rs.getBoolean("gap_skill")); // a role skill the resume does not show (skill-bank D4)
@@ -364,7 +371,6 @@ public class SessionService {
             question.put("options", rs.getString("options") == null ? null : JSON.readTree(rs.getString("options")));
             question.put("blankCount", rs.getObject("blank_count") == null ? null : rs.getInt("blank_count"));
             Map<String, Object> a = new LinkedHashMap<>();
-            a.put("id", rs.getLong("aid")); // "Save as story" sends it as sourceAttemptId (api-contracts 2.5)
             a.put("position", rs.getInt("position"));
             double m = rs.getDouble("max_marks");
             a.put("maxMarks", num(m));
@@ -547,7 +553,7 @@ public class SessionService {
         Integer done = tx.execute(t -> {
             int rows = jdbc.update("UPDATE practice_session SET status = 'completed', completed_at = UTC_TIMESTAMP(3) WHERE id = :s AND user_id = :me AND status = 'in_progress'",
                     Map.of("s", id, "me", userId));
-            if (rows == 1) { // answers with nothing to write feedback about need no Gemma text
+            if (rows == 1) { // answers with nothing to write feedback about need no feedback text
                 jdbc.update("""
                         UPDATE attempt a JOIN question q ON q.id = a.question_id SET a.feedback_status = 'none'
                         WHERE a.session_id = :s AND (q.type IN ('multiple_correct', 'fill_blank') OR a.answered_via IS NULL)""", Map.of("s", id));

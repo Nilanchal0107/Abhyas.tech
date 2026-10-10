@@ -27,6 +27,7 @@
   --space-6: 48px;
   --font: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Fraunces Variable', Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, Menlo, monospace;
   --font-size-base: 16px;
   --font-size-h1: clamp(2rem, 4.2vw, 2.9rem);
   --font-size-h2: 1.5rem;

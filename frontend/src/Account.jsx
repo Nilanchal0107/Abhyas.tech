@@ -51,7 +51,7 @@ export function ConfirmDelete({ onCancel, onDeleted }) {
       <ul>
         <li>your resumes and resume points</li>
         <li>key facts, questions, answers, transcripts and scores</li>
-        <li>your stories and role skills check results</li>
+        <li>your role skills check results</li>
         <li>roles you added</li>
       </ul>
       <p>The shared starter roles are not affected.</p>

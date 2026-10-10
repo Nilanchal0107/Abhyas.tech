@@ -23,7 +23,6 @@ public class AiClient {
     private static final Logger log = LoggerFactory.getLogger(AiClient.class);
     private static final String JSON_ONLY = "\n\nReply with a single JSON object only. No prose, no code fences.";
     private static final int ATTEMPTS = 2; // first try plus one retry
-    static final int MAX_WAIT_SECONDS = 60;
     static final int SHORT_WAIT_SECONDS = 15; // a per-minute limit usually clears within seconds: worth waiting for rather than falling back
 
     LongConsumer sleep = AiClient::sleepQuietly; // tests swap in a fake
@@ -53,15 +52,6 @@ public class AiClient {
         long left = gate.secondsLeft(provider);
         if (left > 0 && left <= SHORT_WAIT_SECONDS) sleep.accept(left * 1000);
         return run(provider, () -> transport.send(provider, body, timeout), valid, sleep, SHORT_WAIT_SECONDS);
-    }
-
-    /**
-     * Like {@link #json}, but a rate-limit reply whose Retry-After is at most {@link #MAX_WAIT_SECONDS} seconds is waited out once
-     * (through {@code sleepMillis}) and the call is repeated. A longer one, or a second limit reply, puts the provider on cooldown.
-     */
-    public Optional<JsonNode> jsonPatient(Provider provider, String prompt, Predicate<JsonNode> valid, LongConsumer sleepMillis) {
-        String body = Scrubber.scrub(prompt) + JSON_ONLY;
-        return run(provider, () -> transport.send(provider, body, timeout), valid, sleepMillis, MAX_WAIT_SECONDS);
     }
 
     /** Whether a call to this provider could work now: it has a key and is not on cooldown. */

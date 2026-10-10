@@ -31,7 +31,6 @@ The UI uses the names on the left. The PRD and code keep the internal names on t
 | Practice session | Session |
 | Role skills check | Gap check |
 | Mastered | Mastered (same) |
-| Story bank | Story bank (same) |
 | Target role | Target role (same) |
 
 ## 4. Design tokens *(my decision: exact values)*
@@ -63,7 +62,7 @@ Contrast of every text and color pairing is checked against WCAG AA (4.5:1 for n
 
 ## 5. Navigation
 
-- A **top bar** with: Practice (Home, at `/practice`), Resumes, Stories, History, Account. The "Abhyas.tech" name in any top bar links to the landing page (Section 6.0).
+- A **top bar** with: Practice (Home, at `/practice`), Resumes, History, Account. The "Abhyas.tech" name in any top bar links to the landing page (Section 6.0).
 - During a practice session the top bar is hidden, so the user cannot leave by accident. The only way out is "Leave session" (Section 6.6).
 - No resume state in the nav (there is no "active resume").
 - **Page shell:** content sits in a centered single column, max width 960 px, under a full-width top bar. The Practice session uses a narrower column (about 720 px) with no top bar. The current nav item is marked with an underline and `aria-current="page"`, and "Skip to content" is the first tab stop.
@@ -93,7 +92,7 @@ Each screen lists its purpose, what it shows, and its actions. FR numbers refer 
 
 ### 6.4 Upload resume and review (FR-2, FR-4 to FR-6)
 - **Two screens with a step indicator:** 1 Upload, 2 Review, 3 Role skills check. Back from Review returns to Upload with the file kept.
-- **Upload:** PDF chooser, **target role** search (names and aliases, FR-3), optional interview date. If no role matches, the field says so and suggests search words; the 11 roles are fixed (6.5).
+- **Upload:** PDF chooser, **target role** search (names and aliases, FR-3). If no role matches, the field says so and suggests search words; the 4 roles are fixed (6.5).
 - **Review form:** one long form with collapsible sections (contact, education, experience, projects, skills), editable, with a Save button.
 - When the fallback parse ran, a banner says "Some parts were read by an AI assistant. Please check them." Sections that came back empty are highlighted. A "Scan with AI" button is always shown on the preview, so the user can run the fallback parse even when the browser parse looked complete.
 - Phone and email are shown, with a note that they are never sent to AI.
@@ -118,32 +117,30 @@ Each screen lists its purpose, what it shows, and its actions. FR numbers refer 
 
 ### 6.7a Interview (FR-21, W8i)
 - One question per screen, forward only, with a progress bar and a countdown ("Time left: 02:41") for each answer, 3 minutes.
+- The interviewer reads the question aloud (mute and replay buttons; the mic and the timer wait while it speaks). A design question shows a "Design question" chip and a hint of the five areas.
 - The user speaks (the voice answer flow of 7.3) or types. "Next: follow-up" saves the answer and shows one follow-up question under the original one, answered the same way with its own timer. Saying nothing and pressing Skip question scores zero and has no follow-up.
 - When the timer ends the answer is sent as it stands; a recording in progress finishes first. The last button reads "Finish interview" and opens the report.
 - No feedback during the interview. Leave interview asks for confirmation like Leave session.
 - The report shows each follow-up and the reply under the answer. History has a Mode column.
 
 ### 6.8 Session report (FR-12)
-- **Top summary:** a row of stat tiles (total out of 80, or 50 on an old session with the voice part skipped, with a percentage; mastered count; weakest resume points), then a small table of marks per part, then Gemma's short report text. No charts: the table is the accessible form of the numbers.
+- **Top summary:** a row of stat tiles (total out of 80, or 50 on an old session with the voice part skipped, with a percentage; mastered count; weakest resume points), then a small table of marks per part, then the short report text. No charts: the table is the accessible form of the numbers.
 - **Below:** all questions grouped by the four parts. Each question is a collapsible row whose header is a button (`aria-expanded`) showing the number, type, marks and a status icon with a word, for example "Q7 · Brief answer · 3/5 · Needs work", followed by the first line of the question. Questions that are not mastered are open by default, mastered ones are collapsed.
-- **Gradual feedback:** Gemma's feedback arrives one call at a time, so each row shows "Feedback is being written..." until its text arrives.
+- **Feedback while marking:** each row shows "Feedback is being written..." until the grading worker has saved its text.
 - **Per question:**
   - Multiple-correct and fill-in-the-blank: marks and the correct options or accepted answers.
-  - Brief and voice: marks, the checklist with a tick or cross, the quoted proof for each tick, the key facts (read-only), Gemma's feedback with a "what to fix" line, and voice stats beside voice answers.
-- **Save as story:** a button on behavioral answers (Section 6.10).
+  - Brief and voice: marks, the checklist with a tick or cross, the quoted proof for each tick, the key facts (read-only), feedback with a "what to fix" line, and voice stats beside voice answers.
 
 ### 6.9 History and export (FR-19)
 - A table with the columns Date, Resume, Role, Status, Total, Action. Status uses an icon plus a word (completed, in progress, abandoned, "voice part skipped"). Resume is shown because the resume is chosen per session. On narrow widths the table scrolls sideways and the Action column stays visible. Empty: "No practice sessions yet. Start one from Home."
 - Completed rows have an **Export JSON** button that downloads the file directly with no preview. In-progress rows show **Continue**. Clicking a completed row opens its report.
 
-### 6.10 Story bank (FR-17)
-- A single-column list of cards (title, tags, a two-line preview, Edit and Delete) with tag filter chips above (real buttons with `aria-pressed`). The edit form is on **its own page**, not a side panel, which is simpler for keyboard and screen-reader users.
-- Form fields: title, **separate boxes for Situation, Task, Action and Result**, lesson learned, tags, optional links to resume points.
-- **Save as story** on a behavioral answer opens the form pre-filled, with the answer text in the Action box for the user to split up.
+### 6.10 Story bank (removed 10 October 2026)
+The story bank was removed; the number stays so other references hold.
 
 ### 6.11 Account and deletion (FR-18)
 - Account details, and a **Danger zone** section.
-- Delete flow: a confirmation page that lists exactly what is deleted (resumes, resume points, key facts, questions, answers, transcripts, scores, stories, gap results, roles the user added), a link to "Export JSON first" for past sessions, a password box and a typed word, DELETE. The delete button stays disabled until both are correct.
+- Delete flow: a confirmation page that lists exactly what is deleted (resumes, resume points, key facts, questions, answers, transcripts, scores, gap results, roles the user added), a link to "Export JSON first" for past sessions, a password box and a typed word, DELETE. The delete button stays disabled until both are correct.
 
 ## 7. Cross-cutting states
 
@@ -153,7 +150,7 @@ Each screen lists its purpose, what it shows, and its actions. FR numbers refer 
 - Examples: upload not a PDF, file too large, parse failed (use the review form), role not found, save failed.
 
 ### 7.2 Empty and loading
-- Every list has an empty state with one sentence and one action (for example "No stories yet. Save one from a behavioral answer.").
+- Every list has an empty state with one sentence and one action (for example "No resumes yet. Upload one to start.").
 - Loading shows a spinner with text (never color alone) and keeps the page layout stable. Slow AI steps (parsing, grading) say what is happening, for example "Marking your answers".
 
 ### 7.3 Voice answer
@@ -192,3 +189,5 @@ A manual dark-mode toggle (dark follows the system), gamification, timers, live 
 Layouts for every screen above are in `wireframes.md` (W0 shell to W12 account). They are low-fidelity text boxes with the real copy, drawn at desktop width with narrow-width rules written as notes. The layout questions that were open in v1 (session progress bar and part indicator, report summary and question list, where "Add a missing role" goes, History and Story bank layouts) are settled there.
 
 No open items. Possible later additions: a read-only "key facts" view outside the report, and narrow-width wireframes if phone support is ever added.
+
+**Added 10 October 2026:** while recording, a live words box (aria-live, finished sentences only) shows the preview with pace and filler count; code in questions renders in monospace (`Rich`); a code answer box uses a monospace textarea.

@@ -1,8 +1,8 @@
 package tech.abhyas.trainer.ai;
 
-/** The three AI providers the gate tracks separately (trd 7.5). */
+/** The two AI providers the gate tracks separately (trd 7.5). */
 public enum Provider {
-    GROQ_CHAT("groq-chat"), GROQ_WHISPER("groq-whisper"), GEMMA("gemma");
+    GROQ_CHAT("groq-chat"), GROQ_WHISPER("groq-whisper");
 
     private final String id;
 

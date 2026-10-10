@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import { api, onExpired, postJson } from './api/client.js'
 import Account, { ConfirmDelete } from './Account.jsx'
@@ -10,14 +10,13 @@ import Upload from './Upload.jsx'
 import History from './History.jsx'
 import Home from './Home.jsx'
 import Landing from './Landing.jsx'
-import { StoryForm, StoryList } from './Stories.jsx'
 import { Open } from './ResumeList.jsx'
 import RoleSkills from './RoleSkills.jsx'
 import Progress from './Progress.jsx'
 import { Brand, Alert, Loading } from './ui.jsx'
-import { BookOpenText, ClockCounterClockwise, FileText, Pencil, SignOut, UserCircle } from '@phosphor-icons/react'
+import { ClockCounterClockwise, FileText, Pencil, SignOut, UserCircle } from '@phosphor-icons/react'
 
-const NAV = [['Practice', '/practice', Pencil], ['Resumes', '/resumes', FileText], ['Stories', '/stories', BookOpenText], ['History', '/history', ClockCounterClockwise], ['Account', '/account', UserCircle]]
+const NAV = [['Practice', '/practice', Pencil], ['Resumes', '/resumes', FileText], ['History', '/history', ClockCounterClockwise], ['Account', '/account', UserCircle]]
 
 // Only an in-app path may be returned to (never another site).
 const safeNext = (n) => (n && n.startsWith('/') && !n.startsWith('//') && !n.startsWith('/login') ? n : '/practice')
@@ -56,8 +55,6 @@ function ToLogin() {
 
 export default function App() {
   const [me, setMe] = useState({ state: 'loading' })
-  const [storyPrefill, setStoryPrefill] = useState(null) // { action, sourceAttemptId } from "Save as story" in a report
-  const clearPrefill = useCallback(() => setStoryPrefill(null), [])
   const navigate = useNavigate()
   const [params] = useSearchParams()
 
@@ -112,13 +109,10 @@ export default function App() {
         <Route path="resumes/:id" element={<OpenRoute />} />
         <Route path="resumes/:id/role-skills" element={<RoleSkillsRoute />} />
         <Route path="resumes/:id/progress" element={<ProgressRoute />} />
-        <Route path="stories" element={<StoriesRoute />} />
-        <Route path="stories/new" element={<StoryFormRoute prefill={storyPrefill} onPrefillUsed={clearPrefill} />} />
-        <Route path="stories/:id/edit" element={<StoryFormRoute />} />
         <Route path="history" element={<HistoryRoute />} />
         <Route path="account" element={<AccountRoute user={me.user} />} />
         <Route path="account/delete" element={<DeleteRoute onDeleted={deleted} />} />
-        <Route path="sessions/:id/report" element={<ReportRoute onSaveStory={(prefill) => { setStoryPrefill(prefill); navigate('/stories/new') }} />} />
+        <Route path="sessions/:id/report" element={<ReportRoute />} />
       </Route>
       <Route path="*" element={<Navigate to="/practice" replace />} />
     </Routes>
@@ -146,7 +140,7 @@ function OpenRoute() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   // `point` comes from the role skills check: scroll to that resume point
-  return <Open key={id} id={id} pointId={Number(params.get('point')) || null} onBack={() => navigate('/resumes')} onChanged={() => {}} />
+  return <Open key={id} id={id} pointId={Number(params.get('point')) || null} onBack={() => navigate('/resumes')} />
 }
 
 function RoleSkillsRoute() {
@@ -160,20 +154,6 @@ function RoleSkillsRoute() {
 function ProgressRoute() {
   const { id } = useParams()
   return <Progress key={id} id={id} />
-}
-
-function StoriesRoute() {
-  const navigate = useNavigate()
-  return <StoryList onNew={() => navigate('/stories/new')} onEdit={(id) => navigate(`/stories/${id}/edit`)} />
-}
-
-// "Save as story" in a report arrives with a prefill; keep the first one for this form, then clear it from App.
-function StoryFormRoute({ prefill, onPrefillUsed }) {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const [first] = useState(prefill)
-  useEffect(() => { if (prefill) onPrefillUsed() }, [prefill, onPrefillUsed])
-  return <StoryForm key={id ?? 'new'} id={id} prefill={first} onClose={() => navigate('/stories')} />
 }
 
 function AccountRoute({ user }) {
@@ -191,9 +171,9 @@ function HistoryRoute() {
   return <History onReport={(id) => navigate(`/sessions/${id}/report`)} onContinue={useGoPractice()} />
 }
 
-function ReportRoute({ onSaveStory }) {
+function ReportRoute() {
   const navigate = useNavigate()
-  return <Report id={useParams().id} onBack={() => navigate('/practice')} onSaveStory={onSaveStory} />
+  return <Report id={useParams().id} onBack={() => navigate('/practice')} />
 }
 
 function PracticeRoute() {

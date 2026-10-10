@@ -19,12 +19,12 @@ Details and reasons are in `trd.md` Section 5.
    If the `mysql` command is not on your PATH, use MySQL Shell instead: `\connect root@localhost`, then `\sql`, then paste the statements.
 3. Set the environment variables listed in `.env.example` (`DB_URL` must contain `serverTimezone=UTC`, for example
    `jdbc:mysql://localhost:3306/resume_trainer?serverTimezone=UTC`). `DB_*` and `JWT_SECRET` (at least 32 bytes) are required.
-   `GROQ_API_KEY` and `GOOGLE_AI_KEY` are optional: without them the app still works, with ready-made questions and keyword grading,
+   `GROQ_API_KEY` is optional: without them the app still works, with ready-made questions and keyword grading,
    but voice answers cannot be transcribed (they can be typed instead).
 4. Backend: `cd backend`, then `mvn spring-boot:run`. Flyway creates the tables on first start.
 5. Frontend: `cd frontend`, `npm install`, `npm run dev`, then open http://localhost:5173.
 
-Sign up on the first screen. Then upload a resume, review it, practice, read the report, keep STAR stories in the Story bank and
+Sign up on the first screen. Then upload a resume, review it, practice, read the report and
 export a finished session from History as a JSON file (phone and email are removed from it).
 
 ## Tests

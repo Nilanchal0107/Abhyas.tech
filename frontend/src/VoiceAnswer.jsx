@@ -1,25 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from './api/client.js'
 import { clock, elapsedSeconds, shouldStop } from './lib/recorder.js'
+import { SpeechRecognition, fillerCount, listen, pace } from './lib/liveWords.js'
 import { ArrowCounterClockwise, Keyboard, Microphone, Stop } from '@phosphor-icons/react'
 import { Alert, Loading } from './ui.jsx'
 
-// The browser's own speech recognition (Chrome, Edge), used when Whisper is down. Chrome sends that audio to Google; we still store none.
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+// The browser's own speech recognition (Chrome, Edge) shows live words while recording, and gives the transcript when Whisper is down.
+// Chrome sends that audio to Google; we still store none. Without it (Firefox) nothing live is shown.
 let whisperDown = false // once a transcription failed, the next voice questions go straight to the browser
 
 // W8 8d and 8e. value: null, { mode: 'voice', transcript, stats } or { mode: 'typed', text }.
 // The recording is sent for transcription and then dropped: only the transcript and numbers are kept (trd 7.3).
-export default function VoiceAnswer({ sessionId, position, value, onChange, onBusy }) {
+export default function VoiceAnswer({ sessionId, position, value, onChange, onBusy, disabled = false }) {
   const [phase, setPhase] = useState('idle') // idle | recording | transcribing
   const [seconds, setSeconds] = useState(0)
   const [problem, setProblem] = useState('')
+  const [live, setLive] = useState({ done: '', interim: '' }) // live words, a preview only: Whisper's transcript is what is graded
   const mr = useRef(null)
   const timer = useRef(null)
+  const captions = useRef(null)
 
   useEffect(() => { onBusy?.(phase !== 'idle') }, [phase]) // the interview timer waits for a recording to finish
 
-  useEffect(() => () => { clearInterval(timer.current); if (mr.current?.state === 'recording') { mr.current.onstop = null; mr.current.stop() } mr.current?.abort?.() }, [])
+  useEffect(() => () => { captions.current?.abort(); clearInterval(timer.current); if (mr.current?.state === 'recording') { mr.current.onstop = null; mr.current.stop() } mr.current?.abort?.() }, [])
 
   const toTyped = (message) => { setProblem(message); setPhase('idle'); onChange({ mode: 'typed', text: '' }) }
 
@@ -44,27 +47,25 @@ export default function VoiceAnswer({ sessionId, position, value, onChange, onBu
 
   // Web Speech: the transcript comes from the browser, and only the length we measured is sent as voice stats.
   function startBrowser() {
-    const rec = new SpeechRecognition()
-    rec.lang = 'en-US'; rec.continuous = true; rec.interimResults = false
-    let text = '', failed = false
     const t0 = Date.now()
-    rec.onresult = (e) => { for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) text += `${e.results[i][0].transcript} ` }
-    rec.onerror = () => { failed = true }
-    rec.onend = () => {
-      clearInterval(timer.current)
-      mr.current = null
-      if (failed) return toTyped("We couldn't use your microphone.")
-      if (!text.trim()) return toTyped("We couldn't hear your answer.")
-      setPhase('idle')
-      onChange({ mode: 'voice', transcript: text.trim(), stats: { durationSeconds: elapsedSeconds(t0, Date.now()) } })
-    }
-    try { rec.start() } catch { return toTyped("We couldn't use your microphone.") }
-    mr.current = rec
+    let session
+    try {
+      session = listen((done, interim) => setLive({ done, interim }), ({ text, failed }) => {
+        clearInterval(timer.current)
+        mr.current = null
+        if (failed) return toTyped("We couldn't use your microphone.")
+        if (!text) return toTyped("We couldn't hear your answer.")
+        setPhase('idle')
+        onChange({ mode: 'voice', transcript: text, stats: { durationSeconds: elapsedSeconds(t0, Date.now()) } })
+      })
+    } catch { return toTyped("We couldn't use your microphone.") }
+    mr.current = session
+    setLive({ done: '', interim: '' })
     setSeconds(0); setPhase('recording')
     timer.current = setInterval(() => {
       const s = elapsedSeconds(t0, Date.now())
       setSeconds(s)
-      if (shouldStop(s)) rec.stop()
+      if (shouldStop(s)) session.stop()
     }, 250)
   }
 
@@ -82,11 +83,16 @@ export default function VoiceAnswer({ sessionId, position, value, onChange, onBu
       rec.ondataavailable = (e) => chunks.push(e.data)
       rec.onstop = () => {
         clearInterval(timer.current)
+        captions.current?.stop(); captions.current = null
         stream.getTracks().forEach((t) => t.stop())
         upload(new Blob(chunks, { type: 'audio/webm' }))
       }
       const t0 = Date.now()
       rec.start()
+      setLive({ done: '', interim: '' })
+      if (SpeechRecognition) { // never lets a problem with the live words touch the recording
+        try { captions.current = listen((done, interim) => setLive({ done, interim })) } catch { captions.current = null }
+      }
       setSeconds(0); setPhase('recording')
       timer.current = setInterval(() => {
         const s = elapsedSeconds(t0, Date.now())
@@ -106,6 +112,7 @@ export default function VoiceAnswer({ sessionId, position, value, onChange, onBu
           <p role="status" className="row" style={{ margin: 0 }}><span className="dot-rec" aria-hidden="true" /> Recording</p>
           <p style={{ margin: 0 }}>Time: <span className="rec-time">{clock(seconds)}</span> of 03:00</p>
         </div>
+        {SpeechRecognition && <LiveWords live={live} seconds={seconds} />}
         <button type="button" className="danger" onClick={() => mr.current.stop()}><Stop size={18} weight="fill" aria-hidden="true" />Stop</button>
       </div>
     )
@@ -118,7 +125,7 @@ export default function VoiceAnswer({ sessionId, position, value, onChange, onBu
         <h3 style={{ marginTop: 0 }}>Your answer (transcribed)</h3>
         <blockquote>{value.transcript}</blockquote>
         <p className="muted">Press Next to submit this answer.</p>
-        <button type="button" onClick={() => { onChange(null); start() }}><ArrowCounterClockwise size={18} aria-hidden="true" />Re-record</button>
+        <button type="button" disabled={disabled} onClick={() => { onChange(null); start() }}><ArrowCounterClockwise size={18} aria-hidden="true" />Re-record</button>
       </div>
     )
   }
@@ -138,10 +145,22 @@ export default function VoiceAnswer({ sessionId, position, value, onChange, onBu
     <div className="voice-box">
       {problem && <Alert>{problem}</Alert>}
       <div className="actions" style={{ marginTop: 0 }}>
-        <button type="button" className="primary" onClick={start}><Microphone size={18} weight="fill" aria-hidden="true" />Start recording</button>
+        <button type="button" className="primary" disabled={disabled} onClick={start}><Microphone size={18} weight="fill" aria-hidden="true" />Start recording</button>
         <span className="or">or</span>
         <button type="button" onClick={() => onChange({ mode: 'typed', text: '' })}><Keyboard size={18} aria-hidden="true" />Type your answer instead</button>
       </div>
+    </div>
+  )
+}
+
+// Live words, announced to screen readers only as each sentence is finished; the grey tail is still being recognised.
+function LiveWords({ live, seconds }) {
+  const text = `${live.done}${live.interim}`
+  return (
+    <div className="live-words">
+      <p className="muted" style={{ margin: 0 }}>Live words (a preview: your recording is written out again when you stop)</p>
+      <p aria-live="polite" style={{ minHeight: '3em', margin: '4px 0' }}>{live.done}<span aria-hidden="true" className="interim">{live.interim}</span></p>
+      {seconds >= 5 && text.trim() && <p className="muted" style={{ margin: 0 }}>Pace {pace(text, seconds)} words a minute · {fillerCount(text)} filler words so far</p>}
     </div>
   )
 }

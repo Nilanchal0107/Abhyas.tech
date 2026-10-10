@@ -45,10 +45,20 @@ final class Grading {
             Map.entry("situation_task", "Describes the situation and task"), Map.entry("situation", "Describes the situation"), Map.entry("task", "Describes the task"),
             Map.entry("action", "Describes the action I took"), Map.entry("result", "States the result"), Map.entry("lesson_learned", "Says what I learned"),
             Map.entry("concrete_detail", "Gives a measurable or concrete detail"), Map.entry("answers_question", "Answers the question that was asked"),
-            Map.entry("clear_and_focused", "Is clear and focused"));
+            Map.entry("clear_and_focused", "Is clear and focused"),
+            Map.entry("requirements", "Clarifies requirements and assumptions"), Map.entry("api", "Defines the API or the main operations"),
+            Map.entry("data_model", "Describes the data model"), Map.entry("scale", "Explains how it scales"), Map.entry("tradeoffs", "Discusses trade-offs and alternatives"));
 
     /** Item keys by question: the number equals the marks available (5, or 10 for a recorded voice answer). Missing key facts are padded with generic checks. */
-    static List<String> itemKeys(boolean voiceRecorded, boolean behavioral) {
+    static List<String> itemKeys(boolean voiceRecorded, boolean behavioral) { return itemKeys(voiceRecorded, behavioral, "standard"); }
+
+    /**
+     * A design question (ticket 09) always has 5 items, one per area, worth 2 marks each when spoken and 1 when typed ({@link #score}).
+     * A code question (ticket 10) is a brief of 5 key facts about the answer, with no resume or "why" item.
+     */
+    static List<String> itemKeys(boolean voiceRecorded, boolean behavioral, String format) {
+        if ("design".equals(format)) return List.of("requirements", "api", "data_model", "scale", "tradeoffs");
+        if ("code".equals(format)) return List.of("key_fact_1", "key_fact_2", "key_fact_3", "key_fact_4", "key_fact_5");
         if (voiceRecorded && behavioral) return List.of("situation", "task", "action", "result", "own_role", "concrete_detail", "lesson_learned", "consistent_with_resume", "answers_question", "clear_and_focused");
         if (voiceRecorded) return List.of("key_fact_1", "key_fact_2", "key_fact_3", "key_fact_4", "key_fact_5", "key_fact_6", "explains_why", "concrete_example", "own_role", "consistent_with_resume");
         if (behavioral) return List.of("situation_task", "action", "result", "own_role", "lesson_learned");
@@ -86,8 +96,8 @@ final class Grading {
         return out;
     }
 
-    /** Marks are the number of ticks, always summed here. */
-    static int score(List<Tick> ticks) { return (int) ticks.stream().filter(Tick::passed).count(); }
+    /** Marks are the ticks, always summed here, scaled when an item is worth more than one mark (a design item is worth max/5). */
+    static double score(List<Tick> ticks, double maxMarks) { return ticks.isEmpty() ? 0 : ticks.stream().filter(Tick::passed).count() * maxMarks / ticks.size(); }
 
     /** A reply is worth keeping when it lists every wanted item (a retry is cheaper than a half-graded answer). */
     static boolean complete(JsonNode reply, List<String> keys) {
