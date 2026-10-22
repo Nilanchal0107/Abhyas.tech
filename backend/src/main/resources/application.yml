@@ -21,7 +21,7 @@ app:
   jwt:
     secret: ${JWT_SECRET:} # at least 32 bytes; the app refuses to start without it
   cookie:
-    secure: false # true only if the app is ever served over HTTPS
+    secure: ${COOKIE_SECURE:false} # true only if the app is served over HTTPS (set on Render)
   ai: # keys: set groq-key in the gitignored application-local.yml, or the GROQ_API_KEY environment variable (trd 6.6)
     groq-key: ${GROQ_API_KEY:}
     timeout-seconds: 20
@@ -30,8 +30,8 @@ app:
       groq-chat: openai/gpt-oss-120b
       groq-whisper: whisper-large-v3-turbo
 server:
-  port: 8080
-  address: 127.0.0.1 # localhost only (README)
+  port: ${PORT:8080} # Render sets PORT
+  address: ${SERVER_ADDRESS:127.0.0.1} # localhost by default (README); 0.0.0.0 on Render
   error:
     include-message: never
     include-stacktrace: never
